@@ -1,6 +1,6 @@
 { rustPlatform }:
 rustPlatform.buildRustPackage {
-  pname = "xnode-rust-template";
+  pname = "xnode-manager";
   version = "1.0.0";
   src = ../rust-app;
 
@@ -11,6 +11,6 @@ rustPlatform.buildRustPackage {
   doDist = false;
 
   meta = {
-    mainProgram = "xnode-rust-template";
+    mainProgram = "xnode-manager";
   };
 }
