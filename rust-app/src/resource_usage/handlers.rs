@@ -55,7 +55,7 @@ async fn disk(user: Identity) -> impl Responder {
                 .name()
                 .to_str()
                 .map(|s| s.to_string())
-                .unwrap_or("Unnamed Disk".to_string()),
+                .unwrap_or_else(|| "Unnamed Disk".to_string()),
             total: disk.total_space(),
             used: disk.total_space() - disk.available_space(),
         })
