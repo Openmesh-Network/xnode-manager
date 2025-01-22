@@ -7,7 +7,7 @@ use crate::auth::{models::Scope, utils::has_permission};
 
 #[get("/cpu")]
 async fn cpu(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::Read) {
+    if !has_permission(user, Scope::ResourceUsage) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -27,7 +27,7 @@ async fn cpu(user: Identity) -> impl Responder {
 
 #[get("/memory")]
 async fn memory(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::Read) {
+    if !has_permission(user, Scope::ResourceUsage) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -42,7 +42,7 @@ async fn memory(user: Identity) -> impl Responder {
 
 #[get("/disk")]
 async fn disk(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::Read) {
+    if !has_permission(user, Scope::ResourceUsage) {
         return HttpResponse::Unauthorized().finish();
     }
 

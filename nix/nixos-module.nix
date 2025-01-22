@@ -1,8 +1,7 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
+{ config
+, pkgs
+, lib
+, ...
 }:
 let
   cfg = config.services.xnode-manager;
@@ -38,6 +37,15 @@ in
           Whether to open ports in the firewall for this application.
         '';
       };
+
+      owner = lib.mkOption {
+        type = lib.types.str;
+        default = "eth:0000000000000000000000000000000000000000";
+        example = "eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3";
+        description = ''
+          The user id of the owner of this Xnode. This user has full management control.
+        '';
+      };
     };
   };
 
@@ -49,6 +57,7 @@ in
       environment = {
         HOSTNAME = cfg.hostname;
         PORT = toString cfg.port;
+        OWNER = lib.toLower cfg.owner;
       };
       serviceConfig = {
         ExecStart = "${lib.getExe xnode-manager}";

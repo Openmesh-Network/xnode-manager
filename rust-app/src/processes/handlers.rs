@@ -3,13 +3,16 @@ use std::process::Command;
 use actix_identity::Identity;
 use actix_web::{get, web::Path, HttpResponse, Responder};
 
-use crate::auth::{models::Scope, utils::has_permission};
+use crate::{
+    auth::{models::Scope, utils::has_permission},
+    utils::error::ResponseError,
+};
 
 use super::models::{JournalCtlLog, Log, Process, SystemCtlProcess};
 
 #[get("/list")]
 async fn list(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::Read) {
+    if !has_permission(user, Scope::Processes) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -34,22 +37,26 @@ async fn list(user: Identity) -> impl Responder {
                         .collect();
                     HttpResponse::Ok().json(response)
                 }
-                Err(_) => HttpResponse::InternalServerError().body(format!(
-                    "Logs could not be parsed to expected format. {}",
-                    output_str
-                )),
+                Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                    "Logs could not be parsed to expected format: {}. Logs: {}",
+                    e, output_str
+                ))),
             },
-            Err(_) => {
-                HttpResponse::InternalServerError().body("Logs could not be decoded as UTF8.")
-            }
+            Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                "Logs could not be decoded as UTF8: {}.",
+                e
+            ))),
         },
-        Err(e) => HttpResponse::from_error(e),
+        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Command execution failed: {}.",
+            e
+        ))),
     }
 }
 
 #[get("/logs/{process}")]
 async fn logs(user: Identity, path: Path<String>) -> impl Responder {
-    if !has_permission(user, Scope::Read) {
+    if !has_permission(user, Scope::Processes) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -84,16 +91,22 @@ async fn logs(user: Identity, path: Path<String>) -> impl Responder {
                             .collect();
                         HttpResponse::Ok().json(response)
                     }
-                    Err(_) => HttpResponse::InternalServerError().body(format!(
-                        "Logs could not be parsed to expected format. {}",
-                        output_json
-                    )),
+                    Err(e) => {
+                        HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                            "Logs could not be parsed to expected format: {}. Logs: {}",
+                            e, output_json
+                        )))
+                    }
                 }
             }
-            Err(_) => {
-                HttpResponse::InternalServerError().body("Logs could not be decoded as UTF8.")
-            }
+            Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                "Logs could not be decoded as UTF8: {}.",
+                e
+            ))),
         },
-        Err(e) => HttpResponse::from_error(e),
+        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Command execution failed: {}.",
+            e
+        ))),
     }
 }

@@ -6,6 +6,7 @@ use std::env;
 mod auth;
 mod processes;
 mod resource_usage;
+mod utils;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

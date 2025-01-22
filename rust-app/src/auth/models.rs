@@ -2,11 +2,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Scope {
-    Read,
-    Write,
+    Processes,
+    ResourceUsage,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
+pub enum LoginMethod {
+    WalletSignature { v: u8, r: [u8; 32], s: [u8; 32] },
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Login {
-    pub user: String,
+    pub login_method: LoginMethod,
 }
