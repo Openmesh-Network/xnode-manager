@@ -1,6 +1,6 @@
 ## Xnode Manager
 
-Allow configuring and monitoring your Xnode through external platforms, such as Xnode Studio. 
+Allow configuring and monitoring your Xnode through external platforms, such as Xnode Studio.
 
 ## Commands (in root folder)
 

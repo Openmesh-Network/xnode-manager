@@ -1,11 +1,13 @@
-use std::{collections::HashSet, env};
+use std::collections::HashSet;
 
 use actix_identity::Identity;
+
+use crate::utils::env::owner;
 
 use super::models::Scope;
 
 pub fn get_scopes(user: Identity) -> HashSet<Scope> {
-    if env::var("OWNER").ok() == user.id().ok() {
+    if user.id().is_ok_and(|id| id == owner()) {
         return HashSet::from([Scope::Processes, Scope::ResourceUsage]);
     }
 

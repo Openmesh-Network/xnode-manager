@@ -1,17 +1,34 @@
+use std::fs::create_dir_all;
+
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
-use std::env;
+use utils::env::{backupdir, containerdir, datadir, hostname, port};
 
 mod auth;
+mod config;
 mod processes;
 mod resource_usage;
 mod utils;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let hostname = env::var("HOSTNAME").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let port = env::var("PORT").unwrap_or_else(|_| "34391".to_string());
+    {
+        let dir = datadir();
+        create_dir_all(&dir)
+            .inspect_err(|e| println!("Could not create data dir at {}: {}", dir.display(), e))?;
+    }
+    {
+        let dir = containerdir();
+        create_dir_all(&dir).inspect_err(|e| {
+            println!("Could not create container dir at {}: {}", dir.display(), e)
+        })?;
+    }
+    {
+        let dir = backupdir();
+        create_dir_all(&dir)
+            .inspect_err(|e| println!("Could not create backup dir at {}: {}", dir.display(), e))?;
+    }
 
     HttpServer::new(move || {
         App::new()
@@ -24,8 +41,9 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope("/auth").configure(auth::configure))
             .service(web::scope("/processes").configure(processes::configure))
             .service(web::scope("/usage").configure(resource_usage::configure))
+            .service(web::scope("/config").configure(config::configure))
     })
-    .bind(format!("{}:{}", hostname, port))?
+    .bind(format!("{}:{}", hostname(), port()))?
     .run()
     .await
 }

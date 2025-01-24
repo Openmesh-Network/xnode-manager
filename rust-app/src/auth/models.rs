@@ -4,14 +4,21 @@ use serde::{Deserialize, Serialize};
 pub enum Scope {
     Processes,
     ResourceUsage,
+    Configure,
+    Backup,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
+pub enum AdditionalVerification {
+    WalletSignature { v: u8, r: [u8; 32], s: [u8; 32] },
+}
+
+#[derive(Serialize, Deserialize)]
 pub enum LoginMethod {
     WalletSignature { v: u8, r: [u8; 32], s: [u8; 32] },
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Login {
     pub login_method: LoginMethod,
 }

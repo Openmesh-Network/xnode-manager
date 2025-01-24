@@ -30,20 +30,39 @@ in
         '';
       };
 
-      openFirewall = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = ''
-          Whether to open ports in the firewall for this application.
-        '';
-      };
-
       owner = lib.mkOption {
         type = lib.types.str;
         default = "eth:0000000000000000000000000000000000000000";
         example = "eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3";
         description = ''
           The user id of the owner of this Xnode. This user has full management control.
+        '';
+      };
+
+      dataDir = lib.mkOption {
+        type = lib.types.str;
+        default = "/var/lib/xnode-manager";
+        example = "/var/lib/xnode-manager";
+        description = ''
+          The main directory to store data.
+        '';
+      };
+
+      containerDir = lib.mkOption {
+        type = lib.types.str;
+        default = "${cfg.dataDir}/containers";
+        example = "/var/lib/xnode-manage/containers";
+        description = ''
+          The directory to store container configurations.
+        '';
+      };
+
+      backupDir = lib.mkOption {
+        type = lib.types.str;
+        default = "${cfg.dataDir}/backups";
+        example = "/var/lib/xnode-manage/backups";
+        description = ''
+          The directory to store container backups.
         '';
       };
     };
@@ -57,17 +76,34 @@ in
       environment = {
         HOSTNAME = cfg.hostname;
         PORT = toString cfg.port;
-        OWNER = lib.toLower cfg.owner;
+        OWNER = cfg.owner;
+        DATADIR = cfg.dataDir;
+        CONTAINERDIR = cfg.containerDir;
+        BACKUPDIR = cfg.backupDir;
       };
       serviceConfig = {
         ExecStart = "${lib.getExe xnode-manager}";
-        DynamicUser = true;
+        User = "root";
+        Group = "root";
         CacheDirectory = "rust-app";
       };
     };
 
-    networking.firewall = lib.mkIf cfg.openFirewall {
-      allowedTCPPorts = [ cfg.port ];
+    networking.firewall.enable = false;
+
+    systemd.services."start-all-containers" = {
+      wantedBy = [ "network.target" ];
+      description = "Start all NixOS containers on this host";
+      path = [ pkgs.nixos-container pkgs.findutils ];
+
+      script = ''
+        nixos-container list | xargs -I % nixos-container start %
+      '';
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
     };
   };
 }
