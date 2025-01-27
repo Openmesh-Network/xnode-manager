@@ -13,6 +13,13 @@ mod utils;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Clean up installation artifacts
+    {
+        let dir = std::path::Path::new("/old-root");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // Create data directories
     {
         let dir = datadir();
         create_dir_all(&dir)
@@ -30,6 +37,7 @@ async fn main() -> std::io::Result<()> {
             .inspect_err(|e| println!("Could not create backup dir at {}: {}", dir.display(), e))?;
     }
 
+    // Start server
     HttpServer::new(move || {
         App::new()
             .wrap(IdentityMiddleware::default())
