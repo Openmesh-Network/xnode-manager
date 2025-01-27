@@ -51,15 +51,6 @@
             ];
             services.xnode-manager.enable = true;
           }
-          {
-            users.users.plopmenz = {
-              initialPassword = "plopmenz";
-              isNormalUser = true;
-              extraGroups = [
-                "wheel"
-              ];
-            };
-          }
         ];
       };
     };
