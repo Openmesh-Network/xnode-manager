@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-export HOME=/root
+set -e # Stop on error
+export HOME=/root # Cloud init might run without needed env variables
 
 # Install Nix
 sh <(curl -L https://nixos.org/nix/install) < /dev/null --daemon
@@ -26,3 +27,6 @@ nix-env -p /nix/var/nix/profiles/system --set ./result
 # Switch OS to Nix
 touch /etc/NIXOS && touch /etc/NIXOS_LUSTRATE && echo etc/nixos | tee -a /etc/NIXOS_LUSTRATE
 NIXOS_INSTALL_BOOTLOADER=1 /nix/var/nix/profiles/system/bin/switch-to-configuration boot
+
+# Boot into new OS
+reboot
