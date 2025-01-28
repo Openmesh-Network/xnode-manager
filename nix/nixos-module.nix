@@ -1,7 +1,8 @@
-{ config
-, pkgs
-, lib
-, ...
+{
+  config,
+  pkgs,
+  lib,
+  ...
 }:
 let
   cfg = config.services.xnode-manager;
@@ -48,6 +49,15 @@ in
         '';
       };
 
+      osDir = lib.mkOption {
+        type = lib.types.str;
+        default = "/etc/nixos";
+        example = "/etc/nixos";
+        description = ''
+          The directory to store the OS configuration.
+        '';
+      };
+
       containerDir = lib.mkOption {
         type = lib.types.str;
         default = "${cfg.dataDir}/containers";
@@ -78,6 +88,7 @@ in
         PORT = toString cfg.port;
         OWNER = cfg.owner;
         DATADIR = cfg.dataDir;
+        OSDIR = cfg.osDir;
         CONTAINERDIR = cfg.containerDir;
         BACKUPDIR = cfg.backupDir;
       };
@@ -94,7 +105,10 @@ in
     systemd.services."start-all-containers" = {
       wantedBy = [ "network.target" ];
       description = "Start all NixOS containers on this host";
-      path = [ pkgs.nixos-container pkgs.findutils ];
+      path = [
+        pkgs.nixos-container
+        pkgs.findutils
+      ];
 
       script = ''
         nixos-container list | xargs -I % nixos-container start %

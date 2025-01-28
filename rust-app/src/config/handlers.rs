@@ -24,7 +24,7 @@ use super::models::{ConfigurationAction, ContainerConfiguration};
 
 #[get("/containers")]
 async fn containers(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::Configure) {
+    if !has_permission(user, Scope::Config) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -45,7 +45,7 @@ async fn containers(user: Identity) -> impl Responder {
 
 #[get("/container/{container}")]
 async fn container(user: Identity, path: Path<String>) -> impl Responder {
-    if !has_permission(user, Scope::Configure) {
+    if !has_permission(user, Scope::Config) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -63,11 +63,11 @@ async fn container(user: Identity, path: Path<String>) -> impl Responder {
 
 #[post("/change")]
 async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) -> impl Responder {
-    if !has_permission(user, Scope::Processes) {
+    if !has_permission(user, Scope::Config) {
         return HttpResponse::Unauthorized().finish();
     }
 
-    println!("Executing changes: {:?}", changes);
+    log::info!("Executing changes: {:?}", changes);
     for action in changes.into_inner() {
         match action {
             ConfigurationAction::Set {
@@ -156,7 +156,7 @@ enum ContainerCommand<'a> {
     },
 }
 fn container_command(container_id: &String, command: ContainerCommand) -> Option<HttpResponse> {
-    println!("Performing {:?} on container {}", command, container_id);
+    log::info!("Performing {:?} on container {}", command, container_id);
     let command_name: &str;
     let command_cli = match command {
         ContainerCommand::Create { flake } => {

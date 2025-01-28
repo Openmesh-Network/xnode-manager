@@ -53,8 +53,13 @@
             imports = [
               inputs.xnode-manager.nixosModules.default
             ];
-            services.xnode-manager.enable = true;
-            services.xnode-manager.owner = "eth:0000000000000000000000000000000000000000";
+            services.xnode-manager =
+              {
+                enable = true;
+              }
+              // nixpkgs.lib.optionalAttrs (builtins.fileExists "xnode-owner") {
+                owner = builtins.readFile "xnode-owner";
+              };
           }
         ];
       };

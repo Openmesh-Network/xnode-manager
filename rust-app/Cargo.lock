@@ -1896,6 +1896,7 @@ dependencies = [
  "actix-web",
  "ethsign",
  "hex",
+ "log",
  "serde",
  "serde_json",
  "sysinfo",

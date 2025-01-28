@@ -25,6 +25,10 @@ pub fn datadir() -> PathBuf {
         .unwrap_or(Path::new("/var/lib/xnode-manager").to_path_buf())
 }
 
+pub fn osdir() -> String {
+    var("DATADIR").ok().unwrap_or(String::from("/etc/nixos"))
+}
+
 pub fn containerdir() -> PathBuf {
     var("CONTAINERDIR")
         .ok()

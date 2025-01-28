@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 pub enum Scope {
     Processes,
     ResourceUsage,
-    Configure,
-    Backup,
+    OS,
+    Config,
 }
 
 #[derive(Serialize, Deserialize)]

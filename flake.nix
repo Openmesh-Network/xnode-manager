@@ -2,7 +2,7 @@
   description = "Configure and monitor your Xnode";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
     systems.url = "github:nix-systems/default";
   };
 

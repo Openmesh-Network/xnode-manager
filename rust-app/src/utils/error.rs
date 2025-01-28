@@ -9,7 +9,7 @@ pub struct ResponseError {
 
 impl ResponseError {
     pub fn new(error: impl Display) -> Self {
-        println!("Response error: {}", error);
+        log::warn!("Response error: {}", error);
         Self {
             error: error.to_string(),
         }

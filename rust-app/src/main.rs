@@ -1,12 +1,13 @@
-use std::fs::create_dir_all;
+use std::{fs::create_dir_all, path::Path};
 
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
-use utils::env::{backupdir, containerdir, datadir, hostname, port};
+use utils::env::{backupdir, containerdir, datadir, hostname, osdir, port};
 
 mod auth;
 mod config;
+mod os;
 mod processes;
 mod resource_usage;
 mod utils;
@@ -22,19 +23,27 @@ async fn main() -> std::io::Result<()> {
     // Create data directories
     {
         let dir = datadir();
+        create_dir_all(&dir).inspect_err(|e| {
+            log::error!("Could not create data dir at {}: {}", dir.display(), e)
+        })?;
+    }
+    {
+        let osdir = osdir();
+        let dir = Path::new(&osdir);
         create_dir_all(&dir)
-            .inspect_err(|e| println!("Could not create data dir at {}: {}", dir.display(), e))?;
+            .inspect_err(|e| log::error!("Could not create OS dir at {}: {}", dir.display(), e))?;
     }
     {
         let dir = containerdir();
         create_dir_all(&dir).inspect_err(|e| {
-            println!("Could not create container dir at {}: {}", dir.display(), e)
+            log::error!("Could not create container dir at {}: {}", dir.display(), e)
         })?;
     }
     {
         let dir = backupdir();
-        create_dir_all(&dir)
-            .inspect_err(|e| println!("Could not create backup dir at {}: {}", dir.display(), e))?;
+        create_dir_all(&dir).inspect_err(|e| {
+            log::error!("Could not create backup dir at {}: {}", dir.display(), e)
+        })?;
     }
 
     // Start server
@@ -49,6 +58,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope("/auth").configure(auth::configure))
             .service(web::scope("/processes").configure(processes::configure))
             .service(web::scope("/usage").configure(resource_usage::configure))
+            .service(web::scope("/os").configure(os::configure))
             .service(web::scope("/config").configure(config::configure))
     })
     .bind(format!("{}:{}", hostname(), port()))?
