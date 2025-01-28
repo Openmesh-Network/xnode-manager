@@ -10,9 +10,9 @@
   };
 
   outputs =
-    { nixpkgs, ... }@inputs:
+    { lib, builtins, ... }@inputs:
     {
-      nixosConfigurations.xnode = nixpkgs.lib.nixosSystem {
+      nixosConfigurations.xnode = lib.nixosSystem {
         specialArgs = { inherit inputs; };
         modules = [
           {
@@ -57,7 +57,7 @@
               {
                 enable = true;
               }
-              // nixpkgs.lib.optionalAttrs (builtins.fileExists "xnode-owner") {
+              // lib.optionalAttrs (builtins.fileExists "xnode-owner") {
                 owner = builtins.readFile "xnode-owner";
               };
           }
