@@ -50,6 +50,7 @@
               inputs.xnode-manager.nixosModules.default
             ];
             services.xnode-manager.enable = true;
+            services.xnode-manager.owner = "eth:0000000000000000000000000000000000000000";
           }
         ];
       };
