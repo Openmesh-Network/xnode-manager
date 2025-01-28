@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
+export HOME=/root
+
 # Install Nix
 sh <(curl -L https://nixos.org/nix/install) < /dev/null --daemon
 
 # Enable Nix in current shell
-. /root/.nix-profile/etc/profile.d/nix.sh
+. $HOME/.nix-profile/etc/profile.d/nix.sh
 
 # Install NixOS installation tools
 nix-env -f '<nixpkgs>' -iA nixos-install-tools
