@@ -2,6 +2,7 @@
 
 set -e # Stop on error
 export HOME=/root # Cloud init might run without needed env variables
+
 # Install Nix
 sh <(curl -L https://nixos.org/nix/install) < /dev/null --daemon
 
@@ -16,8 +17,7 @@ nix-env -f '<nixpkgs>' -iA nixos-install-tools
 
 # Write XnodeOS configuration
 (curl -L https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/flake.nix)> /etc/nixos/flake.nix
-if [[ -z "${XNODE_OWNER}" ]]; then
-    export XNODE_OWNER # Pass xnode owner env var to sed
+if [[ -v XNODE_OWNER ]]; then
     sed -i "s/xnode-manager.owner = \"eth:0000000000000000000000000000000000000000\"/xnode-manager.owner = \"${XNODE_OWNER}\"/" /etc/nixos/flake.nix
 fi
 
