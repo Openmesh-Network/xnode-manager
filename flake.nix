@@ -6,6 +6,15 @@
     systems.url = "github:nix-systems/default";
   };
 
+  nixConfig = {
+    extra-substituters = [
+      "https://openmesh.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "openmesh.cachix.org-1:du4NDeMWxcX8T5GddfuD0s/Tosl3+6b+T2+CLKHgXvQ="
+    ];
+  };
+
   outputs =
     {
       self,

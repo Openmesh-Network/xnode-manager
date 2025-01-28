@@ -22,7 +22,7 @@ if [[ -v XNODE_OWNER ]]; then
 fi
 
 # Build configuration
-nix build /etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel --extra-experimental-features nix-command --extra-experimental-features flakes
+nix build /etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel --extra-experimental-features nix-command --extra-experimental-features flakes --accept-flake-config
 
 # Apply configuration
 nix-env -p /nix/var/nix/profiles/system --set ./result

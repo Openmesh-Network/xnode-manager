@@ -1,0 +1,28 @@
+name: Cache
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Connect to Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: openmesh
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Upload derivation to Cachix
+        run: nix build | cachix push openmesh
