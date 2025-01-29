@@ -108,6 +108,7 @@ async fn set(user: Identity, os: web::Json<OSConfiguration>) -> impl Responder {
 
     let command = Command::new("nixos-rebuild")
         .arg("switch")
+        .arg("--recreate-lock-file")
         .arg("--flake")
         .arg(format!("{}#xnode", osdir))
         .output();
