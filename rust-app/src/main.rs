@@ -14,6 +14,8 @@ mod utils;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::init();
+
     // Clean up installation artifacts
     {
         let dir = std::path::Path::new("/old-root");

@@ -31,6 +31,15 @@ in
         '';
       };
 
+      verbosity = lib.mkOption {
+        type = lib.types.str;
+        default = "warn";
+        example = "info";
+        description = ''
+          The logging verbosity that the app should use.
+        '';
+      };
+
       owner = lib.mkOption {
         type = lib.types.str;
         default = "eth:0000000000000000000000000000000000000000";
@@ -95,6 +104,7 @@ in
       environment = {
         HOSTNAME = cfg.hostname;
         PORT = toString cfg.port;
+        RUST_LOG = cfg.verbosity;
         OWNER = cfg.owner;
         DATADIR = cfg.dataDir;
         OSDIR = cfg.osDir;
