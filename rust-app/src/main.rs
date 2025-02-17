@@ -3,7 +3,7 @@ use std::{fs::create_dir_all, path::Path};
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
-use utils::env::{backupdir, containerdir, datadir, hostname, osdir, port};
+use utils::env::{authdir, backupdir, containerdir, datadir, hostname, osdir, port};
 
 mod auth;
 mod config;
@@ -32,6 +32,12 @@ async fn main() -> std::io::Result<()> {
         let dir = Path::new(&osdir);
         create_dir_all(dir)
             .inspect_err(|e| log::error!("Could not create OS dir at {}: {}", dir.display(), e))?;
+    }
+    {
+        let dir = authdir();
+        create_dir_all(&dir).inspect_err(|e| {
+            log::error!("Could not create auth dir at {}: {}", dir.display(), e)
+        })?;
     }
     {
         let dir = containerdir();

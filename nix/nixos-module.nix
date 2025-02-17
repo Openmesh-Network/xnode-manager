@@ -58,10 +58,19 @@ in
         '';
       };
 
+      authDir = lib.mkOption {
+        type = lib.types.str;
+        default = "${cfg.dataDir}/auth";
+        example = "/var/lib/xnode-manager/auth";
+        description = ''
+          The directory to store authentication information.
+        '';
+      };
+
       containerDir = lib.mkOption {
         type = lib.types.str;
         default = "${cfg.dataDir}/containers";
-        example = "/var/lib/xnode-manage/containers";
+        example = "/var/lib/xnode-manager/containers";
         description = ''
           The directory to store container configurations.
         '';
@@ -70,7 +79,7 @@ in
       backupDir = lib.mkOption {
         type = lib.types.str;
         default = "${cfg.dataDir}/backups";
-        example = "/var/lib/xnode-manage/backups";
+        example = "/var/lib/xnode-manager/backups";
         description = ''
           The directory to store container backups.
         '';
@@ -89,6 +98,7 @@ in
         OWNER = cfg.owner;
         DATADIR = cfg.dataDir;
         OSDIR = cfg.osDir;
+        AUTHDIR = cfg.authDir;
         CONTAINERDIR = cfg.containerDir;
         BACKUPDIR = cfg.backupDir;
       };

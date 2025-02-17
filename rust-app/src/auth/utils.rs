@@ -1,6 +1,5 @@
-use std::collections::HashSet;
-
 use actix_identity::Identity;
+use std::collections::HashSet;
 
 use crate::utils::env::owner;
 

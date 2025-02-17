@@ -15,7 +15,7 @@ use crate::{
     auth::{models::Scope, utils::has_permission},
     utils::{
         command::{command_output_errors, CommandOutputError},
-        env::containerdir,
+        env::authdir,
         error::ResponseError,
     },
 };
@@ -28,7 +28,8 @@ async fn containers(user: Identity) -> impl Responder {
         return HttpResponse::Unauthorized().finish();
     }
 
-    match read_dir(containerdir()) {
+    let path = authdir();
+    match read_dir(&path) {
         Ok(dir) => {
             let response: Vec<String> = dir
                 .filter_map(|f| f.ok().and_then(|f| f.file_name().into_string().ok()))
@@ -37,7 +38,7 @@ async fn containers(user: Identity) -> impl Responder {
         }
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
             "Could not read container dir {}: {}",
-            containerdir().display(),
+            path.display(),
             e
         ))),
     }
@@ -50,7 +51,7 @@ async fn container(user: Identity, path: Path<String>) -> impl Responder {
     }
 
     let container_id = path.into_inner();
-    let path = containerdir().join(container_id).join("flake.nix");
+    let path = authdir().join(container_id).join("flake.nix");
     match read_to_string(&path) {
         Ok(file) => HttpResponse::Ok().json(ContainerConfiguration { flake: file }),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -74,7 +75,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                 container: container_id,
                 config,
             } => {
-                let path = containerdir().join(&container_id);
+                let path = authdir().join(&container_id);
                 if let Err(e) = create_dir_all(&path) {
                     return HttpResponse::InternalServerError().json(ResponseError::new(format!(
                         "Error creating container folder {}: {}",
@@ -110,7 +111,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                     return response;
                 }
 
-                let path = containerdir().join(&container_id);
+                let path = authdir().join(&container_id);
                 if let Err(e) = remove_dir_all(&path) {
                     return HttpResponse::InternalServerError().json(ResponseError::new(format!(
                         "Error deleting container folder config {}: {}",
@@ -123,7 +124,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                 container: container_id,
                 inputs,
             } => {
-                let path = containerdir().join(&container_id);
+                let path = authdir().join(&container_id);
                 if let Some(response) = container_command(
                     &container_id,
                     ContainerCommand::FlakeUpdate {

@@ -1,9 +1,9 @@
 use actix_identity::Identity;
 use actix_web::{get, post, web, HttpMessage, HttpRequest, HttpResponse, Responder};
+use ethsign::Signature;
 
 use crate::auth::models::LoginMethod;
 use crate::utils::error::ResponseError;
-use ethsign::Signature;
 
 use super::models::{Login, Scope};
 use super::utils::get_scopes;
@@ -21,13 +21,7 @@ async fn login(login: web::Json<Login>, request: HttpRequest) -> impl Responder 
     let user: String;
     match login.login_method {
         LoginMethod::WalletSignature { v, r, s } => {
-            let message: String;
-            if let Some(addr) = request.peer_addr() {
-                message = format!("Create Xnode Manager session for ip {}", addr.ip());
-            } else {
-                return HttpResponse::BadRequest()
-                    .json(ResponseError::new("IP address on connection is not set."));
-            }
+            let message = "Create Xnode Manager session";
 
             match (Signature { v, r, s }).recover(message.as_bytes()) {
                 Ok(pubkey) => {

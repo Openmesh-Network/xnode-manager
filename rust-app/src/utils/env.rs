@@ -3,42 +3,54 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use log::warn;
+
+fn env_var(id: &str) -> Option<String> {
+    var(id)
+        .inspect_err(|e| {
+            warn!("Could not read env var {}: {}", id, e);
+        })
+        .ok()
+}
+
 pub fn hostname() -> String {
-    var("HOSTNAME").ok().unwrap_or(String::from("0.0.0.0"))
+    env_var("HOSTNAME").unwrap_or(String::from("0.0.0.0"))
 }
 
 pub fn port() -> String {
-    var("PORT").ok().unwrap_or(String::from("34391"))
+    env_var("PORT").unwrap_or(String::from("34391"))
 }
 
 pub fn owner() -> String {
-    var("OWNER")
-        .ok()
+    env_var("OWNER")
         .map(|s| s.to_ascii_lowercase())
         .unwrap_or(String::from("eth:0000000000000000000000000000000000000000"))
 }
 
 pub fn datadir() -> PathBuf {
-    var("DATADIR")
-        .ok()
+    env_var("DATADIR")
         .map(|d| Path::new(&d).to_path_buf())
         .unwrap_or(Path::new("/var/lib/xnode-manager").to_path_buf())
 }
 
 pub fn osdir() -> String {
-    var("DATADIR").ok().unwrap_or(String::from("/etc/nixos"))
+    env_var("DATADIR").unwrap_or(String::from("/etc/nixos"))
+}
+
+pub fn authdir() -> PathBuf {
+    env_var("AUTHDIR")
+        .map(|d| Path::new(&d).to_path_buf())
+        .unwrap_or(Path::new(&datadir()).join("auth"))
 }
 
 pub fn containerdir() -> PathBuf {
-    var("CONTAINERDIR")
-        .ok()
+    env_var("CONTAINERDIR")
         .map(|d| Path::new(&d).to_path_buf())
         .unwrap_or(Path::new(&datadir()).join("containers"))
 }
 
 pub fn backupdir() -> PathBuf {
-    var("BACKUPDIR")
-        .ok()
+    env_var("BACKUPDIR")
         .map(|d| Path::new(&d).to_path_buf())
         .unwrap_or(Path::new(&datadir()).join("backups"))
 }
