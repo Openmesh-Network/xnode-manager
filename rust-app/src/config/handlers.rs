@@ -209,21 +209,16 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
             CommandOutputError::OutputErrorRaw(output) => {
                 return Some(HttpResponse::InternalServerError().json(ResponseError::new(
                     format!(
-                        "Error {} nixos container {}: {}",
-                        command_name,
-                        container_id,
-                        format!("Output could not be decoded: {:?}", output),
+                        "Error {} nixos container {}: Output could not be decoded: {:?}",
+                        command_name, container_id, output,
                     ),
                 )));
             }
             CommandOutputError::OutputError(output) => {
-                match command {
-                    ContainerCommand::Create { flake } => {
-                        if output == format!("/run/current-system/sw/bin/nixos-container: container ‘{}’ already exists\n", container_id) {
-                            return container_command(container_id, ContainerCommand::Update { flake });
-                        }
+                if let ContainerCommand::Create { flake } = command {
+                    if output == format!("/run/current-system/sw/bin/nixos-container: container ‘{}’ already exists\n", container_id) {
+                        return container_command(container_id, ContainerCommand::Update { flake });
                     }
-                    _ => {}
                 }
 
                 return Some(HttpResponse::InternalServerError().json(ResponseError::new(
@@ -244,17 +239,14 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
         };
     }
 
-    match command {
-        ContainerCommand::Create { flake: _ } => {
-            // nixos-container does not support creating containers without private network
-            if let Some(response) = patch_container_file(container_id) {
-                return Some(response);
-            }
-
-            // Start container after creation
-            return container_command(container_id, ContainerCommand::Start);
+    if let ContainerCommand::Create { flake: _ } = command {
+        // nixos-container does not support creating containers without private network
+        if let Some(response) = patch_container_file(container_id) {
+            return Some(response);
         }
-        _ => {}
+
+        // Start container after creation
+        return container_command(container_id, ContainerCommand::Start);
     }
 
     None

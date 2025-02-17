@@ -116,8 +116,8 @@ async fn set(user: Identity, os: web::Json<OSConfiguration>) -> impl Responder {
         match err {
             CommandOutputError::OutputErrorRaw(output) => {
                 return HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error switching to new OS config: {}",
-                    format!("Output could not be decoded: {:?}", output),
+                    "Error switching to new OS config: Output could not be decoded: {:?}",
+                    output,
                 )));
             }
             CommandOutputError::OutputError(output) => {

@@ -82,10 +82,7 @@ async fn logs(user: Identity, path: Path<String>) -> impl Responder {
                         let response: Vec<Log> = output_parsed
                             .iter()
                             .map(|log| Log {
-                                timestamp: match log.__REALTIME_TIMESTAMP.parse() {
-                                    Ok(num) => num,
-                                    Err(_) => 0,
-                                },
+                                timestamp: log.__REALTIME_TIMESTAMP.parse().unwrap_or(0),
                                 message: log.MESSAGE.clone(),
                             })
                             .collect();

@@ -30,7 +30,7 @@ async fn main() -> std::io::Result<()> {
     {
         let osdir = osdir();
         let dir = Path::new(&osdir);
-        create_dir_all(&dir)
+        create_dir_all(dir)
             .inspect_err(|e| log::error!("Could not create OS dir at {}: {}", dir.display(), e))?;
     }
     {

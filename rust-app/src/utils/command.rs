@@ -15,7 +15,7 @@ pub fn command_output_errors(output: Result<Output>) -> Option<CommandOutputErro
             if !output_raw.status.success() {
                 return Some(
                     String::from_utf8(output.clone())
-                        .map(|s| CommandOutputError::OutputError(s))
+                        .map(CommandOutputError::OutputError)
                         .unwrap_or(CommandOutputError::OutputErrorRaw(output)),
                 );
             }
