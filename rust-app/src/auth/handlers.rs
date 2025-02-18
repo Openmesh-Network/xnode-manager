@@ -1,6 +1,7 @@
 use actix_identity::Identity;
 use actix_web::{get, post, web, HttpMessage, HttpRequest, HttpResponse, Responder};
 use ethsign::Signature;
+use keccak_hash::keccak256;
 
 use crate::auth::models::LoginMethod;
 use crate::utils::error::ResponseError;
@@ -21,9 +22,10 @@ async fn login(login: web::Json<Login>, request: HttpRequest) -> impl Responder 
     let user: String;
     match login.login_method {
         LoginMethod::WalletSignature { v, r, s } => {
-            let message = "Create Xnode Manager session";
-
-            match (Signature { v, r, s }).recover(message.as_bytes()) {
+            let message = String::from("Create Xnode Manager session");
+            let mut message_bytes = message.into_bytes();
+            keccak256(&mut message_bytes);
+            match (Signature { v, r, s }).recover(&message_bytes) {
                 Ok(pubkey) => {
                     user = format!("eth:{}", hex::encode(pubkey.address()));
                 }
