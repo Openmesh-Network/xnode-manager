@@ -20,6 +20,9 @@ nix-env -f '<nixpkgs>' -iA nixos-install-tools
 if [[ -v XNODE_OWNER ]]; then
    echo -n "${XNODE_OWNER}" > /etc/nixos/xnode-owner
 fi
+if [[ -v USER_PASSWD ]]; then
+   echo -n "${USER_PASSWD}" > /etc/nixos/user-passwd
+fi
 
 # Build configuration
 nix build /etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel --extra-experimental-features nix-command --extra-experimental-features flakes --accept-flake-config

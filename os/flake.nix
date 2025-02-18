@@ -46,7 +46,9 @@
               };
             };
 
-            networking.hostName = "Xnode";
+            users.mutableUsers = false;
+
+            networking.hostName = "xnode";
           }
           ./configuration.nix
           {
@@ -60,6 +62,26 @@
               // nixpkgs.lib.optionalAttrs (builtins.pathExists ./xnode-owner) {
                 owner = builtins.readFile ./xnode-owner;
               };
+          }
+          nixpkgs.lib.optionalAttrs
+          (builtins.pathExists ./user-passwd)
+          {
+            # No password set disables password authentication entirely
+            users.users.xnode = {
+              initialPassword = builtins.readFile ./user-passwd;
+              isNormalUser = true;
+              extraGroups = [
+                "networkmanager"
+                "wheel"
+              ];
+            };
+
+            users.motd = null;
+            services.getty = {
+              autologinUser = "xnode";
+              helpLine = ''\n'';
+              greetingLine = ''<<< Welcome to Openmesh XnodeOS ${nixpkgs.config.system.nixos.label} (\m) - \l >>>'';
+            };
           }
         ];
       };

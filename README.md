@@ -21,6 +21,8 @@ NixOS installation with custom XnodeOS configuration replacing an existing OS in
 
 XNODE_OWNER env var should be set when deploying in a open-port environment to prevent malicious actors from claiming your Xnode before you.
 
+USER_PASSWD env var can be set to allow password login. However it is recommended to manage your machine through this manager app only.
+
 ```
 curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
 ```
