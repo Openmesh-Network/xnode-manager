@@ -18,7 +18,7 @@ nix-env -f '<nixpkgs>' -iA nixos-install-tools
 # Write XnodeOS configuration
 (curl -L https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/flake.nix)> /etc/nixos/flake.nix
 if [[ -v XNODE_OWNER ]]; then
-   echo "${XNODE_OWNER}" > /etc/nixos/xnode-owner
+   echo -n "${XNODE_OWNER}" > /etc/nixos/xnode-owner
 fi
 
 # Build configuration
