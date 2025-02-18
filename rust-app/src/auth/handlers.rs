@@ -38,7 +38,12 @@ async fn login(login: web::Json<Login>, request: HttpRequest) -> impl Responder 
         }
     }
 
-    Identity::login(&request.extensions(), user).unwrap();
+    if let Err(e) = Identity::login(&request.extensions(), user.clone()) {
+        return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Could not log in user {}: {}",
+            user, e
+        )));
+    }
 
     HttpResponse::Ok().finish()
 }

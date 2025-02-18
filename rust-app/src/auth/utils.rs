@@ -7,7 +7,12 @@ use super::models::Scope;
 
 pub fn get_scopes(user: Identity) -> HashSet<Scope> {
     if user.id().is_ok_and(|id| id == owner()) {
-        return HashSet::from([Scope::Processes, Scope::ResourceUsage]);
+        return HashSet::from([
+            Scope::Processes,
+            Scope::ResourceUsage,
+            Scope::OS,
+            Scope::Config,
+        ]);
     }
 
     HashSet::new()

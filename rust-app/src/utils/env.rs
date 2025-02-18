@@ -54,3 +54,15 @@ pub fn backupdir() -> PathBuf {
         .map(|d| Path::new(&d).to_path_buf())
         .unwrap_or(Path::new(&datadir()).join("backups"))
 }
+
+pub fn nix() -> String {
+    env_var("NIX").unwrap_or(String::from(""))
+}
+
+pub fn systemd() -> String {
+    env_var("SYSTEMD").unwrap_or(String::from(""))
+}
+
+pub fn e2fsprogs() -> String {
+    env_var("E2FSPROGS").unwrap_or(String::from(""))
+}

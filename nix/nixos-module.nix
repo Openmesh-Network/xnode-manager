@@ -93,6 +93,24 @@ in
           The directory to store container backups.
         '';
       };
+
+      nix = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.nix;
+        example = pkgs.nix;
+        description = ''
+          nix equivalent executable to use for system building.
+        '';
+      };
+
+      systemd = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.systemd;
+        example = pkgs.systemd;
+        description = ''
+          systemd equivalent executable to use for container management.
+        '';
+      };
     };
   };
 
@@ -111,6 +129,9 @@ in
         AUTHDIR = cfg.authDir;
         CONTAINERDIR = cfg.containerDir;
         BACKUPDIR = cfg.backupDir;
+        NIX = "${cfg.nix}/bin/";
+        SYSTEMD = "${cfg.systemd}/bin/";
+        E2FSPROGS = "${pkgs.e2fsprogs}/bin/";
       };
       serviceConfig = {
         ExecStart = "${lib.getExe xnode-manager}";
