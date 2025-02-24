@@ -15,7 +15,7 @@ use crate::{
     auth::{models::Scope, utils::has_permission},
     utils::{
         command::{command_output_errors, CommandOutputError},
-        env::{containerdir, e2fsprogs, nix, systemd},
+        env::{buildcores, containerdir, e2fsprogs, nix, systemd},
         error::ResponseError,
     },
 };
@@ -259,6 +259,7 @@ fn build_config(flake: &path::Path) -> Result<PathBuf, HttpResponse> {
     let build_folder = flake.join("build");
     let command_cli = Command::new(format!("{}nix", nix()))
         .env("NIX_REMOTE", "daemon")
+        .env("NIX_BUILD_CORES", buildcores().to_string())
         .arg("build")
         .arg("-o")
         .arg(&build_folder)

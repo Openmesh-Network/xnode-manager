@@ -94,6 +94,15 @@ in
         '';
       };
 
+      buildCores = lib.mkOption {
+        type = lib.types.int;
+        default = 1;
+        example = 0;
+        description = ''
+          Amount of cores to use for nix builds. 0 will use all cores. See NIX_BUILD_CORES for more information.
+        '';
+      };
+
       nix = lib.mkOption {
         type = lib.types.package;
         default = pkgs.nix;
@@ -129,6 +138,7 @@ in
         AUTHDIR = cfg.authDir;
         CONTAINERDIR = cfg.containerDir;
         BACKUPDIR = cfg.backupDir;
+        BUILDCORES = toString cfg.buildCores;
         NIX = "${cfg.nix}/bin/";
         SYSTEMD = "${cfg.systemd}/bin/";
         E2FSPROGS = "${pkgs.e2fsprogs}/bin/";

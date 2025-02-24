@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use log::warn;
+use log::{error, warn};
 
 fn env_var(id: &str) -> Option<String> {
     var(id)
@@ -53,6 +53,18 @@ pub fn backupdir() -> PathBuf {
     env_var("BACKUPDIR")
         .map(|d| Path::new(&d).to_path_buf())
         .unwrap_or(Path::new(&datadir()).join("backups"))
+}
+
+pub fn buildcores() -> u64 {
+    env_var("BUILDCORES")
+        .and_then(|s| {
+            str::parse::<u64>(&s)
+                .inspect_err(|e| {
+                    error!("Could not parse BUILDCORES to u64: {}", e);
+                })
+                .ok()
+        })
+        .unwrap_or(1)
 }
 
 pub fn nix() -> String {
