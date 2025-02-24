@@ -64,7 +64,7 @@ pub fn buildcores() -> u64 {
                 })
                 .ok()
         })
-        .unwrap_or(1)
+        .unwrap_or(0)
 }
 
 pub fn nix() -> String {

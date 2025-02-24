@@ -96,7 +96,7 @@ in
 
       buildCores = lib.mkOption {
         type = lib.types.int;
-        default = 1;
+        default = 0;
         example = 0;
         description = ''
           Amount of cores to use for nix builds. 0 will use all cores. See NIX_BUILD_CORES for more information.
