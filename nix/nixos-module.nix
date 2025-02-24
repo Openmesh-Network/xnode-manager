@@ -50,7 +50,7 @@ in
       };
 
       dataDir = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.path;
         default = "/var/lib/xnode-manager";
         example = "/var/lib/xnode-manager";
         description = ''
@@ -59,7 +59,7 @@ in
       };
 
       osDir = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.path;
         default = "/etc/nixos";
         example = "/etc/nixos";
         description = ''
@@ -68,7 +68,7 @@ in
       };
 
       authDir = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.path;
         default = "${cfg.dataDir}/auth";
         example = "/var/lib/xnode-manager/auth";
         description = ''
@@ -77,7 +77,7 @@ in
       };
 
       containerDir = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.path;
         default = "${cfg.dataDir}/containers";
         example = "/var/lib/xnode-manager/containers";
         description = ''
@@ -86,7 +86,7 @@ in
       };
 
       backupDir = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.path;
         default = "${cfg.dataDir}/backups";
         example = "/var/lib/xnode-manager/backups";
         description = ''
