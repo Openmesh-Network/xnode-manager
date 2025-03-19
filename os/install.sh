@@ -13,7 +13,8 @@ sh <(curl -L https://nixos.org/nix/install) < /dev/null --daemon
 nix-env -f '<nixpkgs>' -iA nixos-install-tools
 
 # Generate initial configuration
-`which nixos-generate-config`
+# /etc/nixos is forced as directory (preventing rel2abs / to resolve to /root on certain systems)
+`which nixos-generate-config` --dir /etc/nixos/
 
 # Write XnodeOS configuration
 (curl -L https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/flake.nix)> /etc/nixos/flake.nix
