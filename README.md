@@ -32,5 +32,5 @@ curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/in
 ```
 #cloud-config
 runcmd:
- - export XNODE_OWNER=eth:248db26b5fbfc40554182a116266c745714ebccb && curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
+ - export XNODE_OWNER=eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3 && curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
 ```

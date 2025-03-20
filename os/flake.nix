@@ -3,10 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
-    xnode-manager = {
-      url = "github:Openmesh-Network/xnode-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    xnode-manager.url = "github:Openmesh-Network/xnode-manager";
   };
 
   outputs =
@@ -15,42 +12,71 @@
       nixosConfigurations.xnode = nixpkgs.lib.nixosSystem {
         specialArgs = { inherit inputs; };
         modules = [
-          {
-            boot.loader = {
-              efi = {
-                efiSysMountPoint = "/boot/efi";
+          (
+            { pkgs, ... }:
+            {
+              boot.loader = {
+                efi = {
+                  efiSysMountPoint =
+                    if (builtins.pathExists ./bootpoint) then (builtins.readFile ./bootpoint) else "/boot";
+                };
+                grub = {
+                  enable = true;
+                  efiSupport = true;
+                  efiInstallAsRemovable = true;
+                  device = "nodev";
+                };
               };
-              grub = {
-                efiSupport = true;
-                efiInstallAsRemovable = true;
-                device = "nodev";
-              };
-            };
 
-            nix = {
-              settings = {
-                experimental-features = [
-                  "nix-command"
-                  "flakes"
+              environment.systemPackages = with pkgs; [
+                mergerfs
+              ];
+
+              # Combine all disk file systems to store container data
+              fileSystems."/var/lib/nixos-containers" = {
+                fsType = "fuse.mergerfs";
+                device = "/mnt/disk*";
+                options = [
+                  "cache.files=partial"
+                  "dropcacheonclose=true"
+                  "category.create=mfs"
                 ];
-                flake-registry = "";
-                accept-flake-config = true;
               };
-              optimise.automatic = true;
-              channel.enable = false;
 
-              gc = {
-                automatic = true;
-                dates = "daily";
-                options = "--delete-older-than 1d";
+              # First disk is mounted as root file system, create a folder to include it
+              systemd.tmpfiles.rules = [
+                "d /mnt/disk0"
+              ];
+
+              nix = {
+                settings = {
+                  experimental-features = [
+                    "nix-command"
+                    "flakes"
+                  ];
+                  flake-registry = "";
+                  accept-flake-config = true;
+                };
+                optimise.automatic = true;
+                channel.enable = false;
+
+                gc = {
+                  automatic = true;
+                  dates = "daily";
+                  options = "--delete-older-than 1d";
+                };
               };
-            };
 
-            users.mutableUsers = false;
+              users.mutableUsers = false;
+              users.allowNoPasswordLogin = true;
 
-            networking.hostName = "xnode";
-          }
-          ./configuration.nix
+              networking.hostName = "xnode";
+
+              system.stateVersion = "24.11";
+            }
+          )
+          ./disk-config.nix
+          ./hardware-configuration.nix
           {
             imports = [
               inputs.xnode-manager.nixosModules.default
@@ -80,6 +106,11 @@
                 greetingLine = ''<<< Welcome to Openmesh XnodeOS ${config.system.nixos.label} (\m) - \l >>>'';
               };
             }
+          )
+          (
+            # START USER CONFIG
+            { }
+            # END USER CONFIG
           )
         ];
       };
