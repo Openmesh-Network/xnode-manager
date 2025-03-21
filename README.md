@@ -17,7 +17,10 @@ cargo run
 
 ## XnodeOS Install
 
-NixOS installation with custom XnodeOS configuration replacing an existing OS installation (e.g Ubuntu 24.04). Performs steps based on https://nixos.org/manual/nixos/stable/index.html#sec-installing-from-other-distro. This command should be run as root. THIS WILL OVERWRITE THE CURRENTLY INSTALLED OS AND ALL ITS DATA!
+> [!CAUTION]
+> THIS WILL OVERWRITE THE CURRENTLY INSTALLED OS AND ALL ITS DATA, INCLUDING ANY ATTACHED DRIVES!
+
+NixOS installation with custom XnodeOS configuration replacing an existing OS installation (e.g Ubuntu 24.04). Performs steps based on https://nixos.org/manual/nixos/stable/index.html#sec-installing-from-other-distro. This command should be run as root.
 
 XNODE_OWNER env var should be set when deploying in a open-port environment to prevent malicious actors from claiming your Xnode before you.
 

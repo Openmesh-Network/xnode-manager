@@ -9,11 +9,11 @@ sh <(curl -L https://nixos.org/nix/install) < /dev/null --daemon
 # Enable Nix in current shell
 . $HOME/.nix-profile/etc/profile.d/nix.sh
 
-# Install NixOS installation tools
-nix-env -f '<nixpkgs>' -iA nixos-install-tools
+# Prepare output directory
+mkdir -p /etc/nixos
 
-# Generate initial configuration
-`which nixos-generate-config` --dir /etc/nixos/ --no-filesystems
+# Perform nixos-facter hardware scan
+nix run --option experimental-features "nix-command flakes" nixpkgs#nixos-facter -- -o /etc/nixos/facter.json
 
 # Generate disk config
 DISK_COUNTER=1
@@ -52,7 +52,7 @@ fi
 echo -n "${BOOT_POINT}" > /etc/nixos/bootpoint
 
 # Build configuration
-nix build /etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel --extra-experimental-features nix-command --extra-experimental-features flakes --accept-flake-config
+nix build --option experimental-features "nix-command flakes" /etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel --accept-flake-config
 
 # Apply configuration
 nix-env -p /nix/var/nix/profiles/system --set ./result

@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
+    nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
     xnode-manager.url = "github:Openmesh-Network/xnode-manager";
   };
 
@@ -32,21 +33,23 @@
                 mergerfs
               ];
 
-              # Combine all disk file systems to store container data
+              # First disk is mounted as root file system, include it as data disk
+              fileSystems."/mnt/disk0" = {
+                device = "/mnt/disk0";
+                options = [ "bind" ];
+              };
+
+              # Combine all data disks to store container data
               fileSystems."/var/lib/nixos-containers" = {
                 fsType = "fuse.mergerfs";
                 device = "/mnt/disk*";
+                depends = [ "/mnt" ];
                 options = [
-                  "cache.files=partial"
-                  "dropcacheonclose=true"
+                  "cache.files=off"
                   "category.create=mfs"
+                  "dropcacheonclose=false"
                 ];
               };
-
-              # First disk is mounted as root file system, create a folder to include it
-              systemd.tmpfiles.rules = [
-                "d /mnt/disk0"
-              ];
 
               nix = {
                 settings = {
@@ -76,7 +79,8 @@
             }
           )
           ./disk-config.nix
-          ./hardware-configuration.nix
+          inputs.nixos-facter-modules.nixosModules.facter
+          { config.facter.reportPath = ./facter.json; }
           {
             imports = [
               inputs.xnode-manager.nixosModules.default
