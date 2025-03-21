@@ -15,18 +15,19 @@ nix-env -f '<nixpkgs>' -iA nixos-install-tools
 # Generate initial configuration
 `which nixos-generate-config` --dir /etc/nixos/ --no-filesystems
 
-# Generate drive config
-DISK_COUNTER=0
+# Generate disk config
+DISK_COUNTER=1
 DISK_CONFIG_FILE="/etc/nixos/disk-config.nix"
+ROOT_DISK=$(mount | grep "on / type" | awk '{print $1;}') # Find disk mounted on /
 echo "{" > $DISK_CONFIG_FILE
-for disk in $(fdisk -l | grep "Linux filesystem" | awk '{print $1;}'); do
-   DISK_MOUNT_POINT="/mnt/disk$DISK_COUNTER"
-   if [ "$DISK_COUNTER" -eq 0 ]; then
-      # Mount first disk as root file system
-      DISK_MOUNT_POINT="/"
+echo "   fileSystems.\"/\" = { device = \"$ROOT_DISK\"; };" >> $DISK_CONFIG_FILE
+for disk in $(fdisk -l | grep "Linux filesystem" | awk '{print $1;}'); do # Find all Linux filesystem partitions
+   if [ "$disk" = "$ROOT_DISK" ]; then
+      # Do not mount root disk on /mnt/disk
+      continue
    fi
 
-   echo "   fileSystems.\"$DISK_MOUNT_POINT\" = { device = \"$disk\"; };" >> $DISK_CONFIG_FILE
+   echo "   fileSystems.\"$/mnt/disk$DISK_COUNTER\" = { device = \"$disk\"; };" >> $DISK_CONFIG_FILE
    DISK_COUNTER=$(expr $DISK_COUNTER + 1)
 done
 echo "}" >> $DISK_CONFIG_FILE
