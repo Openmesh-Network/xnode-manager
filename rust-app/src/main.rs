@@ -1,5 +1,6 @@
 use std::{fs::create_dir_all, path::Path};
 
+use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
@@ -57,6 +58,7 @@ async fn main() -> std::io::Result<()> {
     // Start server
     HttpServer::new(move || {
         App::new()
+            .wrap(Cors::permissive())
             .wrap(IdentityMiddleware::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))

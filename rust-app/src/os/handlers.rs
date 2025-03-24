@@ -1,5 +1,5 @@
 use std::{
-    fs::{exists, read_to_string, write},
+    fs::{read_to_string, write},
     path::Path,
     process::Command,
 };
@@ -9,7 +9,7 @@ use actix_web::{post, web, HttpResponse, Responder};
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
-    os::models::OSConfiguration,
+    os::models::{OSChange, OSConfiguration},
     utils::{
         command::{command_output_errors, CommandOutputError},
         env::osdir,
@@ -24,7 +24,7 @@ async fn get(user: Identity) -> impl Responder {
     }
 
     let flake: String;
-    let owner: String;
+    let flake_lock: String;
 
     let osdir = osdir();
     let path = Path::new(&osdir);
@@ -44,28 +44,14 @@ async fn get(user: Identity) -> impl Responder {
         }
     }
     {
-        let path = path.join("xnode-owner");
-        match exists(&path) {
-            Ok(file_exists) => {
-                if file_exists {
-                    match read_to_string(&path) {
-                        Ok(file) => {
-                            owner = file;
-                        }
-                        Err(e) => {
-                            return HttpResponse::InternalServerError().json(ResponseError::new(
-                                format!("Error reading xnode owner from {}: {}", path.display(), e),
-                            ));
-                        }
-                    }
-                } else {
-                    // Nix module default value
-                    owner = String::from("eth:0000000000000000000000000000000000000000");
-                }
+        let path = path.join("flake.lock");
+        match read_to_string(&path) {
+            Ok(file) => {
+                flake_lock = file;
             }
             Err(e) => {
                 return HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error checking existence of xnode owner file at {}: {}",
+                    "Error reading OS flake lock from {}: {}",
                     path.display(),
                     e
                 )));
@@ -73,11 +59,11 @@ async fn get(user: Identity) -> impl Responder {
         }
     }
 
-    HttpResponse::Ok().json(OSConfiguration { flake, owner })
+    HttpResponse::Ok().json(OSConfiguration { flake, flake_lock })
 }
 
 #[post("/set")]
-async fn set(user: Identity, os: web::Json<OSConfiguration>) -> impl Responder {
+async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
     if !has_permission(user, Scope::OS) {
         return HttpResponse::Unauthorized().finish();
     }
@@ -85,9 +71,9 @@ async fn set(user: Identity, os: web::Json<OSConfiguration>) -> impl Responder {
     log::info!("Performing OS update: {:?}", os);
     let osdir = osdir();
     let path = Path::new(&osdir);
-    {
+    if let Some(flake) = &os.flake {
         let path = path.join("flake.nix");
-        if let Err(e) = write(&path, &os.flake) {
+        if let Err(e) = write(&path, flake) {
             return HttpResponse::InternalServerError().json(ResponseError::new(format!(
                 "Error writing OS flake to {}: {}",
                 path.display(),
@@ -95,22 +81,41 @@ async fn set(user: Identity, os: web::Json<OSConfiguration>) -> impl Responder {
             )));
         }
     }
-    {
-        let path = path.join("xnode-owner");
-        if let Err(e) = write(&path, &os.owner) {
-            return HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                "Error writing xnode owner to {}: {}",
-                path.display(),
-                e
-            )));
+    if let Some(update_inputs) = &os.update_inputs {
+        let mut base_cmd = Command::new("nix");
+        base_cmd.arg("flake").arg("update");
+        for input in update_inputs {
+            base_cmd.arg(input);
+        }
+        base_cmd.arg("--flake").arg(&osdir);
+        if let Some(err) = command_output_errors(base_cmd.output()) {
+            match err {
+                CommandOutputError::OutputErrorRaw(output) => {
+                    return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                        "Error updating OS flake: Output could not be decoded: {:?}",
+                        output,
+                    )));
+                }
+                CommandOutputError::OutputError(output) => {
+                    return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                        "Error updating OS flake: {}",
+                        output,
+                    )));
+                }
+                CommandOutputError::CommandError(e) => {
+                    return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                        "Error updating OS flake: {}",
+                        e,
+                    )));
+                }
+            };
         }
     }
 
     let command = Command::new("nixos-rebuild")
         .arg("switch")
-        .arg("--recreate-lock-file")
         .arg("--flake")
-        .arg(format!("{}#xnode", osdir))
+        .arg(format!("{}#xnode", &osdir))
         .output();
     if let Some(err) = command_output_errors(command) {
         match err {

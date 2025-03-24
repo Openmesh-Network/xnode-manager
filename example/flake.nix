@@ -1,10 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    xnode-manager = {
-      url = "github:Openmesh-Network/xnode-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    xnode-manager.url = "github:Openmesh-Network/xnode-manager";
   };
 
   outputs =

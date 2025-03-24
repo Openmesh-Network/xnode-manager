@@ -40,7 +40,7 @@
               };
 
               # Combine all data disks to store container data
-              fileSystems."/var/lib/nixos-containers" = {
+              fileSystems."/data" = {
                 fsType = "fuse.mergerfs";
                 device = "/mnt/disk*";
                 depends = [ "/mnt" ];
@@ -49,6 +49,11 @@
                   "category.create=mfs"
                   "dropcacheonclose=false"
                 ];
+              };
+
+              fileSystems."/var/lib/nixos-containers" = {
+                device = "/data/var/lib/nixos-containers";
+                options = [ "bind" ];
               };
 
               nix = {
