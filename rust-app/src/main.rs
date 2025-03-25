@@ -4,7 +4,10 @@ use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
-use utils::env::{authdir, backupdir, containerdir, datadir, hostname, osdir, port};
+use utils::env::{
+    authdir, backupdir, buildcores, containerdir, datadir, e2fsprogs, hostname, nix, osdir, owner,
+    port, systemd,
+};
 
 mod auth;
 mod config;
@@ -54,6 +57,21 @@ async fn main() -> std::io::Result<()> {
             log::error!("Could not create backup dir at {}: {}", dir.display(), e)
         })?;
     }
+
+    // Log env for debugging
+    log::info!("Using env:");
+    log::info!("HOSTNAME {}", hostname());
+    log::info!("PORT {}", port());
+    log::info!("OWNER {}", owner());
+    log::info!("DATADIR {}", datadir().display());
+    log::info!("OSDIR {}", osdir());
+    log::info!("AUTHDIR {}", authdir().display());
+    log::info!("CONTAINERDIR {}", containerdir().display());
+    log::info!("BACKUPDIR {}", backupdir().display());
+    log::info!("BUILDCORES {}", buildcores());
+    log::info!("NIX {}", nix());
+    log::info!("SYSTEMD {}", systemd());
+    log::info!("E2FSPROGS {}", e2fsprogs());
 
     // Start server
     HttpServer::new(move || {

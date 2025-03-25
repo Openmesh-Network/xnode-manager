@@ -5,7 +5,7 @@ use std::{
 };
 
 use actix_identity::Identity;
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpResponse, Responder};
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-#[post("/get")]
+#[get("/get")]
 async fn get(user: Identity) -> impl Responder {
     if !has_permission(user, Scope::OS) {
         return HttpResponse::Unauthorized().finish();
@@ -71,6 +71,7 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
     log::info!("Performing OS update: {:?}", os);
     let osdir = osdir();
     let path = Path::new(&osdir);
+
     if let Some(flake) = &os.flake {
         let path = path.join("flake.nix");
         if let Err(e) = write(&path, flake) {
@@ -81,13 +82,14 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
             )));
         }
     }
+
     if let Some(update_inputs) = &os.update_inputs {
         let mut base_cmd = Command::new("nix");
         base_cmd.arg("flake").arg("update");
         for input in update_inputs {
             base_cmd.arg(input);
         }
-        base_cmd.arg("--flake").arg(&osdir);
+        base_cmd.arg("--flake").arg(path);
         if let Some(err) = command_output_errors(base_cmd.output()) {
             match err {
                 CommandOutputError::OutputErrorRaw(output) => {
@@ -115,7 +117,7 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
     let command = Command::new("nixos-rebuild")
         .arg("switch")
         .arg("--flake")
-        .arg(format!("{}#xnode", &osdir))
+        .arg(path)
         .output();
     if let Some(err) = command_output_errors(command) {
         match err {

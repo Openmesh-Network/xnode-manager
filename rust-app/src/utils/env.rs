@@ -34,7 +34,7 @@ pub fn datadir() -> PathBuf {
 }
 
 pub fn osdir() -> String {
-    env_var("DATADIR").unwrap_or(String::from("/etc/nixos"))
+    env_var("OSDIR").unwrap_or(String::from("/etc/nixos"))
 }
 
 pub fn authdir() -> PathBuf {
