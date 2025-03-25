@@ -197,8 +197,12 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
         ContainerCommand::FlakeUpdate { flake, ref inputs } => {
             command_name = "flake updating";
 
-            let mut cli_command = Command::new("nix");
-            cli_command.arg("flake").arg("update").arg(container_id);
+            let mut cli_command = Command::new(format!("{}nix", nix()));
+            cli_command
+                .env("NIX_REMOTE", "daemon")
+                .arg("flake")
+                .arg("update")
+                .arg(container_id);
             for input in inputs {
                 cli_command.arg(input);
             }

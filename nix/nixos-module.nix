@@ -112,6 +112,15 @@ in
         '';
       };
 
+      nixos-rebuild = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.nixos-rebuild;
+        example = pkgs.nixos-rebuild;
+        description = ''
+          nixos-rebuild equivalent executable to use for OS config switching.
+        '';
+      };
+
       systemd = lib.mkOption {
         type = lib.types.package;
         default = pkgs.systemd;
@@ -140,6 +149,7 @@ in
         BACKUPDIR = cfg.backupDir;
         BUILDCORES = toString cfg.buildCores;
         NIX = "${cfg.nix}/bin/";
+        NIXOSREBUILD = "${cfg.nixos-rebuild}/bin/";
         SYSTEMD = "${cfg.systemd}/bin/";
         E2FSPROGS = "${pkgs.e2fsprogs}/bin/";
       };

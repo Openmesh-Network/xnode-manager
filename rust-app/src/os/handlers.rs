@@ -12,7 +12,7 @@ use crate::{
     os::models::{OSChange, OSConfiguration},
     utils::{
         command::{execute_command, CommandOutputError},
-        env::osdir,
+        env::{nix, nixosrebuild, osdir},
         error::ResponseError,
     },
 };
@@ -84,8 +84,11 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
     }
 
     if let Some(update_inputs) = &os.update_inputs {
-        let mut command = Command::new("nix");
-        command.arg("flake").arg("update");
+        let mut command = Command::new(format!("{}nix", nix()));
+        command
+            .env("NIX_REMOTE", "daemon")
+            .arg("flake")
+            .arg("update");
         for input in update_inputs {
             command.arg(input);
         }
@@ -114,8 +117,12 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
         }
     }
 
-    let mut command = Command::new("nixos-rebuild");
-    command.arg("switch").arg("--flake").arg(path);
+    let mut command = Command::new(format!("{}nixos-rebuild", nixosrebuild()));
+    command
+        .env("NIX_REMOTE", "daemon")
+        .arg("switch")
+        .arg("--flake")
+        .arg(path);
     if let Some(err) = execute_command(command) {
         match err {
             CommandOutputError::OutputErrorRaw(output) => {

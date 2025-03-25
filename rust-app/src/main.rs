@@ -5,8 +5,8 @@ use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
 use utils::env::{
-    authdir, backupdir, buildcores, containerdir, datadir, e2fsprogs, hostname, nix, osdir, owner,
-    port, systemd,
+    authdir, backupdir, buildcores, containerdir, datadir, e2fsprogs, hostname, nix, nixosrebuild,
+    osdir, owner, port, systemd,
 };
 
 mod auth;
@@ -70,6 +70,7 @@ async fn main() -> std::io::Result<()> {
     log::info!("BACKUPDIR {}", backupdir().display());
     log::info!("BUILDCORES {}", buildcores());
     log::info!("NIX {}", nix());
+    log::info!("NIXOSREBUILD {}", nixosrebuild());
     log::info!("SYSTEMD {}", systemd());
     log::info!("E2FSPROGS {}", e2fsprogs());
 
