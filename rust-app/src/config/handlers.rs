@@ -51,15 +51,43 @@ async fn container(user: Identity, path: Path<String>) -> impl Responder {
     }
 
     let container_id = path.into_inner();
-    let path = containerdir().join(container_id).join("flake.nix");
-    match read_to_string(&path) {
-        Ok(file) => HttpResponse::Ok().json(ContainerConfiguration { flake: file }),
-        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
-            "Could not read container file {}: {}",
-            path.display(),
-            e
-        ))),
+    let path = containerdir().join(container_id);
+
+    let flake: String;
+    let flake_lock: String;
+
+    {
+        let path = path.join("flake.nix");
+        match read_to_string(&path) {
+            Ok(file) => {
+                flake = file;
+            }
+            Err(e) => {
+                return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                    "Could not read container flake config {}: {}",
+                    path.display(),
+                    e
+                )));
+            }
+        }
     }
+    {
+        let path = path.join("flake.lock");
+        match read_to_string(&path) {
+            Ok(file) => {
+                flake_lock = file;
+            }
+            Err(e) => {
+                return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                    "Could not read container flake lock {}: {}",
+                    path.display(),
+                    e
+                )));
+            }
+        }
+    }
+
+    HttpResponse::Ok().json(ContainerConfiguration { flake, flake_lock })
 }
 
 #[post("/change")]
@@ -73,7 +101,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
         match action {
             ConfigurationAction::Set {
                 container: container_id,
-                config,
+                settings,
             } => {
                 let path = containerdir().join(&container_id);
                 if let Err(e) = create_dir_all(&path) {
@@ -87,7 +115,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
 
                 {
                     let path = path.join("flake.nix");
-                    if let Err(e) = write(&path, config.flake) {
+                    if let Err(e) = write(&path, settings.flake) {
                         return HttpResponse::InternalServerError().json(ResponseError::new(
                             format!(
                                 "Error writing container flake config {}: {}",
@@ -201,8 +229,7 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
             cli_command
                 .env("NIX_REMOTE", "daemon")
                 .arg("flake")
-                .arg("update")
-                .arg(container_id);
+                .arg("update");
             for input in inputs {
                 cli_command.arg(input);
             }
