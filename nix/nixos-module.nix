@@ -158,6 +158,7 @@ in
         User = "root";
         Group = "root";
         CacheDirectory = "rust-app";
+        Restart = "on-failure";
       };
     };
 
