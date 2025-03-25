@@ -14,7 +14,7 @@ use actix_web::{
 use crate::{
     auth::{models::Scope, utils::has_permission},
     utils::{
-        command::{command_output_errors, CommandOutputError},
+        command::{execute_command, CommandOutputError},
         env::{buildcores, containerdir, e2fsprogs, nix, systemd},
         error::ResponseError,
     },
@@ -160,7 +160,7 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
     log::info!("Performing {:?} on container {}", command, container_id);
     let command_name: &str;
 
-    let command_cli = match command {
+    let cli_command = match command {
         ContainerCommand::Create { flake } => {
             command_name = "creating";
             let system: PathBuf = match build_config(flake) {
@@ -179,32 +179,36 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
                 return Some(e);
             }
 
-            Command::new(format!("{}systemctl", systemd()))
+            let mut cli_command = Command::new(format!("{}systemctl", systemd()));
+            cli_command
                 .arg("reload-or-restart")
-                .arg(format!("container@{}", container_id))
-                .output()
+                .arg(format!("container@{}", container_id));
+
+            cli_command
         }
         ContainerCommand::Destroy => {
             command_name = "destroying";
 
-            Command::new(format!("{}machinectl", systemd()))
-                .arg("terminate")
-                .arg(container_id)
-                .output()
+            let mut cli_command = Command::new(format!("{}machinectl", systemd()));
+            cli_command.arg("terminate").arg(container_id);
+
+            cli_command
         }
         ContainerCommand::FlakeUpdate { flake, ref inputs } => {
             command_name = "flake updating";
 
-            let mut base_cmd = Command::new("nix");
-            base_cmd.arg("flake").arg("update").arg(container_id);
+            let mut cli_command = Command::new("nix");
+            cli_command.arg("flake").arg("update").arg(container_id);
             for input in inputs {
-                base_cmd.arg(input);
+                cli_command.arg(input);
             }
-            base_cmd.arg("--flake").arg(flake).output()
+            cli_command.arg("--flake").arg(flake);
+
+            cli_command
         }
     };
 
-    if let Some(err) = command_output_errors(command_cli) {
+    if let Some(err) = execute_command(cli_command) {
         match err {
             CommandOutputError::OutputErrorRaw(output) => {
                 return Some(HttpResponse::InternalServerError().json(ResponseError::new(
@@ -257,7 +261,9 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
 
 fn build_config(flake: &path::Path) -> Result<PathBuf, HttpResponse> {
     let build_folder = flake.join("build");
-    let command_cli = Command::new(format!("{}nix", nix()))
+
+    let mut cli_command = Command::new(format!("{}nix", nix()));
+    cli_command
         .env("NIX_REMOTE", "daemon")
         .env("NIX_BUILD_CORES", buildcores().to_string())
         .arg("build")
@@ -266,10 +272,9 @@ fn build_config(flake: &path::Path) -> Result<PathBuf, HttpResponse> {
         .arg(format!(
             "{}#nixosConfigurations.container.config.system.build.toplevel",
             flake.to_string_lossy()
-        ))
-        .output();
+        ));
 
-    if let Some(err) = command_output_errors(command_cli) {
+    if let Some(err) = execute_command(cli_command) {
         match err {
             CommandOutputError::OutputErrorRaw(output) => {
                 return Err(
@@ -321,15 +326,15 @@ fn create_profile(container_id: &str, system: PathBuf) -> Option<HttpResponse> {
         );
     }
 
-    let command_cli = Command::new(format!("{}nix-env", nix()))
+    let mut cli_command = Command::new(format!("{}nix-env", nix()));
+    cli_command
         .env("NIX_REMOTE", "daemon")
         .arg("-p")
         .arg(container_profile.join("system"))
         .arg("--set")
-        .arg(&system)
-        .output();
+        .arg(&system);
 
-    if let Some(err) = command_output_errors(command_cli) {
+    if let Some(err) = execute_command(cli_command) {
         match err {
             CommandOutputError::OutputErrorRaw(output) => {
                 return Some(HttpResponse::InternalServerError().json(ResponseError::new(
@@ -404,11 +409,12 @@ fn delete_state_dir(container_id: &str) -> Option<HttpResponse> {
     let state_dir = state_root().join(container_id);
 
     // /var/empty is immutable, preventing deletion
-    let command_cli = Command::new(format!("{}chattr", e2fsprogs()))
+    let mut cli_command = Command::new(format!("{}chattr", e2fsprogs()));
+    cli_command
         .arg("-i")
-        .arg(state_dir.join("var").join("empty"))
-        .output();
-    if let Some(err) = command_output_errors(command_cli) {
+        .arg(state_dir.join("var").join("empty"));
+
+    if let Some(err) = execute_command(cli_command) {
         match err {
             CommandOutputError::OutputErrorRaw(output) => {
                 return Some(HttpResponse::InternalServerError().json(ResponseError::new(

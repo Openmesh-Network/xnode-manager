@@ -1,15 +1,14 @@
-use std::{
-    io::{Error, Result},
-    process::Output,
-};
+use std::{io::Error, process::Command};
 
 pub enum CommandOutputError {
     OutputErrorRaw(Vec<u8>),
     OutputError(String),
     CommandError(Error),
 }
-pub fn command_output_errors(output: Result<Output>) -> Option<CommandOutputError> {
-    match output {
+pub fn execute_command(mut command: Command) -> Option<CommandOutputError> {
+    log::info!("Executing command: {:?}", command);
+
+    match command.output() {
         Ok(output_raw) => {
             let output = output_raw.stderr;
             if !output_raw.status.success() {
