@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 pub struct OSChange {
     pub flake: Option<String>,
     pub update_inputs: Option<Vec<String>>,
+    // Required if the system rebuild wants to restart this application
+    pub as_child: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

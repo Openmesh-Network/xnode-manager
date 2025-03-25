@@ -123,27 +123,39 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
         .arg("switch")
         .arg("--flake")
         .arg(path);
-    if let Some(err) = execute_command(command) {
-        match err {
-            CommandOutputError::OutputErrorRaw(output) => {
+    match os.as_child {
+        true => {
+            if let Err(e) = command.spawn() {
                 return HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error switching to new OS config: Output could not be decoded: {:?}",
-                    output,
-                )));
-            }
-            CommandOutputError::OutputError(output) => {
-                return HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error switching to new OS config: {}",
-                    output,
-                )));
-            }
-            CommandOutputError::CommandError(e) => {
-                return HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error switching to new OS config: {}",
+                    "Error spawning OS switch command child: {}",
                     e,
                 )));
             }
-        };
+        }
+        false => {
+            if let Some(err) = execute_command(command) {
+                match err {
+                    CommandOutputError::OutputErrorRaw(output) => {
+                        return HttpResponse::InternalServerError().json(ResponseError::new(
+                            format!(
+                            "Error switching to new OS config: Output could not be decoded: {:?}",
+                            output,
+                        ),
+                        ));
+                    }
+                    CommandOutputError::OutputError(output) => {
+                        return HttpResponse::InternalServerError().json(ResponseError::new(
+                            format!("Error switching to new OS config: {}", output,),
+                        ));
+                    }
+                    CommandOutputError::CommandError(e) => {
+                        return HttpResponse::InternalServerError().json(ResponseError::new(
+                            format!("Error switching to new OS config: {}", e,),
+                        ));
+                    }
+                };
+            }
+        }
     }
 
     HttpResponse::Ok().finish()
