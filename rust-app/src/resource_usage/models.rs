@@ -1,4 +1,19 @@
+use std::sync::Mutex;
+
 use serde::{Deserialize, Serialize};
+use sysinfo::System;
+
+pub struct AppData {
+    pub system: Mutex<System>,
+}
+
+impl Default for AppData {
+    fn default() -> Self {
+        AppData {
+            system: Mutex::new(System::new()),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct CpuUsage {

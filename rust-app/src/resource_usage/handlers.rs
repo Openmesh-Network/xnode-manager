@@ -1,17 +1,33 @@
 use actix_identity::Identity;
-use actix_web::{get, HttpResponse, Responder};
-use sysinfo::{Disks, System};
+use actix_web::{get, web, HttpResponse, Responder};
+use sysinfo::Disks;
 
 use super::models::{CpuUsage, DiskUsage, MemoryUsage};
-use crate::auth::{models::Scope, utils::has_permission};
+use crate::{
+    auth::{models::Scope, utils::has_permission},
+    resource_usage::models::AppData,
+    utils::error::ResponseError,
+};
 
 #[get("/cpu")]
-async fn cpu(user: Identity) -> impl Responder {
+async fn cpu(user: Identity, data: web::Data<AppData>) -> impl Responder {
     if !has_permission(user, Scope::ResourceUsage) {
         return HttpResponse::Unauthorized().finish();
     }
 
-    let mut sys = System::new();
+    let mut sys;
+    match data.system.lock() {
+        Ok(system) => {
+            sys = system;
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                "Error getting system info: {}",
+                e
+            )))
+        }
+    }
+
     sys.refresh_cpu_all();
     let response: Vec<CpuUsage> = sys
         .cpus()
@@ -26,12 +42,24 @@ async fn cpu(user: Identity) -> impl Responder {
 }
 
 #[get("/memory")]
-async fn memory(user: Identity) -> impl Responder {
+async fn memory(user: Identity, data: web::Data<AppData>) -> impl Responder {
     if !has_permission(user, Scope::ResourceUsage) {
         return HttpResponse::Unauthorized().finish();
     }
 
-    let mut sys = System::new();
+    let mut sys;
+    match data.system.lock() {
+        Ok(system) => {
+            sys = system;
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                "Error getting system info: {}",
+                e
+            )))
+        }
+    }
+
     sys.refresh_memory();
     let response: MemoryUsage = MemoryUsage {
         used: sys.used_memory(),
