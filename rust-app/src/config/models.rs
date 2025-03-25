@@ -15,14 +15,11 @@ pub struct ContainerSettings {
 pub enum ConfigurationAction {
     Set {
         container: String,
-        settings: ContainerSettings,
+        settings: Option<ContainerSettings>,
+        update_inputs: Option<Vec<String>>,
     },
     Remove {
         container: String,
         backup: bool,
-    },
-    Update {
-        container: String,
-        inputs: Vec<String>,
     },
 }

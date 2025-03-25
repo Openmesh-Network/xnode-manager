@@ -102,6 +102,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
             ConfigurationAction::Set {
                 container: container_id,
                 settings,
+                update_inputs,
             } => {
                 let path = containerdir().join(&container_id);
                 if let Err(e) = create_dir_all(&path) {
@@ -113,7 +114,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                 }
                 log::info!("Created container dir {}", path.display());
 
-                {
+                if let Some(settings) = settings {
                     let path = path.join("flake.nix");
                     if let Err(e) = write(&path, settings.flake) {
                         return HttpResponse::InternalServerError().json(ResponseError::new(
@@ -125,6 +126,18 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                         ));
                     }
                     log::info!("Created container flake {}", path.display());
+                }
+
+                if let Some(update_inputs) = update_inputs {
+                    if let Some(response) = container_command(
+                        &container_id,
+                        ContainerCommand::FlakeUpdate {
+                            flake: &path,
+                            inputs: update_inputs,
+                        },
+                    ) {
+                        return response;
+                    }
                 }
 
                 if let Some(response) =
@@ -152,21 +165,6 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                 }
                 log::info!("Deleted container dir {}", path.display());
             }
-            ConfigurationAction::Update {
-                container: container_id,
-                inputs,
-            } => {
-                let path = containerdir().join(&container_id);
-                if let Some(response) = container_command(
-                    &container_id,
-                    ContainerCommand::FlakeUpdate {
-                        flake: &path,
-                        inputs,
-                    },
-                ) {
-                    return response;
-                }
-            }
         }
     }
 
@@ -184,6 +182,7 @@ enum ContainerCommand<'a> {
         inputs: Vec<String>,
     },
 }
+/// Performs a single CLI (std::process) command
 fn container_command(container_id: &String, command: ContainerCommand) -> Option<HttpResponse> {
     log::info!("Performing {:?} on container {}", command, container_id);
     let command_name: &str;
@@ -268,23 +267,17 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
         };
     }
 
-    match command {
-        ContainerCommand::Destroy => {
-            if let Some(e) = delete_profile(container_id) {
-                return Some(e);
-            }
-            if let Some(e) = delete_state_dir(container_id) {
-                return Some(e);
-            }
-            if let Some(e) = delete_conf_file(container_id) {
-                return Some(e);
-            }
+    // Post command execution actions
+    if command == ContainerCommand::Destroy {
+        if let Some(e) = delete_profile(container_id) {
+            return Some(e);
         }
-        ContainerCommand::FlakeUpdate { flake, inputs: _ } => {
-            // Update container after flake update
-            return container_command(container_id, ContainerCommand::Create { flake });
+        if let Some(e) = delete_state_dir(container_id) {
+            return Some(e);
         }
-        _ => {}
+        if let Some(e) = delete_conf_file(container_id) {
+            return Some(e);
+        }
     }
 
     None
