@@ -238,13 +238,13 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
         }
     };
 
-    if let Some(err) = execute_command(cli_command) {
+    if let Err(err) = execute_command(cli_command) {
         match err {
-            CommandOutputError::OutputErrorRaw(output) => {
+            CommandOutputError::OutputErrorRaw(output, e) => {
                 return Some(HttpResponse::InternalServerError().json(ResponseError::new(
                     format!(
-                        "Error {} nixos container {}: Output could not be decoded: {:?}",
-                        command_name, container_id, output,
+                        "Error {} nixos container {}: Output could not be decoded: {}. Output: {:?}",
+                        command_name, container_id, e, output,
                     ),
                 )));
             }
@@ -298,13 +298,14 @@ fn build_config(flake: &path::Path) -> Result<PathBuf, HttpResponse> {
             flake.to_string_lossy()
         ));
 
-    if let Some(err) = execute_command(cli_command) {
+    if let Err(err) = execute_command(cli_command) {
         match err {
-            CommandOutputError::OutputErrorRaw(output) => {
+            CommandOutputError::OutputErrorRaw(output, e) => {
                 return Err(
                     HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                        "Error building configuration {}: Output could not be decoded: {:?}",
+                        "Error building configuration {}: Output could not be decoded: {}. Output: {:?}",
                         flake.display(),
+                        e,
                         output,
                     ))),
                 );
@@ -358,14 +359,15 @@ fn create_profile(container_id: &str, system: PathBuf) -> Option<HttpResponse> {
         .arg("--set")
         .arg(&system);
 
-    if let Some(err) = execute_command(cli_command) {
+    if let Err(err) = execute_command(cli_command) {
         match err {
-            CommandOutputError::OutputErrorRaw(output) => {
+            CommandOutputError::OutputErrorRaw(output, e) => {
                 return Some(HttpResponse::InternalServerError().json(ResponseError::new(
                     format!(
-                        "Error setting configuration {} for profile {}: Output could not be decoded: {:?}",
+                        "Error setting configuration {} for profile {}: Output could not be decoded: {}. Output: {:?}",
                         system.display(),
                         container_profile.display(),
+                        e,
                         output,
                     ),
                 )));
@@ -438,13 +440,14 @@ fn delete_state_dir(container_id: &str) -> Option<HttpResponse> {
         .arg("-i")
         .arg(state_dir.join("var").join("empty"));
 
-    if let Some(err) = execute_command(cli_command) {
+    if let Err(err) = execute_command(cli_command) {
         match err {
-            CommandOutputError::OutputErrorRaw(output) => {
+            CommandOutputError::OutputErrorRaw(output, e) => {
                 return Some(HttpResponse::InternalServerError().json(ResponseError::new(
                     format!(
-                        "Error making {} mutable: Output could not be decoded: {:?}",
+                        "Error making {} mutable: Output could not be decoded: {}. Output: {:?}",
                         state_dir.display(),
+                        e,
                         output,
                     ),
                 )));

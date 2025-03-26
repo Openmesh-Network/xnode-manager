@@ -87,6 +87,8 @@
               users.mutableUsers = false;
               users.allowNoPasswordLogin = true;
 
+              networking.firewall.enable = false;
+
               networking.hostName = "xnode";
 
               system.stateVersion = "24.11";

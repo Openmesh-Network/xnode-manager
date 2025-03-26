@@ -93,12 +93,12 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
             command.arg(input);
         }
         command.arg("--flake").arg(path);
-        if let Some(err) = execute_command(command) {
+        if let Err(err) = execute_command(command) {
             match err {
-                CommandOutputError::OutputErrorRaw(output) => {
+                CommandOutputError::OutputErrorRaw(output, e) => {
                     return HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                        "Error updating OS flake: Output could not be decoded: {:?}",
-                        output,
+                        "Error updating OS flake: Output could not be decoded: {}. Output: {:?}",
+                        e, output,
                     )));
                 }
                 CommandOutputError::OutputError(output) => {
@@ -133,12 +133,13 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
             }
         }
         false => {
-            if let Some(err) = execute_command(command) {
+            if let Err(err) = execute_command(command) {
                 match err {
-                    CommandOutputError::OutputErrorRaw(output) => {
+                    CommandOutputError::OutputErrorRaw(output, e) => {
                         return HttpResponse::InternalServerError().json(ResponseError::new(
                             format!(
-                            "Error switching to new OS config: Output could not be decoded: {:?}",
+                            "Error switching to new OS config: Output could not be decoded: {}. Output: {:?}",
+                            e,
                             output,
                         ),
                         ));

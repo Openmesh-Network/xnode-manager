@@ -25,4 +25,4 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Upload derivation to Cachix
-        run: nix build | cachix push openmesh
+        run: nix build --accept-flake-config | cachix push openmesh

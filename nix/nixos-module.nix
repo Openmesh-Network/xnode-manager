@@ -162,8 +162,6 @@ in
       };
     };
 
-    networking.firewall.enable = false;
-
     systemd.services."start-all-containers" = {
       wantedBy = [ "network.target" ];
       description = "Start all NixOS containers on this host";
