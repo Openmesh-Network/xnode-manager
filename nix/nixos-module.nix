@@ -76,13 +76,42 @@ in
         '';
       };
 
-      containerDir = lib.mkOption {
-        type = lib.types.path;
-        default = "${cfg.dataDir}/containers";
-        example = "/var/lib/xnode-manager/containers";
-        description = ''
-          The directory to store container configurations.
-        '';
+      container = {
+        settings = lib.mkOption {
+          type = lib.types.path;
+          default = "${cfg.dataDir}/containers";
+          example = "/var/lib/xnode-manager/containers";
+          description = ''
+            The directory to store container settings.
+          '';
+        };
+
+        state = lib.mkOption {
+          type = lib.types.path;
+          default = "/var/lib/nixos-containers";
+          example = "/var/lib/nixos-containers";
+          description = ''
+            The directory to store container files.
+          '';
+        };
+
+        profile = lib.mkOption {
+          type = lib.types.path;
+          default = "/nix/var/nix/profiles/per-container";
+          example = "/nix/var/nix/profiles/per-container";
+          description = ''
+            The directory to store the container nix profile.
+          '';
+        };
+
+        config = lib.mkOption {
+          type = lib.types.path;
+          default = "/etc/nixos-containers";
+          example = "/etc/nixos-containers";
+          description = ''
+            The directory to store the container systemd config.
+          '';
+        };
       };
 
       backupDir = lib.mkOption {
@@ -145,7 +174,10 @@ in
         DATADIR = cfg.dataDir;
         OSDIR = cfg.osDir;
         AUTHDIR = cfg.authDir;
-        CONTAINERDIR = cfg.containerDir;
+        CONTAINERSETTINGS = cfg.container.settings;
+        CONTAINERSTATE = cfg.container.state;
+        CONTAINERPROFILE = cfg.container.profile;
+        CONTAINERCONFIG = cfg.container.config;
         BACKUPDIR = cfg.backupDir;
         BUILDCORES = toString cfg.buildCores;
         NIX = "${cfg.nix}/bin/";

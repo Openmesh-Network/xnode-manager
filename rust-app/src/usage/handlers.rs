@@ -5,13 +5,13 @@ use sysinfo::Disks;
 use super::models::{CpuUsage, DiskUsage, MemoryUsage};
 use crate::{
     auth::{models::Scope, utils::has_permission},
-    resource_usage::models::AppData,
+    usage::models::AppData,
     utils::error::ResponseError,
 };
 
 #[get("/cpu")]
 async fn cpu(user: Identity, data: web::Data<AppData>) -> impl Responder {
-    if !has_permission(user, Scope::ResourceUsage) {
+    if !has_permission(user, Scope::Usage) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -43,7 +43,7 @@ async fn cpu(user: Identity, data: web::Data<AppData>) -> impl Responder {
 
 #[get("/memory")]
 async fn memory(user: Identity, data: web::Data<AppData>) -> impl Responder {
-    if !has_permission(user, Scope::ResourceUsage) {
+    if !has_permission(user, Scope::Usage) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -70,7 +70,7 @@ async fn memory(user: Identity, data: web::Data<AppData>) -> impl Responder {
 
 #[get("/disk")]
 async fn disk(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::ResourceUsage) {
+    if !has_permission(user, Scope::Usage) {
         return HttpResponse::Unauthorized().finish();
     }
 

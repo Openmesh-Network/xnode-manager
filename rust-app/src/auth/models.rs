@@ -2,10 +2,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Scope {
-    Processes,
-    ResourceUsage,
-    OS,
     Config,
+    OS,
+    File,
+    Process,
+    Usage,
 }
 
 #[derive(Serialize, Deserialize)]

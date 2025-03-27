@@ -15,7 +15,10 @@ use crate::{
     auth::{models::Scope, utils::has_permission},
     utils::{
         command::{execute_command, CommandOutputError},
-        env::{buildcores, containerdir, e2fsprogs, nix, systemd},
+        env::{
+            buildcores, containerconfig, containerprofile, containersettings, containerstate,
+            e2fsprogs, nix, systemd,
+        },
         error::ResponseError,
     },
 };
@@ -28,7 +31,7 @@ async fn containers(user: Identity) -> impl Responder {
         return HttpResponse::Unauthorized().finish();
     }
 
-    let path = containerdir();
+    let path = containersettings();
     match read_dir(&path) {
         Ok(dir) => {
             let response: Vec<String> = dir
@@ -51,7 +54,7 @@ async fn container(user: Identity, path: Path<String>) -> impl Responder {
     }
 
     let container_id = path.into_inner();
-    let path = containerdir().join(container_id);
+    let path = containersettings().join(container_id);
 
     let flake: String;
     let flake_lock: String;
@@ -104,7 +107,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                 settings,
                 update_inputs,
             } => {
-                let path = containerdir().join(&container_id);
+                let path = containersettings().join(&container_id);
                 if let Err(e) = create_dir_all(&path) {
                     return HttpResponse::InternalServerError().json(ResponseError::new(format!(
                         "Error creating container folder {}: {}",
@@ -155,7 +158,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                     return response;
                 }
 
-                let path = containerdir().join(&container_id);
+                let path = containersettings().join(&container_id);
                 if let Err(e) = remove_dir_all(&path) {
                     return HttpResponse::InternalServerError().json(ResponseError::new(format!(
                         "Error deleting container folder config {}: {}",
@@ -334,11 +337,8 @@ fn build_config(flake: &path::Path) -> Result<PathBuf, HttpResponse> {
     Ok(build_folder)
 }
 
-fn profile_root() -> PathBuf {
-    path::Path::new("/nix/var/nix/profiles/per-container").to_path_buf()
-}
 fn create_profile(container_id: &str, system: PathBuf) -> Option<HttpResponse> {
-    let container_profile = profile_root().join(container_id);
+    let container_profile = containerprofile().join(container_id);
     log::info!("Creating profile {}", container_profile.display());
 
     if let Err(e) = create_dir_all(&container_profile) {
@@ -398,7 +398,7 @@ fn create_profile(container_id: &str, system: PathBuf) -> Option<HttpResponse> {
     None
 }
 fn delete_profile(container_id: &str) -> Option<HttpResponse> {
-    let container_profile = profile_root().join(container_id);
+    let container_profile = containerprofile().join(container_id);
     if let Err(e) = remove_dir_all(&container_profile) {
         return Some(
             HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -412,11 +412,8 @@ fn delete_profile(container_id: &str) -> Option<HttpResponse> {
     None
 }
 
-fn state_root() -> PathBuf {
-    path::Path::new("/var/lib/nixos-containers").to_path_buf()
-}
 fn create_state_dir(container_id: &str) -> Option<HttpResponse> {
-    let state_dir = state_root().join(container_id);
+    let state_dir = containerstate().join(container_id);
     log::info!("Creating state dir {}", state_dir.display());
 
     if let Err(e) = create_dir_all(&state_dir) {
@@ -432,7 +429,7 @@ fn create_state_dir(container_id: &str) -> Option<HttpResponse> {
     None
 }
 fn delete_state_dir(container_id: &str) -> Option<HttpResponse> {
-    let state_dir = state_root().join(container_id);
+    let state_dir = containerstate().join(container_id);
 
     // /var/empty is immutable, preventing deletion
     let mut cli_command = Command::new(format!("{}chattr", e2fsprogs()));
@@ -481,11 +478,8 @@ fn delete_state_dir(container_id: &str) -> Option<HttpResponse> {
     None
 }
 
-fn conf_root() -> PathBuf {
-    path::Path::new("/etc/nixos-containers").to_path_buf()
-}
 fn create_conf_file(container_id: &str) -> Option<HttpResponse> {
-    let conf_file = conf_root().join(format!("{}.conf", container_id));
+    let conf_file = containerconfig().join(format!("{}.conf", container_id));
     log::info!("Creating conf file {}", conf_file.display());
 
     if let Err(e) = write(
@@ -511,7 +505,7 @@ AUTO_START=0
     None
 }
 fn delete_conf_file(container_id: &str) -> Option<HttpResponse> {
-    let conf_file = conf_root().join(format!("{}.conf", container_id));
+    let conf_file = containerconfig().join(format!("{}.conf", container_id));
     if let Err(e) = remove_file(&conf_file) {
         return Some(
             HttpResponse::InternalServerError().json(ResponseError::new(format!(

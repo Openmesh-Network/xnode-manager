@@ -9,7 +9,7 @@ use actix_web::{
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
-    processes::models::{LogMessage, LogQuery},
+    process::models::{LogMessage, LogQuery},
     utils::{
         command::{execute_command, CommandOutput, CommandOutputError},
         env::systemd,
@@ -23,7 +23,7 @@ use super::models::{
 
 #[get("/list/{container}")]
 async fn list(user: Identity, path: Path<String>) -> impl Responder {
-    if !has_permission(user, Scope::Processes) {
+    if !has_permission(user, Scope::Process) {
         return HttpResponse::Unauthorized().finish();
     }
 
@@ -97,7 +97,7 @@ async fn logs(
     path: Path<(String, String)>,
     query: Query<LogQuery>,
 ) -> impl Responder {
-    if !has_permission(user, Scope::Processes) {
+    if !has_permission(user, Scope::Process) {
         return HttpResponse::Unauthorized().finish();
     }
 

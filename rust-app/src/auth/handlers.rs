@@ -22,7 +22,7 @@ async fn login(login: web::Json<Login>, request: HttpRequest) -> impl Responder 
     let user: String;
     match login.login_method {
         LoginMethod::WalletSignature { v, r, s } => {
-            let message = String::from("Create Xnode Manager session");
+            let message = "Create Xnode Manager session".to_string();
             let message_bytes = hash_message(&message);
             match (Signature { v, r, s }).recover(&message_bytes) {
                 Ok(pubkey) => {

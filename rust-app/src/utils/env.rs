@@ -14,17 +14,17 @@ fn env_var(id: &str) -> Option<String> {
 }
 
 pub fn hostname() -> String {
-    env_var("HOSTNAME").unwrap_or(String::from("0.0.0.0"))
+    env_var("HOSTNAME").unwrap_or("0.0.0.0".to_string())
 }
 
 pub fn port() -> String {
-    env_var("PORT").unwrap_or(String::from("34391"))
+    env_var("PORT").unwrap_or("34391".to_string())
 }
 
 pub fn owner() -> String {
     env_var("OWNER")
         .map(|s| s.to_ascii_lowercase())
-        .unwrap_or(String::from("eth:0000000000000000000000000000000000000000"))
+        .unwrap_or("eth:0000000000000000000000000000000000000000".to_string())
 }
 
 pub fn datadir() -> PathBuf {
@@ -34,7 +34,7 @@ pub fn datadir() -> PathBuf {
 }
 
 pub fn osdir() -> String {
-    env_var("OSDIR").unwrap_or(String::from("/etc/nixos"))
+    env_var("OSDIR").unwrap_or("/etc/nixos".to_string())
 }
 
 pub fn authdir() -> PathBuf {
@@ -43,10 +43,28 @@ pub fn authdir() -> PathBuf {
         .unwrap_or(Path::new(&datadir()).join("auth"))
 }
 
-pub fn containerdir() -> PathBuf {
-    env_var("CONTAINERDIR")
+pub fn containersettings() -> PathBuf {
+    env_var("CONTAINERSETTINGS")
         .map(|d| Path::new(&d).to_path_buf())
         .unwrap_or(Path::new(&datadir()).join("containers"))
+}
+
+pub fn containerstate() -> PathBuf {
+    env_var("CONTAINERSTATE")
+        .map(|d| Path::new(&d).to_path_buf())
+        .unwrap_or(Path::new("/var/lib/nixos-containers").to_path_buf())
+}
+
+pub fn containerprofile() -> PathBuf {
+    env_var("CONTAINERPROFILE")
+        .map(|d| Path::new(&d).to_path_buf())
+        .unwrap_or(Path::new("/nix/var/nix/profiles/per-container").to_path_buf())
+}
+
+pub fn containerconfig() -> PathBuf {
+    env_var("CONTAINERCONFIG")
+        .map(|d| Path::new(&d).to_path_buf())
+        .unwrap_or(Path::new("/etc/nixos-containers").to_path_buf())
 }
 
 pub fn backupdir() -> PathBuf {
@@ -68,17 +86,17 @@ pub fn buildcores() -> u64 {
 }
 
 pub fn nix() -> String {
-    env_var("NIX").unwrap_or(String::from(""))
+    env_var("NIX").unwrap_or("".to_string())
 }
 
 pub fn nixosrebuild() -> String {
-    env_var("NIXOSREBUILD").unwrap_or(String::from(""))
+    env_var("NIXOSREBUILD").unwrap_or("".to_string())
 }
 
 pub fn systemd() -> String {
-    env_var("SYSTEMD").unwrap_or(String::from(""))
+    env_var("SYSTEMD").unwrap_or("".to_string())
 }
 
 pub fn e2fsprogs() -> String {
-    env_var("E2FSPROGS").unwrap_or(String::from(""))
+    env_var("E2FSPROGS").unwrap_or("".to_string())
 }

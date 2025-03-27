@@ -4,17 +4,18 @@ use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
-use resource_usage::models::AppData as ResourceUsageAppData;
+use usage::models::AppData as ResourceUsageAppData;
 use utils::env::{
-    authdir, backupdir, buildcores, containerdir, datadir, e2fsprogs, hostname, nix, nixosrebuild,
-    osdir, owner, port, systemd,
+    authdir, backupdir, buildcores, containersettings, datadir, e2fsprogs, hostname, nix,
+    nixosrebuild, osdir, owner, port, systemd,
 };
 
 mod auth;
 mod config;
+mod file;
 mod os;
-mod processes;
-mod resource_usage;
+mod process;
+mod usage;
 mod utils;
 
 #[actix_web::main]
@@ -47,9 +48,13 @@ async fn main() -> std::io::Result<()> {
         })?;
     }
     {
-        let dir = containerdir();
+        let dir = containersettings();
         create_dir_all(&dir).inspect_err(|e| {
-            log::error!("Could not create container dir at {}: {}", dir.display(), e)
+            log::error!(
+                "Could not create container settings dir at {}: {}",
+                dir.display(),
+                e
+            )
         })?;
     }
     {
@@ -67,7 +72,7 @@ async fn main() -> std::io::Result<()> {
     log::info!("DATADIR {}", datadir().display());
     log::info!("OSDIR {}", osdir());
     log::info!("AUTHDIR {}", authdir().display());
-    log::info!("CONTAINERDIR {}", containerdir().display());
+    log::info!("CONTAINERDIR {}", containersettings().display());
     log::info!("BACKUPDIR {}", backupdir().display());
     log::info!("BUILDCORES {}", buildcores());
     log::info!("NIX {}", nix());
@@ -86,11 +91,12 @@ async fn main() -> std::io::Result<()> {
                     .build(),
             )
             .app_data(web::Data::new(ResourceUsageAppData::default()))
-            .service(web::scope("/auth").configure(auth::configure))
-            .service(web::scope("/processes").configure(processes::configure))
-            .service(web::scope("/usage").configure(resource_usage::configure))
-            .service(web::scope("/os").configure(os::configure))
-            .service(web::scope("/config").configure(config::configure))
+            .service(web::scope(&auth::scope()).configure(auth::configure))
+            .service(web::scope(&config::scope()).configure(config::configure))
+            .service(web::scope(&file::scope()).configure(file::configure))
+            .service(web::scope(&os::scope()).configure(os::configure))
+            .service(web::scope(&process::scope()).configure(process::configure))
+            .service(web::scope(&usage::scope()).configure(usage::configure))
     })
     .bind(format!("{}:{}", hostname(), port()))?
     .run()
