@@ -37,6 +37,12 @@ echo "}" >> $DISK_CONFIG_FILE
 if [[ -v XNODE_OWNER ]]; then
    echo -n "${XNODE_OWNER}" > /etc/nixos/xnode-owner
 fi
+if [[ -v DOMAIN ]]; then
+   echo -n "${DOMAIN}" > /etc/nixos/domain
+fi
+if [[ -v ACME_EMAIL ]]; then
+   echo -n "${ACME_EMAIL}" > /etc/nixos/acme-email
+fi
 if [[ -v USER_PASSWD ]]; then
    echo -n "${USER_PASSWD}" > /etc/nixos/user-passwd
 fi

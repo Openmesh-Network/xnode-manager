@@ -87,8 +87,6 @@
               users.mutableUsers = false;
               users.allowNoPasswordLogin = true;
 
-              networking.firewall.enable = false;
-
               networking.hostName = "xnode";
 
               system.stateVersion = "24.11";
@@ -110,9 +108,64 @@
               };
           }
           (
+            if (builtins.pathExists ./domain && builtins.pathExists ./acme-email) then
+              # Securely expose xnode-manager
+              { config, ... }:
+              let
+                domain = builtins.readFile ./domain;
+                acme-email = builtins.readFile ./acme-email;
+              in
+              {
+                security.acme = {
+                  acceptTerms = true;
+                  defaults.email = acme-email;
+                  certs."xnode-manager" = {
+                    listenHTTP = ":80";
+                    domain = domain;
+                    group = config.services.nginx.group;
+                  };
+                };
+
+                services.nginx = {
+                  enable = true;
+                  recommendedOptimisation = true;
+                  recommendedProxySettings = true;
+                  recommendedTlsSettings = true;
+                  proxyTimeout = "600s";
+
+                  virtualHosts."xnode-manager" = {
+                    serverName = domain;
+                    addSSL = true;
+                    useACMEHost = "xnode-manager";
+                    listen = [
+                      {
+                        port = 34392;
+                        addr = "0.0.0.0";
+                        ssl = true;
+                      }
+                    ];
+                    locations."/" = {
+                      proxyPass = "http://localhost:34391";
+                    };
+                  };
+                };
+
+                # Port 80 is required to solve http-01 challenge
+                networking.firewall.allowedTCPPorts = [
+                  80
+                  34392
+                ];
+              }
+            else
+              {
+                # Xnode-manager over HTTP only (insecure)
+                networking.firewall.allowedTCPPorts = [ 34391 ];
+              }
+          )
+          (
             { config, ... }:
             nixpkgs.lib.optionalAttrs (builtins.pathExists ./user-passwd) {
-              # No password set disables password authentication entirely
+              # No user-passwd disables password authentication entirely
               users.users.xnode = {
                 initialPassword = builtins.readFile ./user-passwd;
                 isNormalUser = true;
