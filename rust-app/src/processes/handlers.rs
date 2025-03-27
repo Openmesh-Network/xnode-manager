@@ -1,11 +1,15 @@
 use std::process::Command;
 
 use actix_identity::Identity;
-use actix_web::{get, web::Path, HttpResponse, Responder};
+use actix_web::{
+    get,
+    web::{Path, Query},
+    HttpResponse, Responder,
+};
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
-    processes::models::LogMessage,
+    processes::models::{LogMessage, LogQuery},
     utils::{
         command::{execute_command, CommandOutput, CommandOutputError},
         env::systemd,
@@ -13,7 +17,9 @@ use crate::{
     },
 };
 
-use super::models::{JournalCtlLog, JournalCtlLogMessage, Log, Process, SystemCtlProcess};
+use super::models::{
+    JournalCtlLog, JournalCtlLogMessage, Log, LogLevel, Process, SystemCtlProcess,
+};
 
 #[get("/list/{container}")]
 async fn list(user: Identity, path: Path<String>) -> impl Responder {
@@ -86,12 +92,19 @@ async fn list(user: Identity, path: Path<String>) -> impl Responder {
 }
 
 #[get("/logs/{container}/{process}")]
-async fn logs(user: Identity, path: Path<(String, String)>) -> impl Responder {
+async fn logs(
+    user: Identity,
+    path: Path<(String, String)>,
+    query: Query<LogQuery>,
+) -> impl Responder {
     if !has_permission(user, Scope::Processes) {
         return HttpResponse::Unauthorized().finish();
     }
 
     let (container_id, process) = path.into_inner();
+    let max_logs = query.max.unwrap_or(100);
+    let log_level = &query.level;
+
     let mut command = Command::new(format!("{}journalctl", systemd()));
     command
         .arg("--machine")
@@ -101,7 +114,20 @@ async fn logs(user: Identity, path: Path<(String, String)>) -> impl Responder {
         .arg("--output=json")
         .arg("--no-pager")
         .arg("--output-fields")
-        .arg("__REALTIME_TIMESTAMP,MESSAGE");
+        .arg("__REALTIME_TIMESTAMP,MESSAGE,PRIORITY")
+        .arg("--lines")
+        .arg(max_logs.to_string());
+    if let Some(level) = log_level {
+        command.arg("--priority").arg(
+            match level {
+                LogLevel::Error => 3,
+                LogLevel::Warn => 4,
+                LogLevel::Info => 7,
+                LogLevel::Unknown => 7,
+            }
+            .to_string(),
+        );
+    }
     match execute_command(command) {
         Ok(output) => match output {
             CommandOutput::Output(output_str) => {
@@ -119,6 +145,7 @@ async fn logs(user: Identity, path: Path<(String, String)>) -> impl Responder {
                                     JournalCtlLogMessage::String(string) => LogMessage::UTF8 { string },
                                     JournalCtlLogMessage::Raw(bytes) => LogMessage::Raw { bytes }
                                 },
+                                level: journal_ctl_priority_to_log_level(&log.PRIORITY)
                             })
                             .collect();
                         HttpResponse::Ok().json(response)
@@ -161,4 +188,28 @@ async fn logs(user: Identity, path: Path<(String, String)>) -> impl Responder {
             }
         },
     }
+}
+
+fn journal_ctl_priority_to_log_level(priority: &str) -> LogLevel {
+    let priority_num: u8;
+    match str::parse(priority) {
+        Ok(num) => {
+            priority_num = num;
+        }
+        Err(_) => {
+            return LogLevel::Unknown;
+        }
+    }
+
+    if priority_num <= 3 {
+        return LogLevel::Error;
+    }
+    if priority_num <= 4 {
+        return LogLevel::Warn;
+    }
+    if priority_num <= 7 {
+        return LogLevel::Info;
+    }
+
+    LogLevel::Unknown
 }

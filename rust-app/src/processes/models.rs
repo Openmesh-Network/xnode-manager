@@ -14,7 +14,13 @@ pub struct Process {
     pub running: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
+pub struct LogQuery {
+    pub max: Option<u32>,
+    pub level: Option<LogLevel>,
+}
+
+#[derive(Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum JournalCtlLogMessage {
     String(String),
@@ -25,9 +31,10 @@ pub enum JournalCtlLogMessage {
 pub struct JournalCtlLog {
     pub __REALTIME_TIMESTAMP: String,
     pub MESSAGE: JournalCtlLogMessage,
+    pub PRIORITY: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub enum LogMessage {
     UTF8 { string: String },
     Raw { bytes: Vec<u8> },
@@ -37,4 +44,13 @@ pub enum LogMessage {
 pub struct Log {
     pub timestamp: u64, // Epoch time in Microseconds
     pub message: LogMessage,
+    pub level: LogLevel,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum LogLevel {
+    Error,
+    Warn,
+    Info,
+    Unknown,
 }

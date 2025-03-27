@@ -59,7 +59,14 @@ async fn get(user: Identity) -> impl Responder {
         }
     }
 
-    HttpResponse::Ok().json(OSConfiguration { flake, flake_lock })
+    HttpResponse::Ok().json(OSConfiguration {
+        flake,
+        flake_lock,
+        xnode_owner: read_to_string(path.join("xnode_owner")).ok(),
+        domain: read_to_string(path.join("domain")).ok(),
+        acme_email: read_to_string(path.join("acme_email")).ok(),
+        user_passwd: read_to_string(path.join("user_passwd")).ok(),
+    })
 }
 
 #[post("/set")]
@@ -80,6 +87,26 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
                 path.display(),
                 e
             )));
+        }
+    }
+
+    for (name, content) in [
+        ("flake.nix", &os.flake),
+        ("xnode_owner", &os.xnode_owner),
+        ("domain", &os.domain),
+        ("acme_email", &os.acme_email),
+        ("user_passwd", &os.user_passwd),
+    ] {
+        if let Some(content) = content {
+            let path = path.join(name);
+            if let Err(e) = write(&path, content) {
+                return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                    "Error writing {} to {}: {}",
+                    content,
+                    path.display(),
+                    e
+                )));
+            }
         }
     }
 
