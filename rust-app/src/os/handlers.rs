@@ -62,10 +62,10 @@ async fn get(user: Identity) -> impl Responder {
     HttpResponse::Ok().json(OSConfiguration {
         flake,
         flake_lock,
-        xnode_owner: read_to_string(path.join("xnode_owner")).ok(),
+        xnode_owner: read_to_string(path.join("xnode-owner")).ok(),
         domain: read_to_string(path.join("domain")).ok(),
-        acme_email: read_to_string(path.join("acme_email")).ok(),
-        user_passwd: read_to_string(path.join("user_passwd")).ok(),
+        acme_email: read_to_string(path.join("acme-email")).ok(),
+        user_passwd: read_to_string(path.join("user-passwd")).ok(),
     })
 }
 
@@ -92,10 +92,10 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
 
     for (name, content) in [
         ("flake.nix", &os.flake),
-        ("xnode_owner", &os.xnode_owner),
+        ("xnode-owner", &os.xnode_owner),
         ("domain", &os.domain),
-        ("acme_email", &os.acme_email),
-        ("user_passwd", &os.user_passwd),
+        ("acme-email", &os.acme_email),
+        ("user-passwd", &os.user_passwd),
     ] {
         if let Some(content) = content {
             let path = path.join(name);
