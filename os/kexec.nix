@@ -80,7 +80,7 @@
       EOL
       for disk in $(lsblk  --nodeps  --json | jq '.blockdevices[] | select(.type == "disk" and .rm == false and .ro == false) | .name' -r); do # Find all attached disks
          if [ "$DISK_COUNTER" -eq 0 ]; then
-         # Boot disk
+            # Boot disk
             cat >> $DISK_CONFIG_FILE << EOL
             disk''${DISK_COUNTER} = {
               device = "/dev/''${disk}";
@@ -115,10 +115,10 @@
             };
       EOL
          else
-         # Data disk
+            # Data disk
             cat >> $DISK_CONFIG_FILE << EOL
             disk''${DISK_COUNTER} = {
-              device = "''${disk}";
+              device = "/dev/''${disk}";
               type = "disk";
               content = {
                 type = "gpt";
@@ -128,7 +128,7 @@
                     content = {
                       type = "filesystem";
                       format = "ext4";
-                      mountpoint = "/";
+                      mountpoint = "/mnt/disk''${DISK_COUNTER}";
                     };
                   };
                 };
