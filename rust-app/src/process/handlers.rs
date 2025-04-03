@@ -112,6 +112,7 @@ async fn logs(
         .arg("--unit")
         .arg(&process)
         .arg("--output=json")
+        .arg("--all") // Prevents messages > 4096 bytes to be encoded as null
         .arg("--no-pager")
         .arg("--output-fields")
         .arg("__REALTIME_TIMESTAMP,MESSAGE,PRIORITY")
