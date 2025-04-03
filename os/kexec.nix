@@ -156,16 +156,16 @@
 
       # Set main configuration
       (curl -L https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/flake.nix)> /mnt/etc/nixos/flake.nix
-      if [[ -z XNODE_OWNER ]]; then
+      if [[ $XNODE_OWNER ]]; then
         echo -n "''${XNODE_OWNER}" > /mnt/etc/nixos/xnode-owner
       fi
-      if [[ -z DOMAIN ]]; then
+      if [[ $DOMAIN ]]; then
         echo -n "''${DOMAIN}" > /mnt/etc/nixos/domain
       fi
-      if [[ -z ACME_EMAIL ]]; then
+      if [[ $ACME_EMAIL ]]; then
         echo -n "''${ACME_EMAIL}" > /mnt/etc/nixos/acme-email
       fi
-      if [[ -z USER_PASSWD ]]; then
+      if [[ $USER_PASSWD ]]; then
         echo -n "''${USER_PASSWD}" > /mnt/etc/nixos/user-passwd
       fi
 
