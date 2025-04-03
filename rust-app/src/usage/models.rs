@@ -30,7 +30,7 @@ pub struct MemoryUsage {
 
 #[derive(Serialize, Deserialize)]
 pub struct DiskUsage {
-    pub name: String,
+    pub mount_point: String,
     pub used: u64,
     pub total: u64,
 }
