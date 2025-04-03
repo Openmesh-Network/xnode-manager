@@ -194,14 +194,13 @@ in
       };
     };
 
-    systemd.services."start-all-containers" = {
+    systemd.services.start-all-containers = {
       wantedBy = [ "network.target" ];
       description = "Start all NixOS containers on this host";
       path = [
         pkgs.nixos-container
         pkgs.findutils
       ];
-
       script = ''
         nixos-container list | xargs -I % nixos-container start %
       '';

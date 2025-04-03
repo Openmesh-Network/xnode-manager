@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
+    disko.url = "github:nix-community/disko/latest";
     nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
     xnode-manager.url = "github:Openmesh-Network/xnode-manager";
   };
@@ -25,17 +26,11 @@
           (
             { pkgs, ... }:
             {
-              boot.loader = {
-                efi = {
-                  efiSysMountPoint =
-                    if (builtins.pathExists ./bootpoint) then (builtins.readFile ./bootpoint) else "/boot";
-                };
-                grub = {
-                  enable = true;
-                  efiSupport = true;
-                  efiInstallAsRemovable = true;
-                  device = "nodev";
-                };
+              boot.loader.grub = {
+                enable = true;
+                efiSupport = true;
+                efiInstallAsRemovable = true;
+                device = "nodev";
               };
 
               environment.systemPackages = with pkgs; [
@@ -92,7 +87,8 @@
               system.stateVersion = "24.11";
             }
           )
-          ./disk-config.nix
+          inputs.disko.nixosModules.default
+          ./disko-config.nix
           inputs.nixos-facter-modules.nixosModules.facter
           { config.facter.reportPath = ./facter.json; }
           {

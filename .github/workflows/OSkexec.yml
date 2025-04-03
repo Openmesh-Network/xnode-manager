@@ -1,0 +1,27 @@
+name: OSkexec
+
+on:
+  push:
+    tags:
+      - "OSkexec"
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-24.11
+
+      - name: Build kexec and generate tarball
+        run: cd "$(nix-build '<nixpkgs/nixos>' --arg configuration os/kexec.nix --attr config.system.build.kexecTree --no-build-output)" && sudo tar -hczvf /OSkexec.tar.gz *
+
+      - name: Make Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: /OSkexec.tar.gz
