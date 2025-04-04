@@ -99,18 +99,23 @@
               {
                 enable = true;
               }
-              // nixpkgs.lib.optionalAttrs (builtins.pathExists ./xnode-owner) {
-                owner = builtins.readFile ./xnode-owner;
-              };
+              // (
+                let
+                  xnode-owner = if (builtins.pathExists ./xnode-owner) then builtins.readFile ./xnode-owner else "";
+                in
+                nixpkgs.lib.optionalAttrs (xnode-owner != "") {
+                  owner = xnode-owner;
+                }
+              );
           }
           (
-            if (builtins.pathExists ./domain && builtins.pathExists ./acme-email) then
+            let
+              domain = if (builtins.pathExists ./domain) then builtins.readFile ./domain else "";
+              acme-email = if (builtins.pathExists ./acme-email) then builtins.readFile ./acme-email else "";
+            in
+            if (domain != "" && acme-email != "") then
               # Securely expose xnode-manager
               { config, ... }:
-              let
-                domain = builtins.readFile ./domain;
-                acme-email = builtins.readFile ./acme-email;
-              in
               {
                 security.acme = {
                   acceptTerms = true;
@@ -159,11 +164,14 @@
               }
           )
           (
+            let
+              user-passwd = if (builtins.pathExists ./user-passwd) then builtins.readFile ./user-passwd else "";
+            in
             { config, ... }:
-            nixpkgs.lib.optionalAttrs (builtins.pathExists ./user-passwd) {
+            nixpkgs.lib.optionalAttrs (user-passwd != "") {
               # No user-passwd disables password authentication entirely
               users.users.xnode = {
-                initialPassword = builtins.readFile ./user-passwd;
+                initialPassword = user-passwd;
                 isNormalUser = true;
                 extraGroups = [
                   "networkmanager"
