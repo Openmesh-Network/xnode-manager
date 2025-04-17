@@ -130,8 +130,11 @@ if [[ $USER_PASSWD ]]; then
   echo -n "${USER_PASSWD}" > /mnt/etc/nixos/user-passwd
 fi
 
+# Build configuration
+nix build /mnt/etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel --store /mnt
+
 # Apply configuration
-nixos-install --no-root-passwd --no-channel-copy --flake /mnt/etc/nixos#xnode
+nixos-install --no-root-passwd --no-channel-copy --system ./result
 
 # Boot into new OS
 reboot
