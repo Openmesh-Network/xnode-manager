@@ -7,7 +7,13 @@ on:
 
 jobs:
   build-and-upload:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+
     permissions:
       contents: write
 
@@ -21,9 +27,9 @@ jobs:
           nix_path: nixpkgs=channel:nixos-24.11
 
       - name: Build kexec and generate tarball
-        run: cd "$(nix-build '<nixpkgs/nixos>' --arg configuration os/kexec.nix --attr config.system.build.kexecTree --no-build-output)" && sudo tar -hczvf /OSkexec.tar.gz *
+        run: nix build --accept-flake-config ./os/kexec-installer
 
       - name: Make Release
         uses: softprops/action-gh-release@v2
         with:
-          files: /OSkexec.tar.gz
+          files: ./result/OSkexec-*.tar.gz
