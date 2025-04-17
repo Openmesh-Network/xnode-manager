@@ -27,8 +27,10 @@ DOMAIN and ACME_EMAIL en vars should be set to communicate with xnode-manager ov
 
 USER_PASSWD env var can be set to allow password login as user "xnode". However it is recommended to manage your machine through this manager app only.
 
+ENCRYPTED env var is recommended to be set, it will fully encrypt all drives (with unattended TPM2 decryption on boot) and enable Secure Boot. This protects against malicious actors with physical access to your Xnode.
+
 ```
-curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
+export ENCRYPTED="1" && curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
 ```
 
 ### Cloud Init
@@ -36,5 +38,5 @@ curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/in
 ```
 #cloud-config
 runcmd:
- - export DOMAIN="xnode.plopmenz.com" && export ACME_EMAIL="plopmenz@gmail.com" && export XNODE_OWNER="eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3" && curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
+ - export DOMAIN="xnode.plopmenz.com" && export ACME_EMAIL="plopmenz@gmail.com" && export XNODE_OWNER="eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3" && export ENCRYPTED="1" && curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
 ```

@@ -5,15 +5,18 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
     disko.url = "github:nix-community/disko/latest";
     nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
+    lanzaboote.url = "github:nix-community/lanzaboote";
     xnode-manager.url = "github:Openmesh-Network/xnode-manager";
   };
 
   nixConfig = {
     extra-substituters = [
       "https://openmesh.cachix.org"
+      "https://nix-community.cachix.org"
     ];
     extra-trusted-public-keys = [
       "openmesh.cachix.org-1:du4NDeMWxcX8T5GddfuD0s/Tosl3+6b+T2+CLKHgXvQ="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
     ];
   };
 
@@ -24,14 +27,55 @@
         specialArgs = { inherit inputs; };
         modules = [
           (
+            let
+              encrypted = if (builtins.pathExists ./encrypted) then builtins.readFile ./encrypted else "";
+            in
+            if (encrypted == "1") then
+              (
+                { lib, config, ... }:
+                {
+                  # Full disk encryption + Secure Boot
+
+                  imports = [
+                    inputs.lanzaboote.nixosModules.lanzaboote
+                  ];
+
+                  # Use Secure Boot
+                  boot.lanzaboote = {
+                    enable = true;
+                    enrollKeys = true;
+                    configurationLimit = 1;
+                    pkiBundle = "/etc/secureboot";
+                  };
+
+                  # Decrypt all LUKS devices unattended with Clevis (TPM2)
+                  boot.initrd.availableKernelModules = [
+                    "tpm_crb"
+                    "tpm_tis"
+                    "virtio-pci"
+                  ];
+                  boot.initrd.clevis.enable = true;
+                  boot.initrd.clevis.devices = lib.mapAttrs (name: luksDevice: {
+                    secretFile = ./clevis.jwe;
+                  }) config.boot.initrd.luks.devices;
+                }
+              )
+            else
+              {
+                # Normal boot (no encryption or Secure Boot)
+
+                boot.loader.grub = {
+                  enable = true;
+                  efiSupport = true;
+                  efiInstallAsRemovable = true;
+                  device = "nodev";
+                };
+              }
+          )
+          (
             { pkgs, ... }:
             {
-              boot.loader.grub = {
-                enable = true;
-                efiSupport = true;
-                efiInstallAsRemovable = true;
-                device = "nodev";
-              };
+              boot.loader.timeout = 0; # Speed up boot by skipping selection
 
               environment.systemPackages = with pkgs; [
                 mergerfs
