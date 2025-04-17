@@ -22,12 +22,6 @@ mod utils;
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    // Clean up installation artifacts
-    {
-        let dir = std::path::Path::new("/old-root");
-        let _ = std::fs::remove_dir_all(dir);
-    }
-
     // Create data directories
     {
         let dir = datadir();

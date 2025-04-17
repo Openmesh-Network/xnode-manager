@@ -49,6 +49,7 @@ EOL
                 content = {
                   type = "luks";
                   name = "disk${DISK_COUNTER}";
+                  passwordFile = "/tmp/secret.key";
                   settings = {
                     allowDiscards = true;
                     bypassWorkqueues = true;
@@ -91,7 +92,7 @@ EOL
 echo -n "$(tr -dc '[:alnum:]' < /dev/random | head -c64)" > /tmp/secret.key
 
 # Apply disk formatting and mount drives
-cat /tmp/secret.key | disko --mode destroy,format,mount /etc/nixos/disko-config.nix --yes-wipe-all-disks
+disko --mode destroy,format,mount /etc/nixos/disko-config.nix --yes-wipe-all-disks
 
 # Move disko-config to root file system
 mkdir -p /mnt/etc/nixos
@@ -102,8 +103,8 @@ nixos-facter -o /mnt/etc/nixos/facter.json
 
 if [[ $ENCRYPTED ]]; then
   # Generate Secure Boot Keys
-  mkdir -p /mnt/etc/secureboot
-  sbctl create-keys --export /mnt/etc/secureboot/keys --database-path /mnt/etc/secureboot
+  mkdir -p /mnt/var/lib/sbctl
+  sbctl create-keys --export /mnt/var/lib/sbctl/keys --database-path /mnt/var/lib/sbctl
 
   # Encrypt disk password for unattended (TPM2) boot decryption (Clevis)
   # Initially do not bind to any pcrs (always allow decryption) for the first boot

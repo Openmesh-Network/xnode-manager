@@ -45,7 +45,7 @@
                     enable = true;
                     enrollKeys = true;
                     configurationLimit = 1;
-                    pkiBundle = "/etc/secureboot";
+                    pkiBundle = "/var/lib/sbctl";
                   };
 
                   # Decrypt all LUKS devices unattended with Clevis (TPM2)
