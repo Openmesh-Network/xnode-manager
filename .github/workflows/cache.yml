@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/cache.yml"
       - "flake.nix"
       - "flake.lock"
       - "nix/package.nix"
@@ -30,4 +31,4 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Upload derivation to Cachix
-        run: nix build --accept-flake-config | cachix push openmesh
+        run: nix build --accept-flake-config --print-out-paths | cachix push openmesh
