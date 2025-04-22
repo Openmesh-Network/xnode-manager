@@ -482,17 +482,7 @@ fn create_conf_file(container_id: &str) -> Option<HttpResponse> {
     let conf_file = containerconfig().join(format!("{}.conf", container_id));
     log::info!("Creating conf file {}", conf_file.display());
 
-    if let Err(e) = write(
-        &conf_file,
-        "
-PRIVATE_NETWORK=0
-HOST_ADDRESS=
-LOCAL_ADDRESS=
-HOST_BRIDGE=
-HOST_PORT=
-AUTO_START=0
-",
-    ) {
+    if let Err(e) = write(&conf_file, "") {
         return Some(
             HttpResponse::InternalServerError().json(ResponseError::new(format!(
                 "Error writing nixos container configuration file {}: {}",

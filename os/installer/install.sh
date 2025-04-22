@@ -1,7 +1,3 @@
-# Extract environmental variables
-sed '2q;d' /proc/cmdline > /tmp/xnode-env
-source /tmp/xnode-env
-
 mkdir -p /etc/nixos
 
 # Generate disko-config.nix

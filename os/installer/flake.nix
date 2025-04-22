@@ -28,13 +28,19 @@
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
     in
     {
-      packages = forAllSystems (system: {
-        default =
-          (nixpkgs.legacyPackages.${system}.nixos [ self.nixosModules.default ])
-          .config.system.build.kexecInstallerTarball;
-      });
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
+        {
+          kexec = (pkgs.nixos [ self.nixosModules.kexec ]).config.system.build.kexecInstallerTarball;
+          iso = (pkgs.nixos [ self.nixosModules.iso ]).config.system.build.isoImage;
+        }
+      );
       nixosModules = {
-        default = import ./kexec.nix inputs;
+        kexec = { pkgs, ... }@args: import ./kexec.nix (args // { inherit inputs; });
+        iso = { pkgs, ... }@args: import ./iso.nix (args // { inherit inputs; });
       };
     };
 }
