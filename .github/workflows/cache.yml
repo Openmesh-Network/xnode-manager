@@ -24,5 +24,8 @@ jobs:
           name: openmesh
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Upload derivation to Cachix
+      - name: Upload Xnode Manager package to Cachix
         run: nix build --accept-flake-config --print-out-paths | cachix push openmesh
+
+      - name: Upload XnodeOS default config to Cachix
+        run: nix build ./os#nixosConfigurations.xnode.config.system.build.toplevel --accept-flake-config --print-out-paths | cachix push openmesh

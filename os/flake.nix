@@ -2,11 +2,11 @@
   description = "XnodeOS Configuration";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
     disko.url = "github:nix-community/disko/latest";
     nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
     lanzaboote.url = "github:nix-community/lanzaboote";
     xnode-manager.url = "github:Openmesh-Network/xnode-manager";
+    nixpkgs.follows = "xnode-manager/nixpkgs";
   };
 
   nixConfig = {
