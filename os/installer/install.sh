@@ -127,10 +127,25 @@ if [[ $USER_PASSWD ]]; then
 fi
 
 # Build configuration
-nix build /mnt/etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel --store /mnt
+nix build /mnt/etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel --store /mnt --profile /mnt/nix/var/nix/profiles/system 
 
 # Apply configuration
-nixos-install --no-root-passwd --no-channel-copy --system ./result
+# Based on https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ni/nixos-install/nixos-install.sh and https://github.com/NixOS/nixpkgs/blob/nixos-unstable/pkgs/by-name/ni/nixos-enter/nixos-enter.sh
+mkdir -p /mnt/dev /mnt/sys /mnt/proc
+chmod 0755 /mnt/dev /mnt/sys /mnt/proc
+mount --rbind /dev /mnt/dev
+mount --rbind /sys /mnt/sys
+mount --rbind /proc /mnt/proc
+chroot /mnt /nix/var/nix/profiles/system/sw/bin/bash -c "$(cat << EOL
+set -e
+/nix/var/nix/profiles/system/activate || true
+/nix/var/nix/profiles/system/sw/bin/systemd-tmpfiles --create --remove -E || true
+mount --rbind --mkdir / /mnt
+mount --make-rslave /mnt
+NIXOS_INSTALL_BOOTLOADER=1 /nix/var/nix/profiles/system/bin/switch-to-configuration boot
+umount -R /mnt && (rmdir /mnt 2>/dev/null || true)
+EOL
+)"
 
 # Boot into new OS
 reboot

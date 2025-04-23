@@ -32,7 +32,7 @@
       RemainAfterExit = true;
     };
     path = [
-      pkgs.libuuid
+      pkgs.util-linuxMinimal
       pkgs.jq
       pkgs.curl
       pkgs.nix
@@ -53,11 +53,7 @@
   system.extraDependencies = lib.mkForce [ ];
 
   # # Disable unused nixos tools
-  system.tools.nixos-version.enable = false;
-  system.tools.nixos-rebuild.enable = false;
-  system.tools.nixos-option.enable = false;
-  system.tools.nixos-generate-config.enable = false;
-  system.tools.nixos-build-vms.enable = false;
+  system.disableInstallerTools = true;
 
   # # Disable documentation
   documentation.enable = false;
