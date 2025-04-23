@@ -3,8 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
-    disko.url = "github:nix-community/disko/latest";
-    nixos-facter.url = "github:nix-community/nixos-facter";
+    disko = { 
+      url = "github:nix-community/disko/latest";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {

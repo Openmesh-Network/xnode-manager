@@ -8,9 +8,8 @@
 }@args:
 {
   imports = [
-    (modulesPath + "/installer/netboot/netboot-minimal.nix")
+    (modulesPath + "/installer/netboot/netboot.nix")
     (import ./config.nix args)
-    ./minimal.nix
   ];
 
   boot.initrd.compressor = "xz";
