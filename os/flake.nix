@@ -126,7 +126,55 @@
               users.mutableUsers = false;
               users.allowNoPasswordLogin = true;
 
-              networking.hostName = "xnode";
+              networking = {
+                hostName = "xnode";
+                useDHCP = false;
+                useNetworkd = true;
+                wireless.iwd = {
+                  enable = true;
+                  settings.DriverQuirks.UseDefaultInterface = true;
+                };
+                firewall = {
+                  extraCommands = ''
+                    iptables -A INPUT -i vz-+ -p udp -m udp --dport 67 -j ACCEPT
+                  '';
+                  extraStopCommands = ''
+                    iptables -D INPUT -i vz-+ -p udp -m udp --dport 67 -j ACCEPT || true
+                  '';
+                };
+              };
+              services.resolved.enable = true;
+              systemd.network = {
+                enable = true;
+                wait-online = {
+                  timeout = 10;
+                  anyInterface = true;
+                };
+                networks =
+                  let
+                    baseNetworkConfig = {
+                      DHCP = "yes";
+                      DNSSEC = "yes";
+                      DNSOverTLS = "yes";
+                      DNS = [
+                        "1.1.1.1"
+                        "8.8.8.8"
+                      ];
+                    };
+                  in
+                  {
+                    "wired" = {
+                      matchConfig.Name = "en*";
+                      networkConfig = baseNetworkConfig;
+                      dhcpV4Config.RouteMetric = 100;
+                    };
+                    "wireless" = {
+                      matchConfig.Name = "wl*";
+                      networkConfig = baseNetworkConfig;
+                      dhcpV4Config.RouteMetric = 200;
+                    };
+                  };
+              };
 
               system.stateVersion = "24.11";
             }
@@ -135,10 +183,8 @@
           ./disko-config.nix
           inputs.nixos-facter-modules.nixosModules.facter
           { config.facter.reportPath = ./facter.json; }
+          inputs.xnode-manager.nixosModules.default
           {
-            imports = [
-              inputs.xnode-manager.nixosModules.default
-            ];
             services.xnode-manager =
               {
                 enable = true;
@@ -218,7 +264,6 @@
                 initialPassword = user-passwd;
                 isNormalUser = true;
                 extraGroups = [
-                  "networkmanager"
                   "wheel"
                 ];
               };

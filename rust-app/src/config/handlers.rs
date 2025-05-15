@@ -20,6 +20,7 @@ use crate::{
             e2fsprogs, nix, systemd,
         },
         error::ResponseError,
+        string::between,
     },
 };
 
@@ -54,10 +55,11 @@ async fn container(user: Identity, path: Path<String>) -> impl Responder {
     }
 
     let container_id = path.into_inner();
-    let path = containersettings().join(container_id);
+    let path = containersettings().join(&container_id);
 
     let flake: String;
     let flake_lock: String;
+    let mut network: Option<String> = None;
 
     {
         let path = path.join("flake.nix");
@@ -89,8 +91,29 @@ async fn container(user: Identity, path: Path<String>) -> impl Responder {
             }
         }
     }
+    {
+        let path = containerconfig().join(format!("{}.conf", &container_id));
+        match read_to_string(&path) {
+            Ok(file) => {
+                if let Some(network_zone) = between(&file, "--network-zone=", " ") {
+                    network = Some(network_zone.to_string());
+                }
+            }
+            Err(e) => {
+                return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                    "Could not read container flake lock {}: {}",
+                    path.display(),
+                    e
+                )));
+            }
+        }
+    }
 
-    HttpResponse::Ok().json(ContainerConfiguration { flake, flake_lock })
+    HttpResponse::Ok().json(ContainerConfiguration {
+        flake,
+        flake_lock,
+        network,
+    })
 }
 
 #[post("/change")]
@@ -117,7 +140,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                 }
                 log::info!("Created container dir {}", path.display());
 
-                if let Some(settings) = settings {
+                {
                     let path = path.join("flake.nix");
                     if let Err(e) = write(&path, settings.flake) {
                         return HttpResponse::InternalServerError().json(ResponseError::new(
@@ -143,9 +166,13 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                     }
                 }
 
-                if let Some(response) =
-                    container_command(&container_id, ContainerCommand::Create { flake: &path })
-                {
+                if let Some(response) = container_command(
+                    &container_id,
+                    ContainerCommand::Create {
+                        flake: &path,
+                        network: settings.network,
+                    },
+                ) {
                     return response;
                 }
             }
@@ -178,6 +205,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
 enum ContainerCommand<'a> {
     Create {
         flake: &'a PathBuf,
+        network: Option<String>,
     },
     Destroy,
     FlakeUpdate {
@@ -191,7 +219,7 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
     let command_name: &str;
 
     let cli_command = match command {
-        ContainerCommand::Create { flake } => {
+        ContainerCommand::Create { flake, ref network } => {
             command_name = "creating";
             let system: PathBuf = match build_config(flake) {
                 Ok(build_folder) => build_folder,
@@ -199,7 +227,7 @@ fn container_command(container_id: &String, command: ContainerCommand) -> Option
                     return Some(e);
                 }
             };
-            if let Some(e) = create_conf_file(container_id) {
+            if let Some(e) = create_conf_file(container_id, network) {
                 return Some(e);
             }
             if let Some(e) = create_state_dir(container_id) {
@@ -478,11 +506,17 @@ fn delete_state_dir(container_id: &str) -> Option<HttpResponse> {
     None
 }
 
-fn create_conf_file(container_id: &str) -> Option<HttpResponse> {
+fn create_conf_file(container_id: &str, network: &Option<String>) -> Option<HttpResponse> {
     let conf_file = containerconfig().join(format!("{}.conf", container_id));
     log::info!("Creating conf file {}", conf_file.display());
 
-    if let Err(e) = write(&conf_file, "") {
+    let conf_content = if let Some(network_zone) = network {
+        format!("EXTRA_NSPAWN_FLAGS=\"--network-zone={} \"", network_zone)
+    } else {
+        "".to_string()
+    };
+
+    if let Err(e) = write(&conf_file, conf_content) {
         return Some(
             HttpResponse::InternalServerError().json(ResponseError::new(format!(
                 "Error writing nixos container configuration file {}: {}",

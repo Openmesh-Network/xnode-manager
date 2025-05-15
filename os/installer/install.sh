@@ -112,7 +112,7 @@ if [[ $ENCRYPTED ]]; then
 fi
 
 # Set main configuration
-(curl -L https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/flake.nix)> /mnt/etc/nixos/flake.nix
+(curl -L "https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/flake.nix")> /mnt/etc/nixos/flake.nix
 if [[ $XNODE_OWNER ]]; then
   echo -n "${XNODE_OWNER}" > /mnt/etc/nixos/xnode-owner
 fi
@@ -124,6 +124,9 @@ if [[ $ACME_EMAIL ]]; then
 fi
 if [[ $USER_PASSWD ]]; then
   echo -n "${USER_PASSWD}" > /mnt/etc/nixos/user-passwd
+fi
+if [[ $INITIAL_CONFIG ]]; then
+  sed -i "/# START USER CONFIG/,/# END USER CONFIG/c\# START USER CONFIG\n${INITIAL_CONFIG}\n# END USER CONFIG" /mnt/etc/nixos/flake.nix
 fi
 
 # Build configuration

@@ -1,7 +1,7 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    xnode-manager.url = "github:Openmesh-Network/xnode-manager";
+    xnode-manager.url = "path:.."; # "github:Openmesh-Network/xnode-manager";
+    nixpkgs.follows = "xnode-manager/nixpkgs";
   };
 
   nixConfig = {
@@ -13,53 +13,44 @@
     ];
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      xnode-manager,
-      ...
-    }:
-    let
-      system = "x86_64-linux";
-    in
-    {
-      nixosConfigurations.container = nixpkgs.lib.nixosSystem {
-        inherit system;
-        specialArgs = {
-          inherit xnode-manager;
-        };
-        modules = [
-          (
-            { xnode-manager, ... }:
-            {
-              imports = [
-                xnode-manager.nixosModules.default
-              ];
-
-              boot.isContainer = true;
-
-              nix = {
-                settings = {
-                  experimental-features = [
-                    "nix-command"
-                    "flakes"
-                  ];
-                };
-              };
-
-              services.xnode-manager = {
-                enable = true;
-                verbosity = "info";
-                owner = "eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3";
-              };
-
-              networking.firewall.allowedTCPPorts = [ 34391 ];
-
-              system.stateVersion = "25.05";
-            }
-          )
-        ];
+  outputs = inputs: {
+    nixosConfigurations.container = inputs.nixpkgs.lib.nixosSystem {
+      specialArgs = {
+        inherit inputs;
       };
+      modules = [
+        inputs.xnode-manager.nixosModules.container
+        inputs.xnode-manager.nixosModules.default
+        (
+          { config, ... }:
+          {
+            nix = {
+              settings = {
+                experimental-features = [
+                  "nix-command"
+                  "flakes"
+                ];
+              };
+            };
+
+            services.xnode-manager = {
+              enable = true;
+              verbosity = "info";
+              owner = "eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3";
+            };
+
+            networking = {
+              hostName = "xnode-manager";
+              firewall.allowedTCPPorts = [
+                config.services.xnode-manager.port
+              ];
+            };
+
+            nixpkgs.hostPlatform = "x86_64-linux";
+            system.stateVersion = "25.05";
+          }
+        )
+      ];
     };
+  };
 }

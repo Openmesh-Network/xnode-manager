@@ -50,6 +50,9 @@
         }
       );
 
-      nixosModules.default = ./nix/nixos-module.nix;
+      nixosModules = {
+        default = ./nix/nixos-module.nix;
+        container = ./nix/container-module.nix;
+      };
     };
 }
