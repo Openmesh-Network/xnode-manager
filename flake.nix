@@ -53,6 +53,7 @@
       nixosModules = {
         default = ./nix/nixos-module.nix;
         container = ./nix/container-module.nix;
+        reverse-proxy = ./nix/reverse-proxy-module.nix;
       };
     };
 }

@@ -11,7 +11,7 @@ in
 {
   options = {
     services.xnode-manager = {
-      enable = lib.mkEnableOption "Enable the rust app";
+      enable = lib.mkEnableOption "Enable Xnode Manager.";
 
       hostname = lib.mkOption {
         type = lib.types.str;
@@ -164,7 +164,7 @@ in
   config = lib.mkIf cfg.enable {
     systemd.services.xnode-manager = {
       wantedBy = [ "multi-user.target" ];
-      description = "Rust App.";
+      description = "Allow configuring and monitoring your Xnode through external platforms, such as Xnode Studio.";
       after = [ "network.target" ];
       environment = {
         HOSTNAME = cfg.hostname;

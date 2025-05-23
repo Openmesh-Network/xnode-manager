@@ -35,7 +35,6 @@
                 { lib, config, ... }:
                 {
                   # Full disk encryption + Secure Boot
-
                   imports = [
                     inputs.lanzaboote.nixosModules.lanzaboote
                   ];
@@ -63,7 +62,6 @@
             else
               {
                 # Normal boot (no encryption or Secure Boot)
-
                 boot.loader.grub = {
                   enable = true;
                   efiSupport = true;
@@ -77,8 +75,8 @@
             {
               boot.loader.timeout = 0; # Speed up boot by skipping selection
 
-              environment.systemPackages = with pkgs; [
-                mergerfs
+              environment.systemPackages = [
+                pkgs.mergerfs
               ];
 
               # First disk is mounted as root file system, include it as data disk
@@ -118,8 +116,9 @@
 
                 gc = {
                   automatic = true;
-                  dates = "daily";
-                  options = "--delete-older-than 1d";
+                  dates = "01:00";
+                  randomizedDelaySec = "5h";
+                  options = "--delete-old";
                 };
               };
 
@@ -184,81 +183,55 @@
           inputs.nixos-facter-modules.nixosModules.facter
           { config.facter.reportPath = ./facter.json; }
           inputs.xnode-manager.nixosModules.default
-          {
-            services.xnode-manager =
-              {
+          (
+            let
+              xnode-owner = if (builtins.pathExists ./xnode-owner) then builtins.readFile ./xnode-owner else "";
+            in
+            { lib, ... }:
+            {
+              services.xnode-manager = {
                 enable = true;
-              }
-              // (
-                let
-                  xnode-owner = if (builtins.pathExists ./xnode-owner) then builtins.readFile ./xnode-owner else "";
-                in
-                nixpkgs.lib.optionalAttrs (xnode-owner != "") {
-                  owner = xnode-owner;
-                }
-              );
-          }
+                owner = lib.mkIf (xnode-owner != "") xnode-owner;
+              };
+            }
+          )
+          inputs.xnode-manager.nixosModules.reverse-proxy
           (
             let
               domain = if (builtins.pathExists ./domain) then builtins.readFile ./domain else "";
               acme-email = if (builtins.pathExists ./acme-email) then builtins.readFile ./acme-email else "";
             in
-            if (domain != "" && acme-email != "") then
+            { config, lib, ... }:
+            {
+              security.acme = lib.mkIf (acme-email != "") {
+                acceptTerms = true;
+                defaults.email = acme-email;
+              };
+
               # Securely expose xnode-manager
-              { config, ... }:
-              {
-                security.acme = {
-                  acceptTerms = true;
-                  defaults.email = acme-email;
-                  certs."xnode-manager" = {
-                    listenHTTP = ":80";
-                    domain = domain;
-                    group = config.services.nginx.group;
-                  };
+              services.xnode-reverse-proxy = {
+                enable = true;
+                rules = lib.mkIf (domain != "") {
+                  "${domain}" = [
+                    {
+                      forward = "http://localhost:${builtins.toString config.services.xnode-manager.port}";
+                    }
+                  ];
                 };
+              };
 
-                services.nginx = {
-                  enable = true;
-                  recommendedOptimisation = true;
-                  recommendedProxySettings = true;
-                  recommendedTlsSettings = true;
-                  proxyTimeout = "600s";
+              services.nginx.proxyTimeout = "600s";
 
-                  virtualHosts."xnode-manager" = {
-                    serverName = domain;
-                    addSSL = true;
-                    useACMEHost = "xnode-manager";
-                    listen = [
-                      {
-                        port = 34392;
-                        addr = "0.0.0.0";
-                        ssl = true;
-                      }
-                    ];
-                    locations."/" = {
-                      proxyPass = "http://localhost:34391";
-                    };
-                  };
-                };
-
-                # Port 80 is required to solve http-01 challenge
-                networking.firewall.allowedTCPPorts = [
-                  80
-                  34392
-                ];
-              }
-            else
-              {
-                # Xnode-manager over HTTP only (insecure)
-                networking.firewall.allowedTCPPorts = [ 34391 ];
-              }
+              # Always allow xnode-manager access over HTTP
+              networking.firewall.allowedTCPPorts = [ config.services.xnode-manager.port ];
+            }
           )
           (
             let
               user-passwd = if (builtins.pathExists ./user-passwd) then builtins.readFile ./user-passwd else "";
             in
-            { config, ... }:
-            nixpkgs.lib.optionalAttrs (user-passwd != "") {
+            { config, lib, ... }:
+            lib.mkIf (user-passwd != "") {
               # No user-passwd disables password authentication entirely
               users.users.xnode = {
                 initialPassword = user-passwd;
