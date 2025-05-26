@@ -73,6 +73,12 @@ pub fn backupdir() -> PathBuf {
         .unwrap_or(Path::new(&datadir()).join("backups"))
 }
 
+pub fn commandstream() -> PathBuf {
+    env_var("COMMANDSTREAM")
+        .map(|d| Path::new(&d).to_path_buf())
+        .unwrap_or(Path::new(&datadir()).join("commandstream"))
+}
+
 pub fn buildcores() -> u64 {
     env_var("BUILDCORES")
         .and_then(|s| {

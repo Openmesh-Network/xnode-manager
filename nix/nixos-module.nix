@@ -123,6 +123,15 @@ in
         '';
       };
 
+      commandstream = lib.mkOption {
+        type = lib.types.path;
+        default = "${cfg.dataDir}/commandstream";
+        example = "/var/lib/xnode-manager/commandstream";
+        description = ''
+          The directory to store command streams.
+        '';
+      };
+
       buildCores = lib.mkOption {
         type = lib.types.int;
         default = 0;
@@ -179,6 +188,7 @@ in
         CONTAINERPROFILE = cfg.container.profile;
         CONTAINERCONFIG = cfg.container.config;
         BACKUPDIR = cfg.backupDir;
+        COMMANDSTREAM = cfg.commandstream;
         BUILDCORES = toString cfg.buildCores;
         NIX = "${cfg.nix}/bin/";
         NIXOSREBUILD = "${cfg.nixos-rebuild}/bin/";

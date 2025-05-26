@@ -7,6 +7,7 @@ pub enum Scope {
     File,
     Process,
     Usage,
+    Request,
 }
 
 #[derive(Serialize, Deserialize)]

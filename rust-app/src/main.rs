@@ -4,10 +4,12 @@ use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
+use request::models::RequestsAppData;
 use usage::models::AppData as ResourceUsageAppData;
 use utils::env::{
-    authdir, backupdir, buildcores, containersettings, datadir, e2fsprogs, hostname, nix,
-    nixosrebuild, osdir, owner, port, systemd,
+    authdir, backupdir, buildcores, commandstream, containerconfig, containerprofile,
+    containersettings, containerstate, datadir, e2fsprogs, hostname, nix, nixosrebuild, osdir,
+    owner, port, systemd,
 };
 
 mod auth;
@@ -15,6 +17,7 @@ mod config;
 mod file;
 mod os;
 mod process;
+mod request;
 mod usage;
 mod utils;
 
@@ -52,9 +55,49 @@ async fn main() -> std::io::Result<()> {
         })?;
     }
     {
+        let dir = containerstate();
+        create_dir_all(&dir).inspect_err(|e| {
+            log::error!(
+                "Could not create container state dir at {}: {}",
+                dir.display(),
+                e
+            )
+        })?;
+    }
+    {
+        let dir = containerprofile();
+        create_dir_all(&dir).inspect_err(|e| {
+            log::error!(
+                "Could not create container profile dir at {}: {}",
+                dir.display(),
+                e
+            )
+        })?;
+    }
+    {
+        let dir = containerconfig();
+        create_dir_all(&dir).inspect_err(|e| {
+            log::error!(
+                "Could not create container config dir at {}: {}",
+                dir.display(),
+                e
+            )
+        })?;
+    }
+    {
         let dir = backupdir();
         create_dir_all(&dir).inspect_err(|e| {
             log::error!("Could not create backup dir at {}: {}", dir.display(), e)
+        })?;
+    }
+    {
+        let dir = commandstream();
+        create_dir_all(&dir).inspect_err(|e| {
+            log::error!(
+                "Could not create command stream dir at {}: {}",
+                dir.display(),
+                e
+            )
         })?;
     }
 
@@ -66,8 +109,12 @@ async fn main() -> std::io::Result<()> {
     log::info!("DATADIR {}", datadir().display());
     log::info!("OSDIR {}", osdir());
     log::info!("AUTHDIR {}", authdir().display());
-    log::info!("CONTAINERDIR {}", containersettings().display());
+    log::info!("CONTAINERSETTINGS {}", containersettings().display());
+    log::info!("CONTAINERSTATE {}", containerstate().display());
+    log::info!("CONTAINERPROFILE {}", containerprofile().display());
+    log::info!("CONTAINERCONFIG {}", containerconfig().display());
     log::info!("BACKUPDIR {}", backupdir().display());
+    log::info!("COMMANDSTREAM {}", commandstream().display());
     log::info!("BUILDCORES {}", buildcores());
     log::info!("NIX {}", nix());
     log::info!("NIXOSREBUILD {}", nixosrebuild());
@@ -81,16 +128,17 @@ async fn main() -> std::io::Result<()> {
             .wrap(IdentityMiddleware::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
-                    .cookie_secure(false)
                     .build(),
             )
             .app_data(web::Data::new(ResourceUsageAppData::default()))
+            .app_data(web::Data::new(RequestsAppData::default()))
             .service(web::scope(&auth::scope()).configure(auth::configure))
             .service(web::scope(&config::scope()).configure(config::configure))
             .service(web::scope(&file::scope()).configure(file::configure))
             .service(web::scope(&os::scope()).configure(os::configure))
             .service(web::scope(&process::scope()).configure(process::configure))
             .service(web::scope(&usage::scope()).configure(usage::configure))
+            .service(web::scope(&request::scope()).configure(request::configure))
     })
     .bind(format!("{}:{}", hostname(), port()))?
     .run()

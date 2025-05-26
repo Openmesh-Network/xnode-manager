@@ -1,6 +1,6 @@
 use tiny_keccak::{Hasher, Keccak};
 
-/// From: https://github.com/gakonst/ethers-rs/blob/master/ethers-core/src/utils/hash.rs
+// From: https://github.com/gakonst/ethers-rs/blob/master/ethers-core/src/utils/hash.rs
 
 /// Hash a message according to [EIP-191] (version `0x01`).
 ///

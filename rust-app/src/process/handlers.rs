@@ -11,7 +11,7 @@ use crate::{
     auth::{models::Scope, utils::has_permission},
     process::models::{LogMessage, LogQuery},
     utils::{
-        command::{execute_command, CommandOutput, CommandOutputError},
+        command::{execute_command, CommandExecutionMode, CommandOutput},
         env::systemd,
         error::ResponseError,
     },
@@ -36,9 +36,9 @@ async fn list(user: Identity, path: Path<String>) -> impl Responder {
         .arg("--type=service")
         .arg("--output=json")
         .arg("--no-pager");
-    match execute_command(command) {
+    match execute_command(command, CommandExecutionMode::Simple) {
         Ok(output) => match output {
-            CommandOutput::Output(output_str) => {
+            CommandOutput::Output { output: output_str } => {
                 match serde_json::from_str::<Vec<SystemCtlProcess>>(&output_str) {
                     Ok(output_parsed) => {
                         let response: Vec<Process> = output_parsed
@@ -59,35 +59,17 @@ async fn list(user: Identity, path: Path<String>) -> impl Responder {
                     }
                 }
             }
-            CommandOutput::OutputRaw(output, e) => {
+            CommandOutput::OutputRaw { output, e } => {
                 HttpResponse::InternalServerError().json(ResponseError::new(format!(
                     "Logs could not be decoded as UTF8: {}. Logs: {:?}.",
                     e, output
                 )))
             }
         },
-        Err(e) => match e {
-            CommandOutputError::OutputErrorRaw(output, e) => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error executing get units of container {} command: Output could not be decoded: {}. Output: {:?}",
-                    &container_id,
-                    e,
-                    output,
-                )))
-            }
-            CommandOutputError::OutputError(output) => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error executing get units of container {} command: {}",
-                    &container_id, output,
-                )))
-            }
-            CommandOutputError::CommandError(e) => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error executing get units of container {} command: {}",
-                    &container_id, e
-                )))
-            }
-        },
+        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Error executing get units of container {} command: {}",
+            &container_id, e
+        ))),
     }
 }
 
@@ -129,9 +111,9 @@ async fn logs(
             .to_string(),
         );
     }
-    match execute_command(command) {
+    match execute_command(command, CommandExecutionMode::Simple) {
         Ok(output) => match output {
-            CommandOutput::Output(output_str) => {
+            CommandOutput::Output { output: output_str } => {
                 let output_json = format!(
                     "[{}]",
                     &output_str[..output_str.len() - 1].replace("\n", ",")
@@ -159,48 +141,27 @@ async fn logs(
                     }
                 }
             }
-            CommandOutput::OutputRaw(output, e) => {
+            CommandOutput::OutputRaw { output, e } => {
                 HttpResponse::InternalServerError().json(ResponseError::new(format!(
                 "Logs of process {} of container {} could not be decoded as UTF8: {}. Logs: {:?}.",
                 &process, &container_id, e, output
             )))
             }
         },
-        Err(e) => match e {
-            CommandOutputError::OutputErrorRaw(output, e) => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error executing get logs of process {} of container {} command: Output could not be decoded: {}. Output: {:?}",
-                    &process, &container_id,
-                    e,
-                    output,
-                )))
-            }
-            CommandOutputError::OutputError(output) => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error executing get logs of process {} of container {} command: {}",
-                    &process, &container_id, output,
-                )))
-            }
-            CommandOutputError::CommandError(e) => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Error executing get logs of process {} of container {} command: {}",
-                    &process, &container_id, e
-                )))
-            }
-        },
+        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Error executing get logs of process {} of container {} command: {}",
+            &process, &container_id, e
+        ))),
     }
 }
 
 fn journal_ctl_priority_to_log_level(priority: &str) -> LogLevel {
-    let priority_num: u8;
-    match str::parse(priority) {
-        Ok(num) => {
-            priority_num = num;
-        }
+    let priority_num = match str::parse::<u8>(priority) {
+        Ok(num) => num,
         Err(_) => {
             return LogLevel::Unknown;
         }
-    }
+    };
 
     if priority_num <= 3 {
         return LogLevel::Error;
