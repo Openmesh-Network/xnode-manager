@@ -4,7 +4,6 @@ use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::{cookie::Key, web, App, HttpServer};
-use request::models::RequestsAppData;
 use usage::models::AppData as ResourceUsageAppData;
 use utils::env::{
     authdir, backupdir, buildcores, commandstream, containerconfig, containerprofile,
@@ -131,7 +130,6 @@ async fn main() -> std::io::Result<()> {
                     .build(),
             )
             .app_data(web::Data::new(ResourceUsageAppData::default()))
-            .app_data(web::Data::new(RequestsAppData::default()))
             .service(web::scope(&auth::scope()).configure(auth::configure))
             .service(web::scope(&config::scope()).configure(config::configure))
             .service(web::scope(&file::scope()).configure(file::configure))

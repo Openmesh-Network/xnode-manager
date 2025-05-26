@@ -4,11 +4,7 @@ use std::{
 };
 
 use actix_identity::Identity;
-use actix_web::{
-    get,
-    web::{self, Path},
-    HttpResponse, Responder,
-};
+use actix_web::{get, web::Path, HttpResponse, Responder};
 use log::warn;
 use serde_json::json;
 
@@ -18,7 +14,7 @@ use crate::{
     utils::{env::commandstream, error::ResponseError},
 };
 
-use super::models::{RequestId, RequestIdResponse, RequestIdResult, RequestsAppData};
+use super::models::{RequestId, RequestIdResponse, RequestIdResult};
 
 #[get("/info/{request_id}")]
 async fn request_info(user: Identity, path: Path<RequestId>) -> impl Responder {
@@ -124,18 +120,9 @@ async fn command_info(user: Identity, path: Path<(RequestId, String)>) -> impl R
 }
 
 pub fn return_request_id(
-    data: web::Data<RequestsAppData>,
     thread: Box<dyn FnOnce(RequestId) -> RequestIdResult + Send>,
 ) -> HttpResponse {
-    let request_id = match data.request_counter.lock() {
-        Ok(mut request_counter) => request_counter.next(),
-        Err(e) => {
-            return HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                "Error getting request id: {}",
-                e
-            )));
-        }
-    };
+    let request_id = get_request_id();
 
     thread::spawn(move || {
         let result = thread(request_id);
@@ -146,4 +133,24 @@ pub fn return_request_id(
     });
 
     HttpResponse::Ok().json(RequestIdResponse { request_id })
+}
+
+fn get_request_id() -> RequestId {
+    read_dir(commandstream())
+        .map(|dir| {
+            dir.map(|entry| {
+                entry
+                    .map(|e| {
+                        e.file_name()
+                            .into_string()
+                            .map(|s| s.parse::<u32>().unwrap_or(0))
+                            .unwrap_or(0)
+                    })
+                    .unwrap_or(0)
+            })
+            .max()
+            .unwrap_or(0)
+        })
+        .unwrap_or(0)
+        + 1
 }
