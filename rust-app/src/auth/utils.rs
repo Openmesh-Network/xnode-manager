@@ -13,6 +13,7 @@ pub fn get_scopes(user: Identity) -> HashSet<Scope> {
             Scope::File,
             Scope::Process,
             Scope::Usage,
+            Scope::Request,
         ]);
     }
 
