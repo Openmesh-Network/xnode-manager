@@ -262,8 +262,18 @@ fn create_profile(
     container_id: &str,
     request_id: RequestId,
 ) -> Option<RequestIdResult> {
-    let container_profile = containerprofile().join(container_id).join("system");
+    let container_profile = containerprofile().join(container_id);
     log::info!("Creating profile {}", container_profile.display());
+
+    if let Err(e) = create_dir_all(&container_profile) {
+        return Some(RequestIdResult::Error {
+            error: format!(
+                "Error creating nixos profile {}: {}",
+                container_profile.display(),
+                e
+            ),
+        });
+    }
 
     let mut cli_command = Command::new(format!("{}nix", nix()));
     cli_command
@@ -271,7 +281,7 @@ fn create_profile(
         .env("NIX_BUILD_CORES", buildcores().to_string())
         .arg("build")
         .arg("--profile")
-        .arg(&container_profile)
+        .arg(container_profile.join("system"))
         .arg(format!(
             "{}#nixosConfigurations.container.config.system.build.toplevel",
             flake.to_string_lossy()
@@ -290,7 +300,7 @@ fn delete_profile(container_id: &str) -> Option<RequestIdResult> {
     if let Err(e) = remove_dir_all(&container_profile) {
         return Some(RequestIdResult::Error {
             error: format!(
-                "Error deleting nixos profile configuration {}: {}",
+                "Error deleting nixos profile {}: {}",
                 container_profile.display(),
                 e
             ),
