@@ -54,3 +54,10 @@ pub enum LogLevel {
     Info,
     Unknown,
 }
+
+#[derive(Serialize, Deserialize)]
+pub enum ProcessCommand {
+    Start,
+    Stop,
+    Restart,
+}

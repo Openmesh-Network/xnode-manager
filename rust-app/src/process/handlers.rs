@@ -2,14 +2,15 @@ use std::process::Command;
 
 use actix_identity::Identity;
 use actix_web::{
-    get,
-    web::{Path, Query},
+    get, post,
+    web::{self, Path, Query},
     HttpResponse, Responder,
 };
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
-    process::models::{LogMessage, LogQuery},
+    process::models::{LogMessage, LogQuery, ProcessCommand},
+    request::{handlers::return_request_id, models::RequestIdResult},
     utils::{
         command::{execute_command, CommandExecutionMode, CommandOutput},
         env::systemd,
@@ -153,6 +154,48 @@ async fn logs(
             &process, &container_id, e
         ))),
     }
+}
+
+#[post("/execute/{container}/{process}")]
+async fn execute(
+    user: Identity,
+    path: Path<(String, String)>,
+    command: web::Json<ProcessCommand>,
+) -> impl Responder {
+    if !has_permission(user, Scope::Process) {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    return_request_id(Box::new(move |request_id| {
+        let (container_id, process) = path.into_inner();
+        let systemd_command = match command.into_inner() {
+            ProcessCommand::Start => "start",
+            ProcessCommand::Stop => "stop",
+            ProcessCommand::Restart => "restart",
+        };
+
+        let mut command = Command::new(format!("{}systemctl", systemd()));
+        command
+            .arg(systemd_command)
+            .arg(&process)
+            .arg("--machine")
+            .arg(&container_id);
+
+        match execute_command(command, CommandExecutionMode::Stream { request_id }) {
+            Ok(output) => RequestIdResult::Success {
+                body: match output {
+                    CommandOutput::Output { output } => Some(output),
+                    _ => None,
+                },
+            },
+            Err(e) => RequestIdResult::Error {
+                error: format!(
+                    "Erroring executing {} on {} of {}: {}",
+                    systemd_command, process, container_id, e
+                ),
+            },
+        }
+    }))
 }
 
 fn journal_ctl_priority_to_log_level(priority: &str) -> LogLevel {
