@@ -181,7 +181,6 @@ in
         enable = true;
         user = "xnode-reverse-proxy";
         group = "xnode-reverse-proxy";
-        resolver.addresses = [ "127.0.0.1" ];
 
         recommendedOptimisation = true;
         recommendedProxySettings = true;
@@ -208,11 +207,7 @@ in
                 entry:
                 (lib.attrsets.nameValuePair (if (entry.path == null) then "/" else entry.path) {
                   proxyWebsockets = true;
-                  # Prevent NGINX for falling to start in case some hosts aren't reachable
-                  extraConfig = ''
-                    set $target ${entry.forward};
-                    proxy_pass $target;
-                  '';
+                  proxyPass = entry.forward;
                 })
               ) httpEntries
             );

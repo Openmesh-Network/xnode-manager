@@ -143,7 +143,6 @@
                   '';
                 };
               };
-              services.resolved.enable = true;
               systemd.network = {
                 enable = true;
                 wait-online = {
@@ -176,6 +175,11 @@
                       dhcpV6Config.WithoutRA = "solicit";
                     };
                   };
+              };
+
+              services.resolved = {
+                enable = true;
+                llmnr = "false";
               };
             }
           )
