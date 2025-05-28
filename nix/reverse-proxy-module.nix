@@ -46,7 +46,7 @@ in
               options = {
                 forward = lib.mkOption {
                   type = lib.types.str;
-                  example = "http://xnode.local:3000";
+                  example = "http://xnode:3000";
                   description = ''
                     Where to forward the request to.
                   '';
@@ -75,6 +75,10 @@ in
           ];
           "test.example.com" = [
             { forward = "https://container:80"; }
+          ];
+          "play.example.com" = [
+            { forward = "tcp://minecraft-server:25565"; }
+            { forward = "udp://minecraft-server:25565"; }
           ];
         };
         description = ''
@@ -106,39 +110,149 @@ in
         createHome = true;
       };
 
-      networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall (
+      networking.firewall = lib.mkIf cfg.openFirewall (
         if (cfg.program.type == "nginx") then
-          [
-            80
-            443
-          ]
+          {
+            allowedTCPPorts =
+              [
+                80
+                443
+              ]
+              ++ (lib.attrsets.foldlAttrs (
+                acc: name: rule:
+                (
+                  acc
+                  ++ (builtins.map
+                    (
+                      entry:
+                      let
+                        forward_split = lib.splitString "://" entry.forward;
+                        server = builtins.elemAt forward_split 1;
+                        port = builtins.elemAt (lib.splitString ":" server) 1;
+                      in
+                      lib.toInt port
+                    )
+                    (
+                      builtins.filter (
+                        entry:
+                        let
+                          protocol = (builtins.elemAt (lib.splitString "://" entry.forward) 0);
+                        in
+                        protocol == "tcp"
+                      ) rule
+                    )
+                  )
+                )
+              ) [ ] cfg.rules);
+            allowedUDPPorts = lib.attrsets.foldlAttrs (
+              acc: name: rule:
+              (
+                acc
+                ++ (builtins.map
+                  (
+                    entry:
+                    let
+                      forward_split = lib.splitString "://" entry.forward;
+                      server = builtins.elemAt forward_split 1;
+                      port = builtins.elemAt (lib.splitString ":" server) 1;
+                    in
+                    lib.toInt port
+                  )
+                  (
+                    builtins.filter (
+                      entry:
+                      let
+                        protocol = (builtins.elemAt (lib.splitString "://" entry.forward) 0);
+                      in
+                      protocol == "udp"
+                    ) rule
+                  )
+                )
+              )
+            ) [ ] cfg.rules;
+          }
         else if (cfg.program.type == "cloudflared") then
-          [ ]
+          { }
         else
-          [ ]
+          { }
       );
 
       services.nginx = lib.mkIf (cfg.program.type == "nginx") {
         enable = true;
         user = "xnode-reverse-proxy";
         group = "xnode-reverse-proxy";
+        resolver.addresses = [ "127.0.0.1" ];
 
         recommendedOptimisation = true;
         recommendedProxySettings = true;
         recommendedTlsSettings = true;
 
-        virtualHosts = lib.attrsets.mapAttrs (domain: rule: {
-          enableACME = true;
-          forceSSL = true;
-          locations = builtins.listToAttrs (
-            builtins.map (
-              location:
-              (lib.attrsets.nameValuePair (if (location.path == null) then "/" else location.path) {
-                proxyPass = location.forward;
-              })
-            ) rule
-          );
-        }) cfg.rules;
+        virtualHosts = lib.attrsets.mapAttrs (
+          domain: rule:
+          let
+            httpEntries = (
+              builtins.filter (
+                entry:
+                let
+                  protocol = (builtins.elemAt (lib.splitString "://" entry.forward) 0);
+                in
+                protocol == "http" || protocol == "https"
+              ) rule
+            );
+          in
+          lib.mkIf ((builtins.length httpEntries) > 0) {
+            enableACME = true;
+            forceSSL = true;
+            locations = builtins.listToAttrs (
+              builtins.map (
+                entry:
+                (lib.attrsets.nameValuePair (if (entry.path == null) then "/" else entry.path) {
+                  proxyWebsockets = true;
+                  # Prevent NGINX for falling to start in case some hosts aren't reachable
+                  extraConfig = ''
+                    set $target ${entry.forward};
+                    proxy_pass $target;
+                  '';
+                })
+              ) httpEntries
+            );
+          }
+        ) cfg.rules;
+
+        streamConfig = lib.attrsets.foldlAttrs (
+          acc: name: rule:
+          (lib.mkMerge [
+            acc
+            (lib.mkMerge (
+              builtins.map
+                (
+                  entry:
+                  let
+                    forward_split = lib.splitString "://" entry.forward;
+                    protocol = builtins.elemAt forward_split 0;
+                    server = builtins.elemAt forward_split 1;
+                    port = builtins.elemAt (lib.splitString ":" server) 1;
+                  in
+                  ''
+                    server {
+                      server_name ${name};
+                      listen ${port}${if protocol == "udp" then " udp" else ""};
+                      proxy_pass ${server};
+                    }
+                  ''
+                )
+                (
+                  builtins.filter (
+                    entry:
+                    let
+                      protocol = (builtins.elemAt (lib.splitString "://" entry.forward) 0);
+                    in
+                    protocol == "tcp" || protocol == "udp"
+                  ) rule
+                )
+            ))
+          ])
+        ) '''' cfg.rules;
       };
 
       systemd.services.cloudflared-login = lib.mkIf (cfg.program.type == "cloudflared") {
@@ -194,18 +308,18 @@ in
           credentialsFile = "${data}/.cloudflared/tunnel.json";
           default = "http_status:404";
           ingress = lib.attrsets.foldlAttrs (
-            acc: name: value:
+            acc: name: rule:
             (lib.mkMerge [
               acc
               (builtins.listToAttrs (
                 lib.lists.imap0 (
-                  i: value:
+                  i: entry:
                   lib.attrsets.nameValuePair name {
                     # hostname = name;
-                    service = value.forward;
-                    path = value.path;
+                    service = entry.forward;
+                    path = entry.path;
                   }
-                ) value
+                ) rule
               ))
             ])
           ) { } cfg.rules;
