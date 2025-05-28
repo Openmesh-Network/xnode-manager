@@ -2,8 +2,8 @@
   description = "XnodeOS Kexec Installer";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
-    disko = { 
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
+    disko = {
       url = "github:nix-community/disko/latest";
       inputs.nixpkgs.follows = "nixpkgs";
     };

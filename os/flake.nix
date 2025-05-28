@@ -43,8 +43,8 @@
                   boot.lanzaboote = {
                     enable = true;
                     enrollKeys = true;
-                    configurationLimit = 1;
                     pkiBundle = "/var/lib/sbctl";
+                    configurationLimit = 1;
                   };
 
                   # Decrypt all LUKS devices unattended with Clevis (TPM2)
@@ -67,6 +67,7 @@
                   efiSupport = true;
                   efiInstallAsRemovable = true;
                   device = "nodev";
+                  configurationLimit = 1;
                 };
               }
           )
@@ -166,16 +167,44 @@
                       matchConfig.Name = "en*";
                       networkConfig = baseNetworkConfig;
                       dhcpV4Config.RouteMetric = 100;
+                      dhcpV6Config.WithoutRA = "solicit";
                     };
                     "wireless" = {
                       matchConfig.Name = "wl*";
                       networkConfig = baseNetworkConfig;
                       dhcpV4Config.RouteMetric = 200;
+                      dhcpV6Config.WithoutRA = "solicit";
                     };
                   };
               };
+            }
+          )
+          (
+            { config, ... }:
+            let
+              nixosVersion = config.system.nixos.release;
+              pinnedVersion =
+                if (builtins.pathExists ./state-version) then builtins.readFile ./state-version else "";
+            in
+            {
+              system.stateVersion = if pinnedVersion != "" then pinnedVersion else nixosVersion;
 
-              system.stateVersion = "24.11";
+              systemd.services.pin-state-version =
+                let
+                  nixosConfigDir = "/etc/nixos";
+                in
+                {
+                  wantedBy = [ "multi-user.target" ];
+                  description = "Pin state version to first booted NixOS version.";
+                  serviceConfig = {
+                    Type = "oneshot";
+                  };
+                  script = ''
+                    if [ ! -f ${nixosConfigDir}/state-version ]; then
+                      echo -n ${nixosVersion} > ${nixosConfigDir}/state-version
+                    fi
+                  '';
+                };
             }
           )
           inputs.disko.nixosModules.default
@@ -219,8 +248,6 @@
                   ];
                 };
               };
-
-              services.nginx.proxyTimeout = "600s";
 
               # Always allow xnode-manager access over HTTP
               networking.firewall.allowedTCPPorts = [ config.services.xnode-manager.port ];

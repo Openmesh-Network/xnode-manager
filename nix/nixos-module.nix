@@ -205,8 +205,9 @@ in
     };
 
     systemd.services.start-all-containers = {
-      wantedBy = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
       description = "Start all NixOS containers on this host";
+      after = [ "network.target" ];
       path = [
         pkgs.nixos-container
         pkgs.findutils

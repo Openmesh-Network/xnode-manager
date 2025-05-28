@@ -214,8 +214,10 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                     container: container_id,
                     backup: _backup,
                 } => {
-                    let mut command = Command::new(format!("{}machinectl", systemd()));
-                    command.arg("terminate").arg(&container_id);
+                    let mut command = Command::new(format!("{}systemctl", systemd()));
+                    command
+                        .arg("stop")
+                        .arg(format!("container@{}", container_id));
 
                     // Should be inside if "container running", then fail on error can be added back
                     let _ = execute_command(command, CommandExecutionMode::Stream { request_id });
