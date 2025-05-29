@@ -3,7 +3,10 @@ use std::{fs::create_dir_all, path::Path};
 use actix_cors::Cors;
 use actix_identity::IdentityMiddleware;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
-use actix_web::{cookie::Key, web, App, HttpServer};
+use actix_web::{
+    cookie::{Key, SameSite},
+    web, App, HttpServer,
+};
 use usage::models::AppData as ResourceUsageAppData;
 use utils::env::{
     authdir, backupdir, buildcores, commandstream, containerconfig, containerprofile,
@@ -127,6 +130,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(IdentityMiddleware::default())
             .wrap(
                 SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
+                    .cookie_same_site(SameSite::None)
                     .build(),
             )
             .app_data(web::Data::new(ResourceUsageAppData::default()))
