@@ -44,7 +44,7 @@ pub fn execute_command(mut command: Command, mode: CommandExecutionMode) -> Comm
     log::info!("Executing command: {:?}", command);
 
     let mut on_result: Box<dyn Fn(&CommandResult)> = Box::new(|_| {});
-    if let CommandExecutionMode::Stream { request_id } = mode {
+    if let CommandExecutionMode::Stream { request_id } = &mode {
         let start = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map(|d| d.as_millis())
@@ -89,7 +89,11 @@ pub fn execute_command(mut command: Command, mode: CommandExecutionMode) -> Comm
         })
     }
 
-    let output = match command.spawn().and_then(|c| c.wait_with_output()) {
+    let output = match if matches!(&mode, CommandExecutionMode::Simple) {
+        command.output()
+    } else {
+        command.spawn().and_then(|c| c.wait_with_output())
+    } {
         Ok(output_raw) => {
             if !output_raw.status.success() {
                 let output = output_raw.stderr;
