@@ -92,9 +92,11 @@
                 device = "/mnt/disk*";
                 depends = [ "/mnt" ];
                 options = [
-                  "cache.files=off"
+                  # https://trapexit.github.io/mergerfs/quickstart/#configuration
+                  "cache.files=auto-full"
                   "category.create=mfs"
-                  "dropcacheonclose=false"
+                  "func.getattr=newest"
+                  "dropcacheonclose=true"
                 ];
               };
 
