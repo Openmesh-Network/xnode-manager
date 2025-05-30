@@ -89,7 +89,7 @@ pub fn execute_command(mut command: Command, mode: CommandExecutionMode) -> Comm
         })
     }
 
-    let output = match command.output() {
+    let output = match command.spawn().and_then(|c| c.wait_with_output()) {
         Ok(output_raw) => {
             if !output_raw.status.success() {
                 let output = output_raw.stderr;

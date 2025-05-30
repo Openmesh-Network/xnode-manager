@@ -131,23 +131,10 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
             .arg("switch")
             .arg("--flake")
             .arg(path);
-        match os.as_child {
-            true => {
-                if let Err(e) = command.spawn() {
-                    return RequestIdResult::Error {
-                        error: format!("Error spawning OS switch command child: {}", e),
-                    };
-                }
-            }
-            false => {
-                if let Err(err) =
-                    execute_command(command, CommandExecutionMode::Stream { request_id })
-                {
-                    return RequestIdResult::Error {
-                        error: format!("Error switching to new OS config: {}", err),
-                    };
-                }
-            }
+        if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
+            return RequestIdResult::Error {
+                error: format!("Error switching to new OS config: {}", err),
+            };
         }
 
         RequestIdResult::Success { body: None }

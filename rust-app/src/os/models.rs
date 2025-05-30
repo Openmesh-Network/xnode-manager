@@ -9,9 +9,6 @@ pub struct OSChange {
     pub domain: Option<String>,
     pub acme_email: Option<String>,
     pub user_passwd: Option<String>,
-
-    // Required if the system rebuild wants to restart this application
-    pub as_child: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
