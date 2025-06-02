@@ -134,7 +134,6 @@
                 useNetworkd = true;
                 wireless.iwd = {
                   enable = true;
-                  settings.DriverQuirks.UseDefaultInterface = true;
                 };
                 firewall = {
                   extraCommands = ''

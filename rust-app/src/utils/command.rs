@@ -3,21 +3,18 @@ use std::{
     fs::{create_dir_all, write, File},
     io::Error,
     process::Command,
-    string::FromUtf8Error,
     time::SystemTime,
 };
 
 use log::warn;
 
-use crate::{request::models::RequestId, utils::env::commandstream};
+use crate::{
+    request::models::RequestId,
+    utils::{env::commandstream, output::Output},
+};
 
-pub enum CommandOutput {
-    OutputRaw { output: Vec<u8>, e: FromUtf8Error },
-    Output { output: String },
-}
 pub enum CommandOutputError {
-    OutputErrorRaw { output: Vec<u8>, e: FromUtf8Error },
-    OutputError { output: String },
+    OutputError { output: Vec<u8> },
     CommandError { e: Error },
 }
 impl Display for CommandOutputError {
@@ -26,10 +23,14 @@ impl Display for CommandOutputError {
             f,
             "{}",
             match &self {
-                CommandOutputError::OutputErrorRaw { output, e } => {
-                    format!("Output could not be decoded: {}. Output: {:?}", e, output)
+                CommandOutputError::OutputError { output } => {
+                    match output.clone().into() {
+                        Output::UTF8 { output } => output.to_string(),
+                        Output::Bytes { output } => {
+                            format!("Non UTF8 output: {:?}", output)
+                        }
+                    }
                 }
-                CommandOutputError::OutputError { output } => output.to_string(),
                 CommandOutputError::CommandError { e } => e.to_string(),
             }
         )
@@ -39,7 +40,7 @@ pub enum CommandExecutionMode {
     Simple,
     Stream { request_id: RequestId },
 }
-pub type CommandResult = Result<CommandOutput, CommandOutputError>;
+pub type CommandResult = Result<Vec<u8>, CommandOutputError>;
 pub fn execute_command(mut command: Command, mode: CommandExecutionMode) -> CommandResult {
     log::info!("Executing command: {:?}", command);
 
@@ -97,15 +98,11 @@ pub fn execute_command(mut command: Command, mode: CommandExecutionMode) -> Comm
         Ok(output_raw) => {
             if !output_raw.status.success() {
                 let output = output_raw.stderr;
-                return Err(String::from_utf8(output.clone())
-                    .map(|output| CommandOutputError::OutputError { output })
-                    .unwrap_or_else(|e| CommandOutputError::OutputErrorRaw { output, e }));
+                return Err(CommandOutputError::OutputError { output });
             }
 
             let output = output_raw.stdout;
-            Ok(String::from_utf8(output.clone())
-                .map(|output| CommandOutput::Output { output })
-                .unwrap_or_else(|e| CommandOutput::OutputRaw { output, e }))
+            Ok(output)
         }
         Err(e) => Err(CommandOutputError::CommandError { e }),
     };

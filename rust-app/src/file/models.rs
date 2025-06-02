@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::utils::output::Output;
+
 #[derive(Serialize, Deserialize)]
 pub struct Location {
     pub container: String,
@@ -41,7 +43,7 @@ pub struct RemoveDirectory {
 
 #[derive(Serialize, Deserialize)]
 pub struct File {
-    pub content: Vec<u8>,
+    pub content: Output,
 }
 
 #[derive(Serialize, Deserialize)]

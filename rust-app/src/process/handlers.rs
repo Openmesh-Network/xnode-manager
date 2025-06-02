@@ -9,12 +9,13 @@ use actix_web::{
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
-    process::models::{LogMessage, LogQuery, ProcessCommand},
+    process::models::{LogQuery, ProcessCommand},
     request::{handlers::return_request_id, models::RequestIdResult},
     utils::{
-        command::{execute_command, CommandExecutionMode, CommandOutput},
+        command::{execute_command, CommandExecutionMode},
         env::systemd,
         error::ResponseError,
+        output::Output,
     },
 };
 
@@ -38,8 +39,8 @@ async fn list(user: Identity, path: Path<String>) -> impl Responder {
         .arg("--output=json")
         .arg("--no-pager");
     match execute_command(command, CommandExecutionMode::Simple) {
-        Ok(output) => match output {
-            CommandOutput::Output { output: output_str } => {
+        Ok(output) => match output.into() {
+            Output::UTF8 { output: output_str } => {
                 match serde_json::from_str::<Vec<SystemCtlProcess>>(&output_str) {
                     Ok(output_parsed) => {
                         let response: Vec<Process> = output_parsed
@@ -60,12 +61,9 @@ async fn list(user: Identity, path: Path<String>) -> impl Responder {
                     }
                 }
             }
-            CommandOutput::OutputRaw { output, e } => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Logs could not be decoded as UTF8: {}. Logs: {:?}.",
-                    e, output
-                )))
-            }
+            Output::Bytes { output } => HttpResponse::InternalServerError().json(
+                ResponseError::new(format!("Logs could not be decoded as UTF8: {:?}.", output)),
+            ),
         },
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
             "Error executing get units of container {} command: {}",
@@ -113,8 +111,8 @@ async fn logs(
         );
     }
     match execute_command(command, CommandExecutionMode::Simple) {
-        Ok(output) => match output {
-            CommandOutput::Output { output: output_str } => {
+        Ok(output) => match output.into() {
+            Output::UTF8 { output: output_str } => {
                 let output_json = format!(
                     "[{}]",
                     &output_str[..output_str.len() - 1].replace("\n", ",")
@@ -126,8 +124,8 @@ async fn logs(
                             .map(|log| Log {
                                 timestamp: log.__REALTIME_TIMESTAMP.parse().unwrap_or(0),
                                 message: match log.MESSAGE {
-                                    JournalCtlLogMessage::String(string) => LogMessage::UTF8 { string },
-                                    JournalCtlLogMessage::Raw(bytes) => LogMessage::Raw { bytes }
+                                    JournalCtlLogMessage::String(output) => Output::UTF8 { output },
+                                    JournalCtlLogMessage::Raw(output) => Output::Bytes { output }
                                 },
                                 level: journal_ctl_priority_to_log_level(&log.PRIORITY)
                             })
@@ -142,11 +140,11 @@ async fn logs(
                     }
                 }
             }
-            CommandOutput::OutputRaw { output, e } => {
+            Output::Bytes { output } => {
                 HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                "Logs of process {} of container {} could not be decoded as UTF8: {}. Logs: {:?}.",
-                &process, &container_id, e, output
-            )))
+                    "Logs of process {} of container {} could not be decoded as UTF8: {:?}.",
+                    &process, &container_id, output
+                )))
             }
         },
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -183,8 +181,8 @@ async fn execute(
 
         match execute_command(command, CommandExecutionMode::Stream { request_id }) {
             Ok(output) => RequestIdResult::Success {
-                body: match output {
-                    CommandOutput::Output { output } => Some(output),
+                body: match output.into() {
+                    Output::UTF8 { output } => Some(output),
                     _ => None,
                 },
             },

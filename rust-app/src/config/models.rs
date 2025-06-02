@@ -22,6 +22,5 @@ pub enum ConfigurationAction {
     },
     Remove {
         container: String,
-        backup: bool,
     },
 }

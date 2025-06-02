@@ -212,7 +212,6 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                 }
                 ConfigurationAction::Remove {
                     container: container_id,
-                    backup: _backup,
                 } => {
                     let mut command = Command::new(format!("{}systemctl", systemd()));
                     command

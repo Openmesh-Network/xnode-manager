@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::utils::output::Output;
+
 #[derive(Serialize, Deserialize)]
 pub struct SystemCtlProcess {
     pub unit: String,
@@ -35,15 +37,9 @@ pub struct JournalCtlLog {
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum LogMessage {
-    UTF8 { string: String },
-    Raw { bytes: Vec<u8> },
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct Log {
     pub timestamp: u64, // Epoch time in Microseconds
-    pub message: LogMessage,
+    pub message: Output,
     pub level: LogLevel,
 }
 

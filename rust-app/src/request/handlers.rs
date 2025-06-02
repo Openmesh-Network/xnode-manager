@@ -1,5 +1,5 @@
 use std::{
-    fs::{read_dir, read_to_string, write},
+    fs::{read, read_dir, read_to_string, write},
     thread,
 };
 
@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::{
     auth::{models::Scope, utils::has_permission},
     request::models::{CommandInfo, RequestInfo},
-    utils::{env::commandstream, error::ResponseError},
+    utils::{env::commandstream, error::ResponseError, output::Output},
 };
 
 use super::models::{RequestId, RequestIdResponse, RequestIdResult};
@@ -58,8 +58,8 @@ async fn command_info(user: Identity, path: Path<(RequestId, String)>) -> impl R
     let path = commandstream().join(request_id.to_string()).join(command);
 
     let command: String;
-    let stdout: String;
-    let stderr: String;
+    let stdout: Output;
+    let stderr: Output;
     {
         let path = path.join("command");
         match read_to_string(&path) {
@@ -77,9 +77,9 @@ async fn command_info(user: Identity, path: Path<(RequestId, String)>) -> impl R
     }
     {
         let path = path.join("stdout");
-        match read_to_string(&path) {
+        match read(&path) {
             Ok(file) => {
-                stdout = file;
+                stdout = file.into();
             }
             Err(e) => {
                 return HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -92,9 +92,9 @@ async fn command_info(user: Identity, path: Path<(RequestId, String)>) -> impl R
     }
     {
         let path = path.join("stderr");
-        match read_to_string(&path) {
+        match read(&path) {
             Ok(file) => {
-                stderr = file;
+                stderr = file.into();
             }
             Err(e) => {
                 return HttpResponse::InternalServerError().json(ResponseError::new(format!(

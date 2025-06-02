@@ -20,9 +20,11 @@ async fn read_file(user: Identity, file: web::Json<ReadFile>) -> impl Responder 
 
     let path = containerstate()
         .join(&file.location.container)
-        .join(&file.location.path);
+        .join(remove_first_slash(&file.location.path));
     match fs::read(&path) {
-        Ok(content) => HttpResponse::Ok().json(File { content }),
+        Ok(output) => HttpResponse::Ok().json(File {
+            content: output.into(),
+        }),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
             "Error reading file at path {}: {}",
             path.display(),
@@ -39,7 +41,7 @@ async fn write_file(user: Identity, file: web::Json<WriteFile>) -> impl Responde
 
     let path = containerstate()
         .join(&file.location.container)
-        .join(&file.location.path);
+        .join(remove_first_slash(&file.location.path));
     match fs::write(&path, &file.content) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -58,7 +60,7 @@ async fn remove_file(user: Identity, file: web::Json<RemoveFile>) -> impl Respon
 
     let path = containerstate()
         .join(&file.location.container)
-        .join(&file.location.path);
+        .join(remove_first_slash(&file.location.path));
     match fs::remove_file(&path) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -77,7 +79,7 @@ async fn read_directory(user: Identity, dir: web::Json<ReadDirectory>) -> impl R
 
     let path: std::path::PathBuf = containerstate()
         .join(&dir.location.container)
-        .join(&dir.location.path);
+        .join(remove_first_slash(&dir.location.path));
     match fs::read_dir(&path) {
         Ok(content) => {
             let content_with_type = content
@@ -142,7 +144,7 @@ async fn create_directory(user: Identity, dir: web::Json<CreateDirectory>) -> im
 
     let path = containerstate()
         .join(&dir.location.container)
-        .join(&dir.location.path);
+        .join(remove_first_slash(&dir.location.path));
     let create = if dir.make_parent {
         fs::create_dir_all(&path)
     } else {
@@ -166,7 +168,7 @@ async fn remove_directory(user: Identity, dir: web::Json<RemoveDirectory>) -> im
 
     let path = containerstate()
         .join(&dir.location.container)
-        .join(&dir.location.path);
+        .join(remove_first_slash(&dir.location.path));
     let create = if dir.make_empty {
         fs::remove_dir_all(&path)
     } else {
@@ -180,4 +182,16 @@ async fn remove_directory(user: Identity, dir: web::Json<RemoveDirectory>) -> im
             e
         ))),
     }
+}
+
+fn remove_first_slash(string: &str) -> &str {
+    let mut chars = string.chars();
+
+    if let Some(char) = chars.next() {
+        if char != '/' {
+            return string;
+        }
+    }
+
+    chars.as_str()
 }
