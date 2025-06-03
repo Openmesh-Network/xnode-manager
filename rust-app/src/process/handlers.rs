@@ -1,11 +1,7 @@
 use std::process::Command;
 
 use actix_identity::Identity;
-use actix_web::{
-    get, post,
-    web::{self, Path, Query},
-    HttpResponse, Responder,
-};
+use actix_web::{get, post, web, HttpResponse, Responder};
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
@@ -24,7 +20,7 @@ use super::models::{
 };
 
 #[get("/list/{container}")]
-async fn list(user: Identity, path: Path<String>) -> impl Responder {
+async fn list(user: Identity, path: web::Path<String>) -> impl Responder {
     if !has_permission(user, Scope::Process) {
         return HttpResponse::Unauthorized().finish();
     }
@@ -75,8 +71,8 @@ async fn list(user: Identity, path: Path<String>) -> impl Responder {
 #[get("/logs/{container}/{process}")]
 async fn logs(
     user: Identity,
-    path: Path<(String, String)>,
-    query: Query<LogQuery>,
+    path: web::Path<(String, String)>,
+    query: web::Query<LogQuery>,
 ) -> impl Responder {
     if !has_permission(user, Scope::Process) {
         return HttpResponse::Unauthorized().finish();
@@ -157,7 +153,7 @@ async fn logs(
 #[post("/execute/{container}/{process}")]
 async fn execute(
     user: Identity,
-    path: Path<(String, String)>,
+    path: web::Path<(String, String)>,
     command: web::Json<ProcessCommand>,
 ) -> impl Responder {
     if !has_permission(user, Scope::Process) {

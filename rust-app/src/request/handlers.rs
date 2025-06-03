@@ -4,7 +4,7 @@ use std::{
 };
 
 use actix_identity::Identity;
-use actix_web::{get, web::Path, HttpResponse, Responder};
+use actix_web::{get, web, HttpResponse, Responder};
 use log::warn;
 use serde_json::json;
 
@@ -17,7 +17,7 @@ use crate::{
 use super::models::{RequestId, RequestIdResponse, RequestIdResult};
 
 #[get("/info/{request_id}")]
-async fn request_info(user: Identity, path: Path<RequestId>) -> impl Responder {
+async fn request_info(user: Identity, path: web::Path<RequestId>) -> impl Responder {
     if !has_permission(user, Scope::Request) {
         return HttpResponse::Unauthorized().finish();
     }
@@ -49,7 +49,7 @@ async fn request_info(user: Identity, path: Path<RequestId>) -> impl Responder {
 }
 
 #[get("/info/{request_id}/{command}")]
-async fn command_info(user: Identity, path: Path<(RequestId, String)>) -> impl Responder {
+async fn command_info(user: Identity, path: web::Path<(RequestId, String)>) -> impl Responder {
     if !has_permission(user, Scope::Request) {
         return HttpResponse::Unauthorized().finish();
     }

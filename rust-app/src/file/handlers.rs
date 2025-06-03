@@ -1,7 +1,7 @@
 use std::fs;
 
 use actix_identity::Identity;
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpResponse, Responder};
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
@@ -12,15 +12,20 @@ use crate::{
     utils::{env::containerstate, error::ResponseError},
 };
 
-#[post("/read_file")]
-async fn read_file(user: Identity, file: web::Json<ReadFile>) -> impl Responder {
+#[get("/read_file/{container}")]
+async fn read_file(
+    user: Identity,
+    path: web::Path<String>,
+    file: web::Query<ReadFile>,
+) -> impl Responder {
     if !has_permission(user, Scope::File) {
         return HttpResponse::Unauthorized().finish();
     }
 
+    let container_id = path.into_inner();
     let path = containerstate()
-        .join(&file.location.container)
-        .join(remove_first_slash(&file.location.path));
+        .join(&container_id)
+        .join(remove_first_slash(&file.path));
     match fs::read(&path) {
         Ok(output) => HttpResponse::Ok().json(File {
             content: output.into(),
@@ -33,15 +38,20 @@ async fn read_file(user: Identity, file: web::Json<ReadFile>) -> impl Responder 
     }
 }
 
-#[post("/write_file")]
-async fn write_file(user: Identity, file: web::Json<WriteFile>) -> impl Responder {
+#[post("/write_file/{container}")]
+async fn write_file(
+    user: Identity,
+    path: web::Path<String>,
+    file: web::Json<WriteFile>,
+) -> impl Responder {
     if !has_permission(user, Scope::File) {
         return HttpResponse::Unauthorized().finish();
     }
 
+    let container_id = path.into_inner();
     let path = containerstate()
-        .join(&file.location.container)
-        .join(remove_first_slash(&file.location.path));
+        .join(&container_id)
+        .join(remove_first_slash(&file.path));
     match fs::write(&path, &file.content) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -52,15 +62,20 @@ async fn write_file(user: Identity, file: web::Json<WriteFile>) -> impl Responde
     }
 }
 
-#[post("/remove_file")]
-async fn remove_file(user: Identity, file: web::Json<RemoveFile>) -> impl Responder {
+#[post("/remove_file/{container}")]
+async fn remove_file(
+    user: Identity,
+    path: web::Path<String>,
+    file: web::Json<RemoveFile>,
+) -> impl Responder {
     if !has_permission(user, Scope::File) {
         return HttpResponse::Unauthorized().finish();
     }
 
+    let container_id = path.into_inner();
     let path = containerstate()
-        .join(&file.location.container)
-        .join(remove_first_slash(&file.location.path));
+        .join(&container_id)
+        .join(remove_first_slash(&file.path));
     match fs::remove_file(&path) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -71,15 +86,20 @@ async fn remove_file(user: Identity, file: web::Json<RemoveFile>) -> impl Respon
     }
 }
 
-#[post("/read_directory")]
-async fn read_directory(user: Identity, dir: web::Json<ReadDirectory>) -> impl Responder {
+#[get("/read_directory/{container}")]
+async fn read_directory(
+    user: Identity,
+    path: web::Path<String>,
+    dir: web::Query<ReadDirectory>,
+) -> impl Responder {
     if !has_permission(user, Scope::File) {
         return HttpResponse::Unauthorized().finish();
     }
 
+    let container_id = path.into_inner();
     let path: std::path::PathBuf = containerstate()
-        .join(&dir.location.container)
-        .join(remove_first_slash(&dir.location.path));
+        .join(&container_id)
+        .join(remove_first_slash(&dir.path));
     match fs::read_dir(&path) {
         Ok(content) => {
             let content_with_type = content
@@ -136,15 +156,20 @@ async fn read_directory(user: Identity, dir: web::Json<ReadDirectory>) -> impl R
     }
 }
 
-#[post("/create_directory")]
-async fn create_directory(user: Identity, dir: web::Json<CreateDirectory>) -> impl Responder {
+#[post("/create_directory/{container}")]
+async fn create_directory(
+    user: Identity,
+    path: web::Path<String>,
+    dir: web::Json<CreateDirectory>,
+) -> impl Responder {
     if !has_permission(user, Scope::File) {
         return HttpResponse::Unauthorized().finish();
     }
 
+    let container_id = path.into_inner();
     let path = containerstate()
-        .join(&dir.location.container)
-        .join(remove_first_slash(&dir.location.path));
+        .join(&container_id)
+        .join(remove_first_slash(&dir.path));
     let create = if dir.make_parent {
         fs::create_dir_all(&path)
     } else {
@@ -160,15 +185,20 @@ async fn create_directory(user: Identity, dir: web::Json<CreateDirectory>) -> im
     }
 }
 
-#[post("/remove_directory")]
-async fn remove_directory(user: Identity, dir: web::Json<RemoveDirectory>) -> impl Responder {
+#[post("/remove_directory/{container}")]
+async fn remove_directory(
+    user: Identity,
+    path: web::Path<String>,
+    dir: web::Json<RemoveDirectory>,
+) -> impl Responder {
     if !has_permission(user, Scope::File) {
         return HttpResponse::Unauthorized().finish();
     }
 
+    let container_id = path.into_inner();
     let path = containerstate()
-        .join(&dir.location.container)
-        .join(remove_first_slash(&dir.location.path));
+        .join(&container_id)
+        .join(remove_first_slash(&dir.path));
     let create = if dir.make_empty {
         fs::remove_dir_all(&path)
     } else {

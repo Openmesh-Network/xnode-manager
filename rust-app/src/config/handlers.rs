@@ -5,11 +5,7 @@ use std::{
 };
 
 use actix_identity::Identity;
-use actix_web::{
-    get, post,
-    web::{self, Path},
-    HttpResponse, Responder,
-};
+use actix_web::{get, post, web, HttpResponse, Responder};
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
@@ -53,7 +49,7 @@ async fn containers(user: Identity) -> impl Responder {
 }
 
 #[get("/container/{container}")]
-async fn container(user: Identity, path: Path<String>) -> impl Responder {
+async fn container(user: Identity, path: web::Path<String>) -> impl Responder {
     if !has_permission(user, Scope::Config) {
         return HttpResponse::Unauthorized().finish();
     }
