@@ -5,8 +5,11 @@
     disko.url = "github:nix-community/disko/latest";
     nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
     lanzaboote.url = "github:nix-community/lanzaboote";
+
     xnode-manager.url = "github:Openmesh-Network/xnode-manager";
     nixpkgs.follows = "xnode-manager/nixpkgs";
+
+    xnode-auth.url = "github:Openmesh-Network/xnode-auth";
   };
 
   nixConfig = {
@@ -258,6 +261,10 @@
               networking.firewall.allowedTCPPorts = [ config.services.xnode-manager.port ];
             }
           )
+          inputs.xnode-auth.nixosModules.default
+          {
+            services.xnode-auth.enable = true;
+          }
           (
             let
               user-passwd = if (builtins.pathExists ./user-passwd) then builtins.readFile ./user-passwd else "";

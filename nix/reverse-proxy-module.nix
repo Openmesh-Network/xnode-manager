@@ -57,7 +57,7 @@ in
                   default = null;
                   example = "/page";
                   description = ''
-                    Path of the incoming request .
+                    Path of the incoming request.
                   '';
                 };
               };
@@ -177,7 +177,7 @@ in
           { }
       );
 
-      services.nginx = lib.mkIf (cfg.program.type == "nginx") {
+      services.nginx = {
         enable = true;
         user = "xnode-reverse-proxy";
         group = "xnode-reverse-proxy";
@@ -199,19 +199,26 @@ in
               ) rule
             );
           in
-          lib.mkIf ((builtins.length httpEntries) > 0) {
-            enableACME = true;
-            forceSSL = true;
-            locations = builtins.listToAttrs (
-              builtins.map (
-                entry:
-                (lib.attrsets.nameValuePair (if (entry.path == null) then "/" else entry.path) {
-                  proxyWebsockets = true;
-                  proxyPass = entry.forward;
-                })
-              ) httpEntries
-            );
-          }
+          lib.mkIf ((builtins.length httpEntries) > 0) (
+            lib.mkMerge [
+              (lib.mkIf (cfg.program.type == "nginx") {
+                # Nginx is always used internally, only enable SSL in case it's the exposed reverse proxy service
+                enableACME = true;
+                forceSSL = true;
+              })
+              {
+                locations = builtins.listToAttrs (
+                  builtins.map (
+                    entry:
+                    (lib.attrsets.nameValuePair (if (entry.path == null) then "/" else entry.path) {
+                      proxyWebsockets = true;
+                      proxyPass = entry.forward;
+                    })
+                  ) httpEntries
+                );
+              }
+            ]
+          )
         ) cfg.rules;
 
         streamConfig = lib.attrsets.foldlAttrs (
@@ -291,17 +298,17 @@ in
           Unit = "cloudflared-tunnel-xnode.service";
         };
       };
-      systemd.services.cloudflared-tunnel-xnode.wantedBy = lib.mkIf (cfg.program.type == "cloudflared") (
-        lib.mkForce [ ]
-      );
+      systemd.services.cloudflared-tunnel-xnode = lib.mkIf (cfg.program.type == "cloudflared") ({
+        wantedBy = lib.mkForce [ ];
+        serviceConfig.User = lib.mkForce "xnode-reverse-proxy";
+        serviceConfig.Group = lib.mkForce "xnode-reverse-proxy";
+        serviceConfig.DynamicUser = lib.mkForce false;
+      });
       services.cloudflared = lib.mkIf (cfg.program.type == "cloudflared") {
         enable = true;
-        user = "xnode-reverse-proxy";
-        group = "xnode-reverse-proxy";
-
         tunnels."xnode" = {
           credentialsFile = "${data}/.cloudflared/tunnel.json";
-          default = "http_status:404";
+          default = "http://localhost";
           ingress = lib.attrsets.foldlAttrs (
             acc: name: rule:
             (lib.mkMerge [
@@ -309,10 +316,15 @@ in
               (builtins.listToAttrs (
                 lib.lists.imap0 (
                   i: entry:
+                  let
+                    forward_split = lib.splitString "://" entry.forward;
+                    protocol = builtins.elemAt forward_split 0;
+                    server = builtins.elemAt forward_split 1;
+                    port = builtins.elemAt (lib.splitString ":" server) 1;
+                  in
                   lib.attrsets.nameValuePair name {
                     # hostname = name;
-                    service = entry.forward;
-                    path = entry.path;
+                    service = "${protocol}://localhost:${port}";
                   }
                 ) rule
               ))

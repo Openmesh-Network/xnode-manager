@@ -1,6 +1,6 @@
 {
   inputs = {
-    xnode-manager.url = "path:.."; # "github:Openmesh-Network/xnode-manager";
+    xnode-manager.url = "github:Openmesh-Network/xnode-manager";
     nixpkgs.follows = "xnode-manager/nixpkgs";
   };
 
@@ -21,6 +21,7 @@
       modules = [
         inputs.xnode-manager.nixosModules.container
         inputs.xnode-manager.nixosModules.default
+        inputs.xnode-manager.nixosModules.reverse-proxy
         (
           { config, ... }:
           {
