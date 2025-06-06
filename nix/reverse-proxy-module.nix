@@ -100,6 +100,37 @@ in
   config =
     let
       data = "/var/lib/xnode-reverse-proxy";
+      rules = builtins.mapAttrs (
+        domain: rule:
+        builtins.foldl'
+          (
+            acc: entry:
+            let
+              forward_split = lib.splitString "://" entry.forward;
+              protocol = builtins.elemAt forward_split 0;
+              server_split = lib.splitString ":" (builtins.elemAt forward_split 1);
+              server = builtins.elemAt server_split 0;
+              port = builtins.elemAt server_split 1;
+              parsedEntry = {
+                protocol = protocol;
+                server = server;
+                port = port;
+              };
+              http = protocol == "http" || protocol == "https";
+              path = if (entry.path == null) then "/" else entry.path;
+            in
+            {
+              http =
+                acc.http // (if http then { ${path} = (acc.http.${path} or [ ]) ++ [ parsedEntry ]; } else { });
+              stream = acc.stream ++ (if http then [ ] else [ parsedEntry ]);
+            }
+          )
+          {
+            http = { };
+            stream = [ ];
+          }
+          rule
+      ) cfg.rules;
     in
     lib.mkIf cfg.enable {
       users.groups.xnode-reverse-proxy = { };
@@ -122,54 +153,22 @@ in
                 acc: name: rule:
                 (
                   acc
-                  ++ (builtins.map
-                    (
-                      entry:
-                      let
-                        forward_split = lib.splitString "://" entry.forward;
-                        server = builtins.elemAt forward_split 1;
-                        port = builtins.elemAt (lib.splitString ":" server) 1;
-                      in
-                      lib.toInt port
-                    )
-                    (
-                      builtins.filter (
-                        entry:
-                        let
-                          protocol = (builtins.elemAt (lib.splitString "://" entry.forward) 0);
-                        in
-                        protocol == "tcp"
-                      ) rule
-                    )
-                  )
+                  ++ (builtins.map (entry: lib.toInt entry.port) (
+                    builtins.filter (entry: entry.protocol == "tcp") rule.stream
+                  ))
                 )
-              ) [ ] cfg.rules);
-            allowedUDPPorts = lib.attrsets.foldlAttrs (
-              acc: name: rule:
-              (
-                acc
-                ++ (builtins.map
-                  (
-                    entry:
-                    let
-                      forward_split = lib.splitString "://" entry.forward;
-                      server = builtins.elemAt forward_split 1;
-                      port = builtins.elemAt (lib.splitString ":" server) 1;
-                    in
-                    lib.toInt port
-                  )
-                  (
-                    builtins.filter (
-                      entry:
-                      let
-                        protocol = (builtins.elemAt (lib.splitString "://" entry.forward) 0);
-                      in
-                      protocol == "udp"
-                    ) rule
-                  )
+              ) [ ] rules);
+            allowedUDPPorts = (
+              lib.attrsets.foldlAttrs (
+                acc: name: rule:
+                (
+                  acc
+                  ++ (builtins.map (entry: lib.toInt entry.port) (
+                    builtins.filter (entry: entry.protocol == "udp") rule.stream
+                  ))
                 )
-              )
-            ) [ ] cfg.rules;
+              ) [ ] rules
+            );
           }
         else if (cfg.program.type == "cloudflared") then
           { }
@@ -186,75 +185,87 @@ in
         recommendedProxySettings = true;
         recommendedTlsSettings = true;
 
-        virtualHosts = lib.attrsets.mapAttrs (
+        upstreams = lib.attrsets.foldlAttrs (
+          upstreamAcc: domain: rule:
+          lib.mkMerge [
+            upstreamAcc
+            (lib.attrsets.foldlAttrs (
+              domainAcc: path: entries:
+              lib.mkMerge [
+                domainAcc
+                {
+                  # Forward slash characters cannot be escaped inside proxy pass
+                  "${domain}_${builtins.replaceStrings [ "/" ] [ "<slash>" ] path}".servers = lib.mkMerge (
+                    builtins.map (entry: {
+                      "${entry.server}:${entry.port}" = { };
+                    }) entries
+                  );
+                }
+              ]
+            ) { } rule.http)
+          ]
+        ) { } rules;
+
+        virtualHosts = builtins.mapAttrs (
           domain: rule:
-          let
-            httpEntries = (
-              builtins.filter (
-                entry:
-                let
-                  protocol = (builtins.elemAt (lib.splitString "://" entry.forward) 0);
-                in
-                protocol == "http" || protocol == "https"
-              ) rule
-            );
-          in
-          lib.mkIf ((builtins.length httpEntries) > 0) (
+          lib.mkIf ((builtins.length (builtins.attrNames rule.http)) > 0) (
             lib.mkMerge [
               (lib.mkIf (cfg.program.type == "nginx") {
-                # Nginx is always used internally, only enable SSL in case it's the exposed reverse proxy service
+                # NGINX is always used internally, only enable SSL in case it's the exposed reverse proxy service
                 enableACME = true;
                 forceSSL = true;
               })
               {
-                locations = builtins.listToAttrs (
-                  builtins.map (
-                    entry:
-                    (lib.attrsets.nameValuePair (if (entry.path == null) then "/" else entry.path) {
-                      proxyWebsockets = true;
-                      proxyPass = entry.forward;
-                    })
-                  ) httpEntries
-                );
+                locations = builtins.mapAttrs (path: entries: {
+                  proxyWebsockets = true;
+                  proxyPass = "${(builtins.elemAt entries 0).protocol}://${domain}_${
+                    builtins.replaceStrings [ "/" ] [ "<slash>" ] path
+                  }"; # NGINX doesn't allow upstreams with different protocols
+                }) rule.http;
               }
             ]
           )
-        ) cfg.rules;
+        ) rules;
 
         streamConfig = lib.attrsets.foldlAttrs (
-          acc: name: rule:
+          streamAcc: domain: rule:
           (lib.mkMerge [
-            acc
-            (lib.mkMerge (
-              builtins.map
-                (
-                  entry:
-                  let
-                    forward_split = lib.splitString "://" entry.forward;
-                    protocol = builtins.elemAt forward_split 0;
-                    server = builtins.elemAt forward_split 1;
-                    port = builtins.elemAt (lib.splitString ":" server) 1;
-                  in
+            streamAcc
+            (
+              let
+                upstreams = builtins.foldl' (
+                  acc: entry:
+                  acc
+                  // {
+                    "${domain}_${entry.protocol}_${entry.port}" = {
+                      listen = "${entry.port}${if entry.protocol == "udp" then " udp" else ""}";
+                      servers = (acc."${domain}_${entry.protocol}_${entry.port}".servers or [ ]) ++ [
+                        "server ${entry.server}:${entry.port};"
+                      ];
+                    };
+                  }
+                ) { } rule.stream;
+              in
+              lib.attrsets.foldlAttrs (
+                serverAcc: upstream_name: upstream_value:
+                lib.mkMerge [
+                  serverAcc
                   ''
+                    upstream ${upstream_name} {
+                      ${builtins.concatStringsSep "\n" upstream_value.servers}
+                    }
+
                     server {
-                      server_name ${name};
-                      listen ${port}${if protocol == "udp" then " udp" else ""};
-                      proxy_pass ${server};
+                      server_name ${domain};
+                      listen ${upstream_value.listen};
+                      proxy_pass ${upstream_name};
                     }
                   ''
-                )
-                (
-                  builtins.filter (
-                    entry:
-                    let
-                      protocol = (builtins.elemAt (lib.splitString "://" entry.forward) 0);
-                    in
-                    protocol == "tcp" || protocol == "udp"
-                  ) rule
-                )
-            ))
+                ]
+              ) '''' upstreams
+            )
           ])
-        ) '''' cfg.rules;
+        ) '''' rules;
       };
 
       systemd.services.cloudflared-login = lib.mkIf (cfg.program.type == "cloudflared") {
@@ -308,28 +319,22 @@ in
         enable = true;
         tunnels."xnode" = {
           credentialsFile = "${data}/.cloudflared/tunnel.json";
-          default = "http://localhost";
+          default = "http://localhost"; # Query NGINX http
           ingress = lib.attrsets.foldlAttrs (
-            acc: name: rule:
+            acc: domain: rule:
             (lib.mkMerge [
               acc
-              (builtins.listToAttrs (
-                lib.lists.imap0 (
-                  i: entry:
-                  let
-                    forward_split = lib.splitString "://" entry.forward;
-                    protocol = builtins.elemAt forward_split 0;
-                    server = builtins.elemAt forward_split 1;
-                    port = builtins.elemAt (lib.splitString ":" server) 1;
-                  in
-                  lib.attrsets.nameValuePair name {
+              (lib.mkMerge (
+                lib.lists.imap0 (i: entry: {
+                  ${domain} = {
                     # hostname = name;
-                    service = "${protocol}://localhost:${port}";
-                  }
-                ) rule
+                    service = "${entry.protocol}://localhost:${entry.port}"; # Query NGINX stream
+                  };
+                }) rule.stream
               ))
             ])
-          ) { } cfg.rules;
+          ) { } rules;
+
         };
       };
     };

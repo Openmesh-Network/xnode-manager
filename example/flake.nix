@@ -21,7 +21,6 @@
       modules = [
         inputs.xnode-manager.nixosModules.container
         inputs.xnode-manager.nixosModules.default
-        inputs.xnode-manager.nixosModules.reverse-proxy
         (
           { config, ... }:
           {
