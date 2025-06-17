@@ -147,43 +147,68 @@
                   '';
                 };
               };
+
               systemd.network = {
                 enable = true;
                 wait-online = {
                   timeout = 10;
                   anyInterface = true;
                 };
-                networks =
-                  let
-                    baseNetworkConfig = {
+                networks = {
+                  "wired" = {
+                    matchConfig.Name = "en*";
+                    networkConfig = {
                       DHCP = "yes";
-                      DNSSEC = "yes";
-                      DNSOverTLS = "yes";
-                      DNS = [
-                        "1.1.1.1"
-                        "8.8.8.8"
-                      ];
                     };
-                  in
-                  {
-                    "wired" = {
-                      matchConfig.Name = "en*";
-                      networkConfig = baseNetworkConfig;
-                      dhcpV4Config.RouteMetric = 100;
-                      dhcpV6Config.WithoutRA = "solicit";
+                    dhcpV4Config.RouteMetric = 100;
+                    dhcpV6Config.WithoutRA = "solicit";
+                  };
+                  "wireless" = {
+                    matchConfig.Name = "wl*";
+                    networkConfig = {
+                      DHCP = "yes";
                     };
-                    "wireless" = {
-                      matchConfig.Name = "wl*";
-                      networkConfig = baseNetworkConfig;
-                      dhcpV4Config.RouteMetric = 200;
-                      dhcpV6Config.WithoutRA = "solicit";
+                    dhcpV4Config.RouteMetric = 200;
+                    dhcpV6Config.WithoutRA = "solicit";
+                  };
+                  "80-container-vz" = {
+                    matchConfig = {
+                      Kind = "bridge";
+                      Name = "vz-*";
+                    };
+                    networkConfig = {
+                      Address = "192.168.0.0/16";
+                      LinkLocalAddressing = "yes";
+                      DHCPServer = "no";
+                      IPMasquerade = "both";
+                      LLDP = "yes";
+                      EmitLLDP = "customer-bridge";
+                      IPv6AcceptRA = "no";
+                      IPv6SendRA = "yes";
                     };
                   };
+                };
               };
 
-              services.resolved = {
+              services.resolved.enable = false;
+              services.dnsmasq = {
                 enable = true;
-                llmnr = "false";
+                settings = {
+                  server = [
+                    "1.1.1.1"
+                    "8.8.8.8"
+                  ];
+                  domain-needed = true;
+                  bogus-priv = true;
+                  no-resolv = true;
+                  cache-size = 1000;
+                  dhcp-range = [
+                    "192.168.0.0,192.168.255.255,255.255.0.0,24h"
+                  ];
+                  expand-hosts = true;
+                  local = "/container/";
+                  domain = "container";
+                };
               };
             }
           )
@@ -251,7 +276,7 @@
                 rules = lib.mkIf (domain != "") {
                   "${domain}" = [
                     {
-                      forward = "http://localhost:${builtins.toString config.services.xnode-manager.port}";
+                      forward = "http://127.0.0.1:${builtins.toString config.services.xnode-manager.port}";
                     }
                   ];
                 };

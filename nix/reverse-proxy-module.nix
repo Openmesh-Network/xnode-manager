@@ -46,7 +46,7 @@ in
               options = {
                 forward = lib.mkOption {
                   type = lib.types.str;
-                  example = "http://xnode:3000";
+                  example = "http://xnode.container:3000";
                   description = ''
                     Where to forward the request to.
                   '';
@@ -69,16 +69,17 @@ in
           "example.com" = [
             {
               path = "/page1";
-              forward = "http://localhost:3001";
+              forward = "http://127.0.0.1:3001";
             }
-            { forward = "http://localhost:3000"; }
+            { forward = "http://127.0.0.1:3000"; }
           ];
           "test.example.com" = [
-            { forward = "https://container:80"; }
+            { forward = "https://test1.container:443"; }
+            { forward = "https://test2.container:443"; }
           ];
           "play.example.com" = [
-            { forward = "tcp://minecraft-server:25565"; }
-            { forward = "udp://minecraft-server:25565"; }
+            { forward = "tcp://minecraft-server.container:25565"; }
+            { forward = "udp://minecraft-server.container:25565"; }
           ];
         };
         description = ''
@@ -184,6 +185,7 @@ in
         recommendedOptimisation = true;
         recommendedProxySettings = true;
         recommendedTlsSettings = true;
+        resolver.addresses = [ "127.0.0.1" ];
 
         upstreams = lib.attrsets.foldlAttrs (
           upstreamAcc: domain: rule:
@@ -193,14 +195,24 @@ in
               domainAcc: path: entries:
               lib.mkMerge [
                 domainAcc
-                {
-                  # Forward slash characters cannot be escaped inside proxy pass
-                  "${domain}_${builtins.replaceStrings [ "/" ] [ "<slash>" ] path}".servers = lib.mkMerge (
-                    builtins.map (entry: {
-                      "${entry.server}:${entry.port}" = { };
-                    }) entries
-                  );
-                }
+                (
+                  let
+                    id = "${domain}_${builtins.replaceStrings [ "/" ] [ "<slash>" ] path}";
+                  in
+                  {
+                    # Forward slash characters cannot be escaped inside proxy pass
+                    ${id} = {
+                      servers = lib.mkMerge (
+                        builtins.map (entry: {
+                          "${entry.server}:${entry.port} resolve" = { };
+                        }) entries
+                      );
+                      extraConfig = ''
+                        zone ${id} 64k;
+                      '';
+                    };
+                  }
+                )
               ]
             ) { } rule.http)
           ]
@@ -227,45 +239,52 @@ in
           )
         ) rules;
 
-        streamConfig = lib.attrsets.foldlAttrs (
-          streamAcc: domain: rule:
-          (lib.mkMerge [
-            streamAcc
+        streamConfig =
+          lib.attrsets.foldlAttrs
             (
-              let
-                upstreams = builtins.foldl' (
-                  acc: entry:
-                  acc
-                  // {
-                    "${domain}_${entry.protocol}_${entry.port}" = {
-                      listen = "${entry.port}${if entry.protocol == "udp" then " udp" else ""}";
-                      servers = (acc."${domain}_${entry.protocol}_${entry.port}".servers or [ ]) ++ [
-                        "server ${entry.server}:${entry.port};"
-                      ];
-                    };
-                  }
-                ) { } rule.stream;
-              in
-              lib.attrsets.foldlAttrs (
-                serverAcc: upstream_name: upstream_value:
-                lib.mkMerge [
-                  serverAcc
-                  ''
-                    upstream ${upstream_name} {
-                      ${builtins.concatStringsSep "\n" upstream_value.servers}
-                    }
+              streamAcc: domain: rule:
+              (lib.mkMerge [
+                streamAcc
+                (
+                  let
+                    upstreams = builtins.foldl' (
+                      acc: entry:
+                      acc
+                      // {
+                        "${domain}_${entry.protocol}_${entry.port}" = {
+                          listen = "${entry.port}${if entry.protocol == "udp" then " udp" else ""}";
+                          servers = (acc."${domain}_${entry.protocol}_${entry.port}".servers or [ ]) ++ [
+                            "server ${entry.server}:${entry.port} resolve;"
+                          ];
+                        };
+                      }
+                    ) { } rule.stream;
+                  in
+                  lib.attrsets.foldlAttrs (
+                    serverAcc: upstream_name: upstream_value:
+                    lib.mkMerge [
+                      serverAcc
+                      ''
+                        upstream ${upstream_name} {
+                          zone ${upstream_name} 64k;
+                          ${builtins.concatStringsSep "\n" upstream_value.servers}
+                        }
 
-                    server {
-                      server_name ${domain};
-                      listen ${upstream_value.listen};
-                      proxy_pass ${upstream_name};
-                    }
-                  ''
-                ]
-              ) '''' upstreams
+                        server {
+                          server_name ${domain};
+                          listen ${upstream_value.listen};
+                          proxy_pass ${upstream_name};
+                        }
+                      ''
+                    ]
+                  ) '''' upstreams
+                )
+              ])
             )
-          ])
-        ) '''' rules;
+            ''
+              resolver 127.0.0.1;
+            ''
+            rules;
       };
 
       systemd.services.cloudflared-login = lib.mkIf (cfg.program.type == "cloudflared") {
@@ -319,7 +338,7 @@ in
         enable = true;
         tunnels."xnode" = {
           credentialsFile = "${data}/.cloudflared/tunnel.json";
-          default = "http://localhost"; # Query NGINX http
+          default = "http://127.0.0.1"; # Query NGINX http
           ingress = lib.attrsets.foldlAttrs (
             acc: domain: rule:
             (lib.mkMerge [
@@ -328,7 +347,7 @@ in
                 lib.lists.imap0 (i: entry: {
                   ${domain} = {
                     # hostname = name;
-                    service = "${entry.protocol}://localhost:${entry.port}"; # Query NGINX stream
+                    service = "${entry.protocol}://127.0.0.1:${entry.port}"; # Query NGINX stream
                   };
                 }) rule.stream
               ))
