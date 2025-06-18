@@ -32,8 +32,10 @@ async fn list(user: Identity, path: web::Path<String>) -> impl Responder {
         .arg("--type=service")
         .arg("--output=json")
         .arg("--no-pager");
-    if scope != "host" {
-        command.arg("--machine").arg(&scope);
+    if scope.starts_with("container:") {
+        command
+            .arg("--machine")
+            .arg(scope.replace("container:", ""));
     }
     match execute_command(command, CommandExecutionMode::Simple) {
         Ok(output) => match output.into() {
@@ -94,8 +96,10 @@ async fn logs(
         .arg("__REALTIME_TIMESTAMP,MESSAGE,PRIORITY")
         .arg("--lines")
         .arg(max_logs.to_string());
-    if scope != "host" {
-        command.arg("--machine").arg(&scope);
+    if scope.starts_with("container:") {
+        command
+            .arg("--machine")
+            .arg(scope.replace("container:", ""));
     }
     if let Some(level) = log_level {
         command.arg("--priority").arg(
@@ -172,8 +176,10 @@ async fn execute(
 
         let mut command = Command::new(format!("{}systemctl", systemd()));
         command.arg(systemd_command).arg(&process);
-        if scope != "host" {
-            command.arg("--machine").arg(&scope);
+        if scope.starts_with("container:") {
+            command
+                .arg("--machine")
+                .arg(scope.replace("container:", ""));
         }
 
         match execute_command(command, CommandExecutionMode::Stream { request_id }) {

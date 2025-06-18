@@ -206,12 +206,12 @@ async fn remove_directory(
 }
 
 fn get_path(scope: &str, path_from_root: &str) -> PathBuf {
-    if scope == "host" {
-        Path::new(path_from_root).to_path_buf()
-    } else {
+    if scope.starts_with("container:") {
         containerstate()
-            .join(scope)
+            .join(scope.replace("container:", ""))
             .join(remove_first_slash(path_from_root))
+    } else {
+        Path::new(path_from_root).to_path_buf()
     }
 }
 
