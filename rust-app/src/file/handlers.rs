@@ -1,4 +1,7 @@
-use std::fs;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use actix_identity::Identity;
 use actix_web::{get, post, web, HttpResponse, Responder};
@@ -12,7 +15,7 @@ use crate::{
     utils::{env::containerstate, error::ResponseError},
 };
 
-#[get("/read_file/{container}")]
+#[get("/read_file/{scope}")]
 async fn read_file(
     user: Identity,
     path: web::Path<String>,
@@ -22,10 +25,8 @@ async fn read_file(
         return HttpResponse::Unauthorized().finish();
     }
 
-    let container_id = path.into_inner();
-    let path = containerstate()
-        .join(&container_id)
-        .join(remove_first_slash(&file.path));
+    let scope = path.into_inner();
+    let path = get_path(&scope, &file.path);
     match fs::read(&path) {
         Ok(output) => HttpResponse::Ok().json(File {
             content: output.into(),
@@ -38,7 +39,7 @@ async fn read_file(
     }
 }
 
-#[post("/write_file/{container}")]
+#[post("/write_file/{scope}")]
 async fn write_file(
     user: Identity,
     path: web::Path<String>,
@@ -48,10 +49,8 @@ async fn write_file(
         return HttpResponse::Unauthorized().finish();
     }
 
-    let container_id = path.into_inner();
-    let path = containerstate()
-        .join(&container_id)
-        .join(remove_first_slash(&file.path));
+    let scope = path.into_inner();
+    let path = get_path(&scope, &file.path);
     match fs::write(&path, &file.content) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -62,7 +61,7 @@ async fn write_file(
     }
 }
 
-#[post("/remove_file/{container}")]
+#[post("/remove_file/{scope}")]
 async fn remove_file(
     user: Identity,
     path: web::Path<String>,
@@ -72,10 +71,8 @@ async fn remove_file(
         return HttpResponse::Unauthorized().finish();
     }
 
-    let container_id = path.into_inner();
-    let path = containerstate()
-        .join(&container_id)
-        .join(remove_first_slash(&file.path));
+    let scope = path.into_inner();
+    let path = get_path(&scope, &file.path);
     match fs::remove_file(&path) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -86,7 +83,7 @@ async fn remove_file(
     }
 }
 
-#[get("/read_directory/{container}")]
+#[get("/read_directory/{scope}")]
 async fn read_directory(
     user: Identity,
     path: web::Path<String>,
@@ -96,10 +93,8 @@ async fn read_directory(
         return HttpResponse::Unauthorized().finish();
     }
 
-    let container_id = path.into_inner();
-    let path: std::path::PathBuf = containerstate()
-        .join(&container_id)
-        .join(remove_first_slash(&dir.path));
+    let scope = path.into_inner();
+    let path = get_path(&scope, &dir.path);
     match fs::read_dir(&path) {
         Ok(content) => {
             let content_with_type = content
@@ -156,7 +151,7 @@ async fn read_directory(
     }
 }
 
-#[post("/create_directory/{container}")]
+#[post("/create_directory/{scope}")]
 async fn create_directory(
     user: Identity,
     path: web::Path<String>,
@@ -166,10 +161,8 @@ async fn create_directory(
         return HttpResponse::Unauthorized().finish();
     }
 
-    let container_id = path.into_inner();
-    let path = containerstate()
-        .join(&container_id)
-        .join(remove_first_slash(&dir.path));
+    let scope = path.into_inner();
+    let path = get_path(&scope, &dir.path);
     let create = if dir.make_parent {
         fs::create_dir_all(&path)
     } else {
@@ -185,7 +178,7 @@ async fn create_directory(
     }
 }
 
-#[post("/remove_directory/{container}")]
+#[post("/remove_directory/{scope}")]
 async fn remove_directory(
     user: Identity,
     path: web::Path<String>,
@@ -195,10 +188,8 @@ async fn remove_directory(
         return HttpResponse::Unauthorized().finish();
     }
 
-    let container_id = path.into_inner();
-    let path = containerstate()
-        .join(&container_id)
-        .join(remove_first_slash(&dir.path));
+    let scope = path.into_inner();
+    let path = get_path(&scope, &dir.path);
     let create = if dir.make_empty {
         fs::remove_dir_all(&path)
     } else {
@@ -211,6 +202,16 @@ async fn remove_directory(
             path.display(),
             e
         ))),
+    }
+}
+
+fn get_path(scope: &str, path_from_root: &str) -> PathBuf {
+    if scope == "host" {
+        Path::new(path_from_root).to_path_buf()
+    } else {
+        containerstate()
+            .join(scope)
+            .join(remove_first_slash(path_from_root))
     }
 }
 

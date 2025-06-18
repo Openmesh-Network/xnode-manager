@@ -19,21 +19,22 @@ use super::models::{
     JournalCtlLog, JournalCtlLogMessage, Log, LogLevel, Process, SystemCtlProcess,
 };
 
-#[get("/list/{container}")]
+#[get("/list/{scope}")]
 async fn list(user: Identity, path: web::Path<String>) -> impl Responder {
     if !has_permission(user, Scope::Process) {
         return HttpResponse::Unauthorized().finish();
     }
 
-    let container_id = path.into_inner();
+    let scope = path.into_inner();
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command
         .arg("list-units")
-        .arg("--machine")
-        .arg(&container_id)
         .arg("--type=service")
         .arg("--output=json")
         .arg("--no-pager");
+    if scope != "host" {
+        command.arg("--machine").arg(&scope);
+    }
     match execute_command(command, CommandExecutionMode::Simple) {
         Ok(output) => match output.into() {
             Output::UTF8 { output: output_str } => {
@@ -62,13 +63,13 @@ async fn list(user: Identity, path: web::Path<String>) -> impl Responder {
             ),
         },
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
-            "Error executing get units of container {} command: {}",
-            &container_id, e
+            "Error executing get units of {} command: {}",
+            &scope, e
         ))),
     }
 }
 
-#[get("/logs/{container}/{process}")]
+#[get("/logs/{scope}/{process}")]
 async fn logs(
     user: Identity,
     path: web::Path<(String, String)>,
@@ -78,14 +79,12 @@ async fn logs(
         return HttpResponse::Unauthorized().finish();
     }
 
-    let (container_id, process) = path.into_inner();
+    let (scope, process) = path.into_inner();
     let max_logs = query.max.unwrap_or(100);
     let log_level = &query.level;
 
     let mut command = Command::new(format!("{}journalctl", systemd()));
     command
-        .arg("--machine")
-        .arg(&container_id)
         .arg("--unit")
         .arg(&process)
         .arg("--output=json")
@@ -95,6 +94,9 @@ async fn logs(
         .arg("__REALTIME_TIMESTAMP,MESSAGE,PRIORITY")
         .arg("--lines")
         .arg(max_logs.to_string());
+    if scope != "host" {
+        command.arg("--machine").arg(&scope);
+    }
     if let Some(level) = log_level {
         command.arg("--priority").arg(
             match level {
@@ -130,27 +132,27 @@ async fn logs(
                     }
                     Err(e) => {
                         HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                            "Logs of process {} of container {} could not be parsed to expected format: {}. Logs: {}",
-                            &process, &container_id, e, output_json
+                            "Logs of process {} of {} could not be parsed to expected format: {}. Logs: {}",
+                            &process, &scope, e, output_json
                         )))
                     }
                 }
             }
             Output::Bytes { output } => {
                 HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Logs of process {} of container {} could not be decoded as UTF8: {:?}.",
-                    &process, &container_id, output
+                    "Logs of process {} of {} could not be decoded as UTF8: {:?}.",
+                    &process, &scope, output
                 )))
             }
         },
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
-            "Error executing get logs of process {} of container {} command: {}",
-            &process, &container_id, e
+            "Error executing get logs of process {} of {} command: {}",
+            &process, &scope, e
         ))),
     }
 }
 
-#[post("/execute/{container}/{process}")]
+#[post("/execute/{scope}/{process}")]
 async fn execute(
     user: Identity,
     path: web::Path<(String, String)>,
@@ -161,7 +163,7 @@ async fn execute(
     }
 
     return_request_id(Box::new(move |request_id| {
-        let (container_id, process) = path.into_inner();
+        let (scope, process) = path.into_inner();
         let systemd_command = match command.into_inner() {
             ProcessCommand::Start => "start",
             ProcessCommand::Stop => "stop",
@@ -169,11 +171,10 @@ async fn execute(
         };
 
         let mut command = Command::new(format!("{}systemctl", systemd()));
-        command
-            .arg(systemd_command)
-            .arg(&process)
-            .arg("--machine")
-            .arg(&container_id);
+        command.arg(systemd_command).arg(&process);
+        if scope != "host" {
+            command.arg("--machine").arg(&scope);
+        }
 
         match execute_command(command, CommandExecutionMode::Stream { request_id }) {
             Ok(output) => RequestIdResult::Success {
@@ -185,7 +186,7 @@ async fn execute(
             Err(e) => RequestIdResult::Error {
                 error: format!(
                     "Erroring executing {} on {} of {}: {}",
-                    systemd_command, process, container_id, e
+                    systemd_command, process, scope, e
                 ),
             },
         }

@@ -200,7 +200,7 @@ in
         User = "root";
         Group = "root";
         CacheDirectory = "rust-app";
-        Restart = "on-failure";
+        Restart = "always";
       };
     };
 
@@ -208,6 +208,10 @@ in
       wantedBy = [ "multi-user.target" ];
       description = "Start all NixOS containers on this host";
       after = [ "network.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
       path = [
         pkgs.nixos-container
         pkgs.findutils
@@ -215,11 +219,6 @@ in
       script = ''
         nixos-container list | xargs -I % nixos-container start %
       '';
-
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-      };
     };
   };
 }
