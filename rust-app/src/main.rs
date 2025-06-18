@@ -17,6 +17,7 @@ use utils::env::{
 mod auth;
 mod config;
 mod file;
+mod info;
 mod os;
 mod process;
 mod request;
@@ -137,6 +138,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope(&auth::scope()).configure(auth::configure))
             .service(web::scope(&config::scope()).configure(config::configure))
             .service(web::scope(&file::scope()).configure(file::configure))
+            .service(web::scope(&info::scope()).configure(info::configure))
             .service(web::scope(&os::scope()).configure(os::configure))
             .service(web::scope(&process::scope()).configure(process::configure))
             .service(web::scope(&usage::scope()).configure(usage::configure))

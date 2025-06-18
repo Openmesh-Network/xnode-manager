@@ -11,6 +11,7 @@ pub fn get_scopes(user: Identity) -> HashSet<Scope> {
             Scope::Config,
             Scope::OS,
             Scope::File,
+            Scope::Info,
             Scope::Process,
             Scope::Usage,
             Scope::Request,

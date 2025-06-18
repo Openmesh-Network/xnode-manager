@@ -5,6 +5,7 @@ pub enum Scope {
     Config,
     OS,
     File,
+    Info,
     Process,
     Usage,
     Request,
