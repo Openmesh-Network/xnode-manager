@@ -13,7 +13,7 @@ use crate::{
     request::{handlers::return_request_id, models::RequestIdResult},
     utils::{
         command::{execute_command, CommandExecutionMode},
-        env::{nix, nixosrebuild, osdir},
+        env::{nix, nixosrebuild, osdir, systemd},
         error::ResponseError,
     },
 };
@@ -134,6 +134,25 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
         if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
             return RequestIdResult::Error {
                 error: format!("Error switching to new OS config: {}", err),
+            };
+        }
+
+        RequestIdResult::Success { body: None }
+    }))
+}
+
+#[post("/reboot")]
+async fn reboot(user: Identity) -> impl Responder {
+    if !has_permission(user, Scope::OS) {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    return_request_id(Box::new(move |request_id| {
+        let mut command = Command::new(format!("{}systemctl", systemd()));
+        command.arg("reboot");
+        if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
+            return RequestIdResult::Error {
+                error: format!("Error rebooting OS: {}", err),
             };
         }
 

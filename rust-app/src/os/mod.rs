@@ -10,4 +10,5 @@ pub fn scope() -> String {
 pub fn configure(cfg: &mut ServiceConfig) {
     cfg.service(handlers::get);
     cfg.service(handlers::set);
+    cfg.service(handlers::reboot);
 }
