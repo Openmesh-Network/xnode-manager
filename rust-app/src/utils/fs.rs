@@ -1,15 +1,18 @@
-use std::fs;
+use std::fs::{copy, create_dir_all, read_dir};
 use std::path::Path;
 
-pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
-    fs::create_dir_all(&dst)?;
-    for entry in fs::read_dir(src)? {
+pub fn copy_dir_all(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> std::io::Result<()> {
+    create_dir_all(&destination)?;
+    for entry in read_dir(source)? {
         let entry = entry?;
         let ty = entry.file_type()?;
         if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            copy_dir_all(entry.path(), destination.as_ref().join(entry.file_name()))?;
         } else {
-            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            copy(entry.path(), destination.as_ref().join(entry.file_name()))?;
         }
     }
     Ok(())

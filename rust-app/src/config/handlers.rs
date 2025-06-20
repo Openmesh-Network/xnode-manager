@@ -317,31 +317,33 @@ fn create_state_dir(container_id: &str) -> Option<RequestIdResult> {
         });
     }
 
+    // Create xnode-config in container state
     let xnode_config_in_dir = state_dir.join("xnode-config");
     if let Err(e) = create_dir_all(&xnode_config_in_dir) {
         return Some(RequestIdResult::Error {
             error: format!(
-                "Error creating nixos container xnode-config directory {}: {}",
+                "Error creating container state xnode-config directory {}: {}",
                 xnode_config_in_dir.display(),
                 e
             ),
         });
     }
 
+    // Create xnode-config in container config
     let xnode_config_out_dir = containersettings().join(container_id).join("xnode-config");
-
-    // Set container host platform to same as host
-    let mut get_host_platform = Command::new("uname");
-    get_host_platform.arg("-m");
-    if let Err(e) = create_dir_all(&state_dir) {
+    if let Err(e) = create_dir_all(&xnode_config_out_dir) {
         return Some(RequestIdResult::Error {
             error: format!(
-                "Error creating nixos container state directory {}: {}",
-                state_dir.display(),
+                "Error creating container config xnode-config directory {}: {}",
+                xnode_config_out_dir.display(),
                 e
             ),
         });
     }
+
+    // Set container host platform to same as host
+    let mut get_host_platform = Command::new("uname");
+    get_host_platform.arg("-m");
     match execute_command(get_host_platform, CommandExecutionMode::Simple) {
         Ok(mut bytes) => {
             let path = xnode_config_out_dir.join("host-platform");
