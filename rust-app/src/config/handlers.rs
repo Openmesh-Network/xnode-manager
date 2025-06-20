@@ -6,9 +6,11 @@ use std::{
 
 use actix_identity::Identity;
 use actix_web::{get, post, web, HttpResponse, Responder};
+use log::warn;
 
 use crate::{
     auth::{models::Scope, utils::has_permission},
+    config::models::ContainerChange,
     request::{
         handlers::return_request_id,
         models::{RequestId, RequestIdResult},
@@ -25,7 +27,7 @@ use crate::{
     },
 };
 
-use super::models::{ConfigurationAction, ContainerConfiguration};
+use super::models::ContainerConfiguration;
 
 #[get("/containers")]
 async fn containers(user: Identity) -> impl Responder {
@@ -59,7 +61,7 @@ async fn container(user: Identity, path: web::Path<String>) -> impl Responder {
     let path = containersettings().join(&container_id);
 
     let flake: String;
-    let flake_lock: String;
+    let mut flake_lock: Option<String> = None;
     let mut network: Option<String> = None;
 
     {
@@ -81,14 +83,14 @@ async fn container(user: Identity, path: web::Path<String>) -> impl Responder {
         let path = path.join("flake.lock");
         match read_to_string(&path) {
             Ok(file) => {
-                flake_lock = file;
+                flake_lock = Some(file);
             }
             Err(e) => {
-                return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                warn!(
                     "Could not read container flake lock {}: {}",
                     path.display(),
                     e
-                )));
+                );
             }
         }
     }
@@ -117,139 +119,132 @@ async fn container(user: Identity, path: web::Path<String>) -> impl Responder {
     })
 }
 
-#[post("/change")]
-async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) -> impl Responder {
+#[post("/container/{container}/change")]
+async fn change(
+    user: Identity,
+    path: web::Path<String>,
+    change: web::Json<ContainerChange>,
+) -> impl Responder {
     if !has_permission(user, Scope::Config) {
         return HttpResponse::Unauthorized().finish();
     }
 
     return_request_id(Box::new(move |request_id| {
-        log::info!("Executing changes: {:?}", changes);
-        for action in changes.into_inner() {
-            match action {
-                ConfigurationAction::Set {
-                    container: container_id,
-                    settings,
-                    update_inputs,
-                } => {
-                    let path = containersettings().join(&container_id);
-                    if let Err(e) = create_dir_all(&path) {
-                        return RequestIdResult::Error {
-                            error: format!(
-                                "Error creating container folder {}: {}",
-                                path.display(),
-                                e
-                            ),
-                        };
-                    }
-                    log::info!("Created container dir {}", path.display());
+        let container_id = path.into_inner();
+        let path = containersettings().join(&container_id);
+        if let Err(e) = create_dir_all(&path) {
+            return RequestIdResult::Error {
+                error: format!("Error creating container folder {}: {}", path.display(), e),
+            };
+        }
+        log::info!("Created container dir {}", path.display());
 
-                    {
-                        let path = path.join("flake.nix");
-                        if let Err(e) = write(&path, &settings.flake) {
-                            return RequestIdResult::Error {
-                                error: format!(
-                                    "Error writing container flake config {}: {}",
-                                    path.display(),
-                                    e
-                                ),
-                            };
-                        }
-                        log::info!("Created container flake {}", path.display());
-                    }
+        {
+            let path = path.join("flake.nix");
+            if let Err(e) = write(&path, &change.settings.flake) {
+                return RequestIdResult::Error {
+                    error: format!(
+                        "Error writing container flake config {}: {}",
+                        path.display(),
+                        e
+                    ),
+                };
+            }
+            log::info!("Created container flake {}", path.display());
+        }
 
-                    if let Some(update_inputs) = update_inputs {
-                        let mut command = Command::new(format!("{}nix", nix()));
-                        command
-                            .env("NIX_REMOTE", "daemon")
-                            .arg("flake")
-                            .arg("update");
-                        for input in update_inputs {
-                            command.arg(input);
-                        }
-                        command.arg("--flake").arg(&path);
+        if let Some(update_inputs) = &change.update_inputs {
+            let mut command = Command::new(format!("{}nix", nix()));
+            command
+                .env("NIX_REMOTE", "daemon")
+                .arg("flake")
+                .arg("update");
+            for input in update_inputs {
+                command.arg(input);
+            }
+            command.arg("--flake").arg(&path);
 
-                        if let Err(err) =
-                            execute_command(command, CommandExecutionMode::Stream { request_id })
-                        {
-                            return RequestIdResult::Error {
-                                error: format!(
-                                    "Error flake updating nixos container {}: {}",
-                                    container_id, err
-                                ),
-                            };
-                        }
-                    }
-
-                    if let Some(e) = create_conf_file(&container_id, &settings.network) {
-                        return e;
-                    }
-                    if let Some(e) = create_state_dir(&container_id) {
-                        return e;
-                    }
-                    if let Some(e) = create_profile(path, &container_id, request_id) {
-                        return e;
-                    }
-
-                    let mut command = Command::new(format!("{}systemctl", systemd()));
-                    command
-                        .arg("reload-or-restart")
-                        .arg(format!("container@{}", container_id));
-
-                    if let Err(err) =
-                        execute_command(command, CommandExecutionMode::Stream { request_id })
-                    {
-                        return RequestIdResult::Error {
-                            error: format!(
-                                "Error creating nixos container {}: {}",
-                                container_id, err
-                            ),
-                        };
-                    }
-                }
-                ConfigurationAction::Remove {
-                    container: container_id,
-                } => {
-                    let mut command = Command::new(format!("{}systemctl", systemd()));
-                    command
-                        .arg("stop")
-                        .arg(format!("container@{}", container_id));
-
-                    // Should be inside if "container running", then fail on error can be added back
-                    let _ = execute_command(command, CommandExecutionMode::Stream { request_id });
-
-                    if let Some(e) = delete_profile(&container_id) {
-                        let ignore = if let RequestIdResult::Error { error } = &e {
-                            error.ends_with("No such file or directory (os error 2)")
-                        } else {
-                            false
-                        };
-
-                        if !ignore {
-                            return e;
-                        }
-                    }
-                    if let Some(e) = delete_state_dir(&container_id, request_id) {
-                        return e;
-                    }
-                    if let Some(e) = delete_conf_file(&container_id) {
-                        return e;
-                    }
-
-                    let path = containersettings().join(&container_id);
-                    if let Err(e) = remove_dir_all(&path) {
-                        return RequestIdResult::Error {
-                            error: format!(
-                                "Error deleting container folder config {}: {}",
-                                path.display(),
-                                e
-                            ),
-                        };
-                    }
-                    log::info!("Deleted container dir {}", path.display());
-                }
+            if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id })
+            {
+                return RequestIdResult::Error {
+                    error: format!(
+                        "Error flake updating nixos container {}: {}",
+                        container_id, err
+                    ),
+                };
             }
         }
+
+        if let Some(e) = create_conf_file(&container_id, &change.settings.network) {
+            return e;
+        }
+        if let Some(e) = create_state_dir(&container_id) {
+            return e;
+        }
+        if let Some(e) = create_profile(path, &container_id, request_id) {
+            return e;
+        }
+
+        let mut command = Command::new(format!("{}systemctl", systemd()));
+        command
+            .arg("reload-or-restart")
+            .arg(format!("container@{}", container_id));
+
+        if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
+            return RequestIdResult::Error {
+                error: format!("Error creating nixos container {}: {}", container_id, err),
+            };
+        }
+
+        RequestIdResult::Success { body: None }
+    }))
+}
+
+#[post("/container/{container}/delete")]
+async fn delete(user: Identity, path: web::Path<String>) -> impl Responder {
+    if !has_permission(user, Scope::Config) {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    return_request_id(Box::new(move |request_id| {
+        let container_id = path.into_inner();
+        let mut command = Command::new(format!("{}systemctl", systemd()));
+        command
+            .arg("stop")
+            .arg(format!("container@{}", container_id));
+
+        // Should be inside if "container running", then fail on error can be added back
+        let _ = execute_command(command, CommandExecutionMode::Stream { request_id });
+
+        if let Some(e) = delete_profile(&container_id) {
+            let ignore = if let RequestIdResult::Error { error } = &e {
+                error.ends_with("No such file or directory (os error 2)")
+            } else {
+                false
+            };
+
+            if !ignore {
+                return e;
+            }
+        }
+        if let Some(e) = delete_state_dir(&container_id, request_id) {
+            return e;
+        }
+        if let Some(e) = delete_conf_file(&container_id) {
+            return e;
+        }
+
+        let path = containersettings().join(&container_id);
+        if let Err(e) = remove_dir_all(&path) {
+            return RequestIdResult::Error {
+                error: format!(
+                    "Error deleting container folder config {}: {}",
+                    path.display(),
+                    e
+                ),
+            };
+        }
+        log::info!("Deleted container dir {}", path.display());
 
         RequestIdResult::Success { body: None }
     }))

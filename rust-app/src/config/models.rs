@@ -1,26 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct ContainerConfiguration {
     pub flake: String,
-    pub flake_lock: String,
+    pub flake_lock: Option<String>,
     pub network: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct ContainerSettings {
     pub flake: String,
     pub network: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ConfigurationAction {
-    Set {
-        container: String,
-        settings: ContainerSettings,
-        update_inputs: Option<Vec<String>>,
-    },
-    Remove {
-        container: String,
-    },
+#[derive(Serialize, Deserialize)]
+pub struct ContainerChange {
+    pub settings: ContainerSettings,
+    pub update_inputs: Option<Vec<String>>,
 }
