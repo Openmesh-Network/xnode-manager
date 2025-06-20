@@ -1,5 +1,5 @@
 use std::{
-    fs::{read, read_dir, read_to_string, write},
+    fs::{create_dir_all, read, read_dir, read_to_string, write},
     thread,
 };
 
@@ -125,10 +125,26 @@ pub fn return_request_id(
     let request_id = get_request_id();
 
     thread::spawn(move || {
+        let path = commandstream().join(request_id.to_string());
+        if let Err(e) = create_dir_all(&path) {
+            warn!(
+                "Could not create directory for request {} at {}: {}",
+                request_id,
+                path.display(),
+                e
+            );
+        }
         let result = thread(request_id);
-        let path = commandstream().join(request_id.to_string()).join("result");
-        if let Err(e) = write(path, json!(result).to_string()) {
-            warn!("Could not write result of request {}: {}", request_id, e);
+        {
+            let path = path.join("result");
+            if let Err(e) = write(&path, json!(result).to_string()) {
+                warn!(
+                    "Could not write result of request {} to {}: {}",
+                    request_id,
+                    path.display(),
+                    e
+                );
+            }
         }
     });
 

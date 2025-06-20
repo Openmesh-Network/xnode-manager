@@ -1,6 +1,6 @@
 use std::{
     fs::{create_dir_all, read_dir, read_to_string, remove_dir_all, remove_file, write},
-    path,
+    path::PathBuf,
     process::Command,
 };
 
@@ -20,6 +20,7 @@ use crate::{
             e2fsprogs, nix, systemd,
         },
         error::ResponseError,
+        fs::copy_dir_all,
         string::between,
     },
 };
@@ -186,7 +187,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
                     if let Some(e) = create_state_dir(&container_id) {
                         return e;
                     }
-                    if let Some(e) = create_profile(&path, &container_id, request_id) {
+                    if let Some(e) = create_profile(path, &container_id, request_id) {
                         return e;
                     }
 
@@ -255,7 +256,7 @@ async fn change(user: Identity, changes: web::Json<Vec<ConfigurationAction>>) ->
 }
 
 fn create_profile(
-    flake: &path::Path,
+    flake: PathBuf,
     container_id: &str,
     request_id: RequestId,
 ) -> Option<RequestIdResult> {
@@ -316,6 +317,72 @@ fn create_state_dir(container_id: &str) -> Option<RequestIdResult> {
             error: format!(
                 "Error creating nixos container state directory {}: {}",
                 state_dir.display(),
+                e
+            ),
+        });
+    }
+
+    let xnode_config_in_dir = state_dir.join("xnode-config");
+    if let Err(e) = create_dir_all(&xnode_config_in_dir) {
+        return Some(RequestIdResult::Error {
+            error: format!(
+                "Error creating nixos container xnode-config directory {}: {}",
+                xnode_config_in_dir.display(),
+                e
+            ),
+        });
+    }
+
+    let xnode_config_out_dir = containersettings().join(container_id).join("xnode-config");
+
+    // Set container host platform to same as host
+    let mut get_host_platform = Command::new("uname");
+    get_host_platform.arg("-m");
+    if let Err(e) = create_dir_all(&state_dir) {
+        return Some(RequestIdResult::Error {
+            error: format!(
+                "Error creating nixos container state directory {}: {}",
+                state_dir.display(),
+                e
+            ),
+        });
+    }
+    match execute_command(get_host_platform, CommandExecutionMode::Simple) {
+        Ok(mut bytes) => {
+            let path = xnode_config_out_dir.join("host-platform");
+            let mut postfix: Vec<u8> = "-linux".into();
+            bytes.pop(); // remove newline
+            bytes.append(&mut postfix);
+            if let Err(e) = write(&path, bytes) {
+                return Some(RequestIdResult::Error {
+                    error: format!("Error writing host platform to {}: {}", path.display(), e),
+                });
+            }
+        }
+        Err(e) => {
+            return Some(RequestIdResult::Error {
+                error: format!("Error getting host platform: {}", e),
+            });
+        }
+    }
+
+    // Set container hostname to it's container id
+    {
+        let path = xnode_config_out_dir.join("hostname");
+        if let Err(e) = write(&path, container_id) {
+            return Some(RequestIdResult::Error {
+                error: format!("Error writing hostname to {}: {}", path.display(), e),
+            });
+        }
+    }
+
+    // Copy all other files from the xnode-config dir in the container, including state version
+    if let Err(e) = copy_dir_all(&xnode_config_in_dir, &xnode_config_out_dir) {
+        return Some(RequestIdResult::Error {
+            error: format!(
+                "Error copying {} to {}: {}",
+                xnode_config_in_dir.display(),
+                xnode_config_out_dir.display(),
                 e
             ),
         });

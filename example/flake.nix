@@ -20,6 +20,13 @@
       };
       modules = [
         inputs.xnode-manager.nixosModules.container
+        {
+          services.xnode-container.xnode-config = {
+            host-platform = ./xnode-config/host-platform;
+            state-version = ./xnode-config/state-version;
+            hostname = ./xnode-config/hostname;
+          };
+        }
         inputs.xnode-manager.nixosModules.default
         (
           { config, ... }:
@@ -39,15 +46,9 @@
               owner = "eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3";
             };
 
-            networking = {
-              hostName = "xnode-manager";
-              firewall.allowedTCPPorts = [
-                config.services.xnode-manager.port
-              ];
-            };
-
-            nixpkgs.hostPlatform = "x86_64-linux";
-            system.stateVersion = "25.05";
+            networking.firewall.allowedTCPPorts = [
+              config.services.xnode-manager.port
+            ];
           }
         )
       ];

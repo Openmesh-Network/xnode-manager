@@ -97,12 +97,12 @@ pub fn execute_command(mut command: Command, mode: CommandExecutionMode) -> Comm
     } {
         Ok(output_raw) => {
             if !output_raw.status.success() {
-                let output = output_raw.stderr;
-                return Err(CommandOutputError::OutputError { output });
+                return Err(CommandOutputError::OutputError {
+                    output: output_raw.stderr,
+                });
             }
 
-            let output = output_raw.stdout;
-            Ok(output)
+            Ok(output_raw.stdout)
         }
         Err(e) => Err(CommandOutputError::CommandError { e }),
     };
