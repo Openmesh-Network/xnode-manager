@@ -245,32 +245,25 @@
           inputs.nixos-facter-modules.nixosModules.facter
           { config.facter.reportPath = ./facter.json; }
           inputs.xnode-manager.nixosModules.default
+          inputs.xnode-manager.nixosModules.reverse-proxy
+          inputs.xnode-auth.nixosModules.default
           (
             let
               xnode-owner = if (builtins.pathExists ./xnode-owner) then builtins.readFile ./xnode-owner else "";
-            in
-            { lib, ... }:
-            {
-              services.xnode-manager = {
-                enable = true;
-                owner = lib.mkIf (xnode-owner != "") xnode-owner;
-              };
-            }
-          )
-          inputs.xnode-manager.nixosModules.reverse-proxy
-          (
-            let
               domain = if (builtins.pathExists ./domain) then builtins.readFile ./domain else "";
               acme-email = if (builtins.pathExists ./acme-email) then builtins.readFile ./acme-email else "";
             in
             { config, lib, ... }:
             {
+              services.xnode-manager = {
+                enable = true;
+              };
+
               security.acme = lib.mkIf (acme-email != "") {
                 acceptTerms = true;
                 defaults.email = acme-email;
               };
 
-              # Securely expose xnode-manager
               services.xnode-reverse-proxy = {
                 enable = true;
                 rules = lib.mkIf (domain != "") {
@@ -282,14 +275,24 @@
                 };
               };
 
-              # Always allow xnode-manager access over HTTP
-              networking.firewall.allowedTCPPorts = [ config.services.xnode-manager.port ];
+              services.nginx.virtualHosts."manager.xnode.local".locations."/".proxyPass =
+                "http://127.0.0.1:${builtins.toString config.services.xnode-manager.port}";
+
+              services.xnode-auth = {
+                enable = true;
+                domains = lib.mkIf (xnode-owner != "") (
+                  builtins.listToAttrs (
+                    builtins.map (domain: {
+                      name = domain;
+                      value = {
+                        accessList."${xnode-owner}" = { };
+                      };
+                    }) ([ "manager.xnode.local" ] ++ (lib.optionals (domain != "") [ domain ]))
+                  )
+                );
+              };
             }
           )
-          inputs.xnode-auth.nixosModules.default
-          {
-            services.xnode-auth.enable = true;
-          }
           (
             let
               user-passwd = if (builtins.pathExists ./user-passwd) then builtins.readFile ./user-passwd else "";

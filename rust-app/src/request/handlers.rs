@@ -3,13 +3,11 @@ use std::{
     thread,
 };
 
-use actix_identity::Identity;
 use actix_web::{get, web, HttpResponse, Responder};
 use log::warn;
 use serde_json::json;
 
 use crate::{
-    auth::{models::Scope, utils::has_permission},
     request::models::{CommandInfo, RequestInfo},
     utils::{env::commandstream, error::ResponseError, output::Output},
 };
@@ -17,11 +15,7 @@ use crate::{
 use super::models::{RequestId, RequestIdResponse, RequestIdResult};
 
 #[get("/info/{request_id}")]
-async fn request_info(user: Identity, path: web::Path<RequestId>) -> impl Responder {
-    if !has_permission(user, Scope::Request) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn request_info(path: web::Path<RequestId>) -> impl Responder {
     let request_id = path.into_inner();
     let path = commandstream().join(request_id.to_string());
     let commands = read_dir(&path)
@@ -49,11 +43,7 @@ async fn request_info(user: Identity, path: web::Path<RequestId>) -> impl Respon
 }
 
 #[get("/info/{request_id}/{command}")]
-async fn command_info(user: Identity, path: web::Path<(RequestId, String)>) -> impl Responder {
-    if !has_permission(user, Scope::Request) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn command_info(path: web::Path<(RequestId, String)>) -> impl Responder {
     let (request_id, command) = path.into_inner();
     let path = commandstream().join(request_id.to_string()).join(command);
 

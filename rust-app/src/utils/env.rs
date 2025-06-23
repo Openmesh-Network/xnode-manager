@@ -21,12 +21,6 @@ pub fn port() -> String {
     env_var("PORT").unwrap_or("34391".to_string())
 }
 
-pub fn owner() -> String {
-    env_var("OWNER")
-        .map(|s| s.to_ascii_lowercase())
-        .unwrap_or("eth:0000000000000000000000000000000000000000".to_string())
-}
-
 pub fn datadir() -> PathBuf {
     env_var("DATADIR")
         .map(|d| Path::new(&d).to_path_buf())
@@ -35,12 +29,6 @@ pub fn datadir() -> PathBuf {
 
 pub fn osdir() -> String {
     env_var("OSDIR").unwrap_or("/etc/nixos".to_string())
-}
-
-pub fn authdir() -> PathBuf {
-    env_var("AUTHDIR")
-        .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new(&datadir()).join("auth"))
 }
 
 pub fn containersettings() -> PathBuf {

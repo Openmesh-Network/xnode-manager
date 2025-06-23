@@ -1,10 +1,8 @@
 use std::process::Command;
 
-use actix_identity::Identity;
 use actix_web::{get, post, web, HttpResponse, Responder};
 
 use crate::{
-    auth::{models::Scope, utils::has_permission},
     process::models::{LogQuery, ProcessCommand},
     request::{handlers::return_request_id, models::RequestIdResult},
     utils::{
@@ -20,11 +18,7 @@ use super::models::{
 };
 
 #[get("/list/{scope}")]
-async fn list(user: Identity, path: web::Path<String>) -> impl Responder {
-    if !has_permission(user, Scope::Process) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn list(path: web::Path<String>) -> impl Responder {
     let scope = path.into_inner();
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command
@@ -72,15 +66,7 @@ async fn list(user: Identity, path: web::Path<String>) -> impl Responder {
 }
 
 #[get("/logs/{scope}/{process}")]
-async fn logs(
-    user: Identity,
-    path: web::Path<(String, String)>,
-    query: web::Query<LogQuery>,
-) -> impl Responder {
-    if !has_permission(user, Scope::Process) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn logs(path: web::Path<(String, String)>, query: web::Query<LogQuery>) -> impl Responder {
     let (scope, process) = path.into_inner();
     let max_logs = query.max.unwrap_or(100);
     let log_level = &query.level;
@@ -158,14 +144,9 @@ async fn logs(
 
 #[post("/execute/{scope}/{process}")]
 async fn execute(
-    user: Identity,
     path: web::Path<(String, String)>,
     command: web::Json<ProcessCommand>,
 ) -> impl Responder {
-    if !has_permission(user, Scope::Process) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
     return_request_id(Box::new(move |request_id| {
         let (scope, process) = path.into_inner();
         let systemd_command = match command.into_inner() {

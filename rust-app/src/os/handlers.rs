@@ -4,11 +4,9 @@ use std::{
     process::Command,
 };
 
-use actix_identity::Identity;
 use actix_web::{get, post, web, HttpResponse, Responder};
 
 use crate::{
-    auth::{models::Scope, utils::has_permission},
     os::models::{OSChange, OSConfiguration},
     request::{handlers::return_request_id, models::RequestIdResult},
     utils::{
@@ -19,11 +17,7 @@ use crate::{
 };
 
 #[get("/get")]
-async fn get(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::OS) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn get() -> impl Responder {
     let flake: String;
     let flake_lock: String;
 
@@ -71,11 +65,7 @@ async fn get(user: Identity) -> impl Responder {
 }
 
 #[post("/set")]
-async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
-    if !has_permission(user, Scope::OS) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn set(os: web::Json<OSChange>) -> impl Responder {
     return_request_id(Box::new(move |request_id| {
         log::info!("Performing OS update: {:?}", os);
         let osdir = osdir();
@@ -142,11 +132,7 @@ async fn set(user: Identity, os: web::Json<OSChange>) -> impl Responder {
 }
 
 #[post("/reboot")]
-async fn reboot(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::OS) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn reboot() -> impl Responder {
     return_request_id(Box::new(move |request_id| {
         let mut command = Command::new(format!("{}systemctl", systemd()));
         command.arg("reboot");

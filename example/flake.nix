@@ -2,6 +2,8 @@
   inputs = {
     xnode-manager.url = "github:Openmesh-Network/xnode-manager";
     nixpkgs.follows = "xnode-manager/nixpkgs";
+
+    xnode-auth.url = "github:Openmesh-Network/xnode-auth";
   };
 
   nixConfig = {
@@ -28,6 +30,7 @@
           };
         }
         inputs.xnode-manager.nixosModules.default
+        inputs.xnode-auth.nixosModules.default
         (
           { config, ... }:
           {
@@ -43,12 +46,28 @@
             services.xnode-manager = {
               enable = true;
               verbosity = "info";
-              owner = "eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3";
             };
 
-            networking.firewall.allowedTCPPorts = [
-              config.services.xnode-manager.port
-            ];
+            services.nginx = {
+              enable = true;
+              virtualHosts."xnode-manager.container" = {
+                locations."/" = {
+                  proxyPass = "http://127.0.0.1:${builtins.toString config.services.xnode-manager.port}";
+                };
+              };
+            };
+
+            services.xnode-auth = {
+              enable = true;
+              domains."xnode-manager.container".accessList."eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = { };
+            };
+
+            networking = {
+              hostName = "xnode-manager";
+              firewall.allowedTCPPorts = [
+                80
+              ];
+            };
           }
         )
       ];

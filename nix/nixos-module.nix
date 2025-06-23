@@ -40,15 +40,6 @@ in
         '';
       };
 
-      owner = lib.mkOption {
-        type = lib.types.str;
-        default = "eth:0000000000000000000000000000000000000000";
-        example = "eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3";
-        description = ''
-          The user id of the owner of this Xnode. This user has full management control.
-        '';
-      };
-
       dataDir = lib.mkOption {
         type = lib.types.path;
         default = "/var/lib/xnode-manager";
@@ -64,15 +55,6 @@ in
         example = "/etc/nixos";
         description = ''
           The directory to store the OS configuration.
-        '';
-      };
-
-      authDir = lib.mkOption {
-        type = lib.types.path;
-        default = "${cfg.dataDir}/auth";
-        example = "/var/lib/xnode-manager/auth";
-        description = ''
-          The directory to store authentication information.
         '';
       };
 
@@ -179,10 +161,8 @@ in
         HOSTNAME = cfg.hostname;
         PORT = toString cfg.port;
         RUST_LOG = cfg.verbosity;
-        OWNER = cfg.owner;
         DATADIR = cfg.dataDir;
         OSDIR = cfg.osDir;
-        AUTHDIR = cfg.authDir;
         CONTAINERSETTINGS = cfg.container.settings;
         CONTAINERSTATE = cfg.container.state;
         CONTAINERPROFILE = cfg.container.profile;

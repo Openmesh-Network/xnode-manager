@@ -4,12 +4,10 @@ use std::{
     process::Command,
 };
 
-use actix_identity::Identity;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use log::warn;
 
 use crate::{
-    auth::{models::Scope, utils::has_permission},
     config::models::ContainerChange,
     request::{
         handlers::return_request_id,
@@ -30,11 +28,7 @@ use crate::{
 use super::models::ContainerConfiguration;
 
 #[get("/containers")]
-async fn containers(user: Identity) -> impl Responder {
-    if !has_permission(user, Scope::Config) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn containers() -> impl Responder {
     let path = containersettings();
     match read_dir(&path) {
         Ok(dir) => {
@@ -52,11 +46,7 @@ async fn containers(user: Identity) -> impl Responder {
 }
 
 #[get("/container/{container}")]
-async fn container(user: Identity, path: web::Path<String>) -> impl Responder {
-    if !has_permission(user, Scope::Config) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn container(path: web::Path<String>) -> impl Responder {
     let container_id = path.into_inner();
     let path = containersettings().join(&container_id);
 
@@ -120,15 +110,7 @@ async fn container(user: Identity, path: web::Path<String>) -> impl Responder {
 }
 
 #[post("/container/{container}/change")]
-async fn change(
-    user: Identity,
-    path: web::Path<String>,
-    change: web::Json<ContainerChange>,
-) -> impl Responder {
-    if !has_permission(user, Scope::Config) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn change(path: web::Path<String>, change: web::Json<ContainerChange>) -> impl Responder {
     return_request_id(Box::new(move |request_id| {
         let container_id = path.into_inner();
         let path = containersettings().join(&container_id);
@@ -201,11 +183,7 @@ async fn change(
 }
 
 #[post("/container/{container}/delete")]
-async fn delete(user: Identity, path: web::Path<String>) -> impl Responder {
-    if !has_permission(user, Scope::Config) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn delete(path: web::Path<String>) -> impl Responder {
     return_request_id(Box::new(move |request_id| {
         let container_id = path.into_inner();
         let mut command = Command::new(format!("{}systemctl", systemd()));

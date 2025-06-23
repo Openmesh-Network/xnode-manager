@@ -1,20 +1,13 @@
 use std::{fs::create_dir_all, path::Path};
 
 use actix_cors::Cors;
-use actix_identity::IdentityMiddleware;
-use actix_session::{storage::CookieSessionStore, SessionMiddleware};
-use actix_web::{
-    cookie::{Key, SameSite},
-    web, App, HttpServer,
-};
+use actix_web::{web, App, HttpServer};
 use usage::models::AppData as ResourceUsageAppData;
 use utils::env::{
-    authdir, backupdir, buildcores, commandstream, containerconfig, containerprofile,
-    containersettings, containerstate, datadir, e2fsprogs, hostname, nix, nixosrebuild, osdir,
-    owner, port, systemd,
+    backupdir, buildcores, commandstream, containerconfig, containerprofile, containersettings,
+    containerstate, datadir, e2fsprogs, hostname, nix, nixosrebuild, osdir, port, systemd,
 };
 
-mod auth;
 mod config;
 mod file;
 mod info;
@@ -40,12 +33,6 @@ async fn main() -> std::io::Result<()> {
         let dir = Path::new(&osdir);
         create_dir_all(dir)
             .inspect_err(|e| log::error!("Could not create OS dir at {}: {}", dir.display(), e))?;
-    }
-    {
-        let dir = authdir();
-        create_dir_all(&dir).inspect_err(|e| {
-            log::error!("Could not create auth dir at {}: {}", dir.display(), e)
-        })?;
     }
     {
         let dir = containersettings();
@@ -108,10 +95,8 @@ async fn main() -> std::io::Result<()> {
     log::info!("Using env:");
     log::info!("HOSTNAME {}", hostname());
     log::info!("PORT {}", port());
-    log::info!("OWNER {}", owner());
     log::info!("DATADIR {}", datadir().display());
     log::info!("OSDIR {}", osdir());
-    log::info!("AUTHDIR {}", authdir().display());
     log::info!("CONTAINERSETTINGS {}", containersettings().display());
     log::info!("CONTAINERSTATE {}", containerstate().display());
     log::info!("CONTAINERPROFILE {}", containerprofile().display());
@@ -128,14 +113,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Cors::permissive())
-            .wrap(IdentityMiddleware::default())
-            .wrap(
-                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
-                    .cookie_same_site(SameSite::None)
-                    .build(),
-            )
             .app_data(web::Data::new(ResourceUsageAppData::default()))
-            .service(web::scope(&auth::scope()).configure(auth::configure))
             .service(web::scope(&config::scope()).configure(config::configure))
             .service(web::scope(&file::scope()).configure(file::configure))
             .service(web::scope(&info::scope()).configure(info::configure))

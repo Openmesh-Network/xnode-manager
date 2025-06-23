@@ -1,10 +1,8 @@
 use std::process::Command;
 
-use actix_identity::Identity;
 use actix_web::{get, web, HttpResponse, Responder};
 
 use crate::{
-    auth::{models::Scope, utils::has_permission},
     info::models::{Flake, FlakeMetadata, FlakeQuery},
     utils::{
         command::{execute_command, CommandExecutionMode},
@@ -15,11 +13,7 @@ use crate::{
 };
 
 #[get("/flake")]
-async fn flake(user: Identity, query: web::Query<FlakeQuery>) -> impl Responder {
-    if !has_permission(user, Scope::Info) {
-        return HttpResponse::Unauthorized().finish();
-    }
-
+async fn flake(query: web::Query<FlakeQuery>) -> impl Responder {
     let mut command = Command::new(format!("{}nix", nix()));
     command
         .env("NIX_REMOTE", "daemon")
