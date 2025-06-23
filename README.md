@@ -38,5 +38,5 @@ export ENCRYPTED="1" && curl https://raw.githubusercontent.com/Openmesh-Network/
 ```
 #cloud-config
 runcmd:
- - export DOMAIN="xnode.plopmenz.com" && export ACME_EMAIL="plopmenz@gmail.com" && export XNODE_OWNER="eth:519ce4C129a981B2CBB4C3990B1391dA24E8EbF3" && export ENCRYPTED="1" && curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
+ - export DOMAIN="xnode.plopmenz.com" && export ACME_EMAIL="plopmenz@gmail.com" && export XNODE_OWNER="eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" && export ENCRYPTED="1" && curl https://raw.githubusercontent.com/Openmesh-Network/xnode-manager/main/os/install.sh | bash 2>&1 | tee /tmp/xnodeos.log
 ```

@@ -15,7 +15,7 @@ in
 
       hostname = lib.mkOption {
         type = lib.types.str;
-        default = "0.0.0.0";
+        default = "127.0.0.1";
         example = "127.0.0.1";
         description = ''
           The hostname under which the app should be accessible.
