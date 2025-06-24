@@ -264,19 +264,18 @@
                 defaults.email = acme-email;
               };
 
+              systemd.services."acme-manager.xnode.local".script = lib.mkForce ''echo "selfsigned only"'';
               services.xnode-reverse-proxy = {
                 enable = true;
-                rules = lib.mkIf (domain != "") {
-                  "${domain}" = [
-                    {
-                      forward = "http://127.0.0.1:${builtins.toString config.services.xnode-manager.port}";
-                    }
-                  ];
-                };
+                rules = builtins.listToAttrs (
+                  builtins.map (domain: {
+                    name = domain;
+                    value = [
+                      { forward = "http://127.0.0.1:${builtins.toString config.services.xnode-manager.port}"; }
+                    ];
+                  }) ([ "manager.xnode.local" ] ++ (lib.optionals (domain != "") [ domain ]))
+                );
               };
-
-              services.nginx.virtualHosts."manager.xnode.local".locations."/".proxyPass =
-                "http://127.0.0.1:${builtins.toString config.services.xnode-manager.port}";
 
               services.xnode-auth = {
                 enable = true;
