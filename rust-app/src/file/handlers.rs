@@ -13,7 +13,7 @@ use crate::{
     utils::{env::containerstate, error::ResponseError},
 };
 
-#[get("/read_file/{scope}")]
+#[get("/{scope}/read_file")]
 async fn read_file(path: web::Path<String>, file: web::Query<ReadFile>) -> impl Responder {
     let scope = path.into_inner();
     let path = get_path(&scope, &file.path);
@@ -29,7 +29,7 @@ async fn read_file(path: web::Path<String>, file: web::Query<ReadFile>) -> impl 
     }
 }
 
-#[post("/write_file/{scope}")]
+#[post("/{scope}/write_file")]
 async fn write_file(path: web::Path<String>, file: web::Json<WriteFile>) -> impl Responder {
     let scope = path.into_inner();
     let path = get_path(&scope, &file.path);
@@ -43,7 +43,7 @@ async fn write_file(path: web::Path<String>, file: web::Json<WriteFile>) -> impl
     }
 }
 
-#[post("/remove_file/{scope}")]
+#[post("/{scope}/remove_file")]
 async fn remove_file(path: web::Path<String>, file: web::Json<RemoveFile>) -> impl Responder {
     let scope = path.into_inner();
     let path = get_path(&scope, &file.path);
@@ -57,7 +57,7 @@ async fn remove_file(path: web::Path<String>, file: web::Json<RemoveFile>) -> im
     }
 }
 
-#[get("/read_directory/{scope}")]
+#[get("/{scope}/read_directory")]
 async fn read_directory(path: web::Path<String>, dir: web::Query<ReadDirectory>) -> impl Responder {
     let scope = path.into_inner();
     let path = get_path(&scope, &dir.path);
@@ -117,7 +117,7 @@ async fn read_directory(path: web::Path<String>, dir: web::Query<ReadDirectory>)
     }
 }
 
-#[post("/create_directory/{scope}")]
+#[post("/{scope}/create_directory")]
 async fn create_directory(
     path: web::Path<String>,
     dir: web::Json<CreateDirectory>,
@@ -139,7 +139,7 @@ async fn create_directory(
     }
 }
 
-#[post("/remove_directory/{scope}")]
+#[post("/{scope}/remove_directory")]
 async fn remove_directory(
     path: web::Path<String>,
     dir: web::Json<RemoveDirectory>,

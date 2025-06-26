@@ -1,5 +1,6 @@
 use std::{
     fs::{create_dir_all, read, read_dir, read_to_string, write},
+    path::PathBuf,
     thread,
 };
 
@@ -14,10 +15,10 @@ use crate::{
 
 use super::models::{RequestId, RequestIdResponse, RequestIdResult};
 
-#[get("/info/{request_id}")]
+#[get("/{request_id}/info")]
 async fn request_info(path: web::Path<RequestId>) -> impl Responder {
     let request_id = path.into_inner();
-    let path = commandstream().join(request_id.to_string());
+    let path = get_path(request_id);
     let commands = read_dir(&path)
         .map(|dir| {
             dir.flat_map(|entry| {
@@ -42,10 +43,10 @@ async fn request_info(path: web::Path<RequestId>) -> impl Responder {
     HttpResponse::Ok().json(RequestInfo { result, commands })
 }
 
-#[get("/info/{request_id}/{command}")]
+#[get("/{request_id}/command/{command}/info")]
 async fn command_info(path: web::Path<(RequestId, String)>) -> impl Responder {
     let (request_id, command) = path.into_inner();
-    let path = commandstream().join(request_id.to_string()).join(command);
+    let path = get_path(request_id).join(command);
 
     let command: String;
     let stdout: Output;
@@ -159,4 +160,8 @@ fn get_request_id() -> RequestId {
         })
         .unwrap_or(0)
         + 1
+}
+
+fn get_path(request_id: RequestId) -> PathBuf {
+    commandstream().join(request_id.to_string())
 }

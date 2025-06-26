@@ -45,8 +45,8 @@ async fn containers() -> impl Responder {
     }
 }
 
-#[get("/container/{container}")]
-async fn container(path: web::Path<String>) -> impl Responder {
+#[get("/container/{container}/get")]
+async fn get(path: web::Path<String>) -> impl Responder {
     let container_id = path.into_inner();
     let path = containersettings().join(&container_id);
 
@@ -109,8 +109,8 @@ async fn container(path: web::Path<String>) -> impl Responder {
     })
 }
 
-#[post("/container/{container}/change")]
-async fn change(path: web::Path<String>, change: web::Json<ContainerChange>) -> impl Responder {
+#[post("/container/{container}/set")]
+async fn set(path: web::Path<String>, change: web::Json<ContainerChange>) -> impl Responder {
     return_request_id(Box::new(move |request_id| {
         let container_id = path.into_inner();
         let path = containersettings().join(&container_id);
@@ -182,8 +182,8 @@ async fn change(path: web::Path<String>, change: web::Json<ContainerChange>) -> 
     }))
 }
 
-#[post("/container/{container}/delete")]
-async fn delete(path: web::Path<String>) -> impl Responder {
+#[post("/container/{container}/remove")]
+async fn remove(path: web::Path<String>) -> impl Responder {
     return_request_id(Box::new(move |request_id| {
         let container_id = path.into_inner();
         let mut command = Command::new(format!("{}systemctl", systemd()));
@@ -194,7 +194,7 @@ async fn delete(path: web::Path<String>) -> impl Responder {
         // Should be inside if "container running", then fail on error can be added back
         let _ = execute_command(command, CommandExecutionMode::Stream { request_id });
 
-        if let Some(e) = delete_profile(&container_id) {
+        if let Some(e) = remove_profile(&container_id) {
             let ignore = if let RequestIdResult::Error { error } = &e {
                 error.ends_with("No such file or directory (os error 2)")
             } else {
@@ -205,10 +205,10 @@ async fn delete(path: web::Path<String>) -> impl Responder {
                 return e;
             }
         }
-        if let Some(e) = delete_state_dir(&container_id, request_id) {
+        if let Some(e) = remove_state_dir(&container_id, request_id) {
             return e;
         }
-        if let Some(e) = delete_conf_file(&container_id) {
+        if let Some(e) = remove_conf_file(&container_id) {
             return e;
         }
 
@@ -222,7 +222,7 @@ async fn delete(path: web::Path<String>) -> impl Responder {
                 ),
             };
         }
-        log::info!("Deleted container dir {}", path.display());
+        log::info!("removed container dir {}", path.display());
 
         RequestIdResult::Success { body: None }
     }))
@@ -266,7 +266,7 @@ fn create_profile(
 
     None
 }
-fn delete_profile(container_id: &str) -> Option<RequestIdResult> {
+fn remove_profile(container_id: &str) -> Option<RequestIdResult> {
     let container_profile = containerprofile().join(container_id);
     if let Err(e) = remove_dir_all(&container_profile) {
         return Some(RequestIdResult::Error {
@@ -365,7 +365,7 @@ fn create_state_dir(container_id: &str) -> Option<RequestIdResult> {
 
     None
 }
-fn delete_state_dir(container_id: &str, request_id: RequestId) -> Option<RequestIdResult> {
+fn remove_state_dir(container_id: &str, request_id: RequestId) -> Option<RequestIdResult> {
     let state_dir = containerstate().join(container_id);
 
     // /var/empty is immutable, preventing deletion
@@ -414,7 +414,7 @@ fn create_conf_file(container_id: &str, network: &Option<String>) -> Option<Requ
 
     None
 }
-fn delete_conf_file(container_id: &str) -> Option<RequestIdResult> {
+fn remove_conf_file(container_id: &str) -> Option<RequestIdResult> {
     let conf_file = containerconfig().join(format!("{}.conf", container_id));
     if let Err(e) = remove_file(&conf_file) {
         return Some(RequestIdResult::Error {

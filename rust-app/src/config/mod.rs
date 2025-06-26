@@ -9,7 +9,7 @@ pub fn scope() -> String {
 
 pub fn configure(cfg: &mut ServiceConfig) {
     cfg.service(handlers::containers);
-    cfg.service(handlers::container);
-    cfg.service(handlers::change);
-    cfg.service(handlers::delete);
+    cfg.service(handlers::get);
+    cfg.service(handlers::set);
+    cfg.service(handlers::remove);
 }

@@ -17,7 +17,7 @@ use super::models::{
     JournalCtlLog, JournalCtlLogMessage, Log, LogLevel, Process, SystemCtlProcess,
 };
 
-#[get("/list/{scope}")]
+#[get("/{scope}/list")]
 async fn list(path: web::Path<String>) -> impl Responder {
     let scope = path.into_inner();
     let mut command = Command::new(format!("{}systemctl", systemd()));
@@ -65,7 +65,7 @@ async fn list(path: web::Path<String>) -> impl Responder {
     }
 }
 
-#[get("/logs/{scope}/{process}")]
+#[get("/{scope}/{process}/logs")]
 async fn logs(path: web::Path<(String, String)>, query: web::Query<LogQuery>) -> impl Responder {
     let (scope, process) = path.into_inner();
     let max_logs = query.max.unwrap_or(100);
@@ -142,7 +142,7 @@ async fn logs(path: web::Path<(String, String)>, query: web::Query<LogQuery>) ->
     }
 }
 
-#[post("/execute/{scope}/{process}")]
+#[post("/{scope}/{process}/execute")]
 async fn execute(
     path: web::Path<(String, String)>,
     command: web::Json<ProcessCommand>,

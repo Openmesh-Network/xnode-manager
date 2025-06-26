@@ -65,13 +65,13 @@ async fn get() -> impl Responder {
 }
 
 #[post("/set")]
-async fn set(os: web::Json<OSChange>) -> impl Responder {
+async fn set(change: web::Json<OSChange>) -> impl Responder {
     return_request_id(Box::new(move |request_id| {
-        log::info!("Performing OS update: {:?}", os);
+        log::info!("Performing OS change: {:?}", change);
         let osdir = osdir();
         let path = Path::new(&osdir);
 
-        if let Some(flake) = &os.flake {
+        if let Some(flake) = &change.flake {
             let path = path.join("flake.nix");
             if let Err(e) = write(&path, flake) {
                 return RequestIdResult::Error {
@@ -81,11 +81,11 @@ async fn set(os: web::Json<OSChange>) -> impl Responder {
         }
 
         for (name, content) in [
-            ("flake.nix", &os.flake),
-            ("xnode-owner", &os.xnode_owner),
-            ("domain", &os.domain),
-            ("acme-email", &os.acme_email),
-            ("user-passwd", &os.user_passwd),
+            ("flake.nix", &change.flake),
+            ("xnode-owner", &change.xnode_owner),
+            ("domain", &change.domain),
+            ("acme-email", &change.acme_email),
+            ("user-passwd", &change.user_passwd),
         ] {
             if let Some(content) = content {
                 let path = path.join(name);
@@ -97,7 +97,7 @@ async fn set(os: web::Json<OSChange>) -> impl Responder {
             }
         }
 
-        if let Some(update_inputs) = &os.update_inputs {
+        if let Some(update_inputs) = &change.update_inputs {
             let mut command = Command::new(format!("{}nix", nix()));
             command
                 .env("NIX_REMOTE", "daemon")
