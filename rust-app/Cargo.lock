@@ -369,9 +369,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.27"
+version = "1.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d487aa071b5f64da6f19a3e848e3578944b726ee5a4854b82172f02aa876bfdc"
+checksum = "5c1599538de2394445747c8cf7935946e3cc27e9625f889d979bfb2aaf569362"
 dependencies = [
  "jobserver",
  "libc",
@@ -610,9 +610,9 @@ checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
 name = "h2"
-version = "0.3.26"
+version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81fe527a889e1532da5c525686d96d4c2e74cdd345badf8dfef9f6b39dd5f5e8"
+checksum = "0beca50380b1fc32983fc1cb4587bfa4bb9e78fc259aad4a0032d2080309222d"
 dependencies = [
  "bytes",
  "fnv",
@@ -771,12 +771,23 @@ checksum = "e8a5a9a0ff0086c7a148acb942baaabeadf9504d10400b5a05645853729b9cd2"
 
 [[package]]
 name = "indexmap"
-version = "2.9.0"
+version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
+checksum = "fe4cd85333e22411419a0bcae1297d25e58c9443848b11dc6a86fefe8c78a661"
 dependencies = [
  "equivalent",
  "hashbrown",
+]
+
+[[package]]
+name = "io-uring"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b86e202f00093dcba4275d4636b93ef9dd75d025ae560d2521b45ea28ab49013"
+dependencies = [
+ "bitflags",
+ "cfg-if",
+ "libc",
 ]
 
 [[package]]
@@ -1342,17 +1353,19 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.45.1"
+version = "1.46.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
+checksum = "0cc3a2344dafbe23a245241fe8b09735b521110d30fcefbbd5feb1797ca35d17"
 dependencies = [
  "backtrace",
  "bytes",
+ "io-uring",
  "libc",
  "mio",
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
+ "slab",
  "socket2",
  "windows-sys 0.52.0",
 ]

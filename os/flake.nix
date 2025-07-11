@@ -259,9 +259,9 @@
                 enable = true;
               };
 
-              security.acme = lib.mkIf (acme-email != "") {
+              security.acme = {
                 acceptTerms = true;
-                defaults.email = acme-email;
+                defaults.email = if (acme-email != "") then acme-email else "xnode@openmesh.network";
               };
 
               systemd.services."acme-manager.xnode.local".script = lib.mkForce ''echo "selfsigned only"'';
