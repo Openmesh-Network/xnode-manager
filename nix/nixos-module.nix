@@ -179,7 +179,6 @@ in
         ExecStart = "${lib.getExe xnode-manager}";
         User = "root";
         Group = "root";
-        CacheDirectory = "rust-app";
         Restart = "always";
       };
     };
