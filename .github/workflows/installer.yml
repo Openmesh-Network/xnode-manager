@@ -1,5 +1,7 @@
 name: Installer
 
+# git tag -f installer
+# git push origin installer -f
 on:
   push:
     tags:
