@@ -9,6 +9,10 @@ cat > $DISK_CONFIG_FILE << EOL
     disk = {
 EOL
 for disk in $(lsblk  --nodeps  --json | jq '.blockdevices[] | select(.type == "disk" and .rm == false and .ro == false) | .name' -r); do # Find all attached disks
+  if [[ $disk == zram* ]]; then
+    continue
+  fi
+  
   cat >> $DISK_CONFIG_FILE << EOL
       disk${DISK_COUNTER} = {
         device = "/dev/${disk}";
