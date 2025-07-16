@@ -23,5 +23,5 @@
   swapDevices = lib.mkImageMediaOverride [ ];
   fileSystems = lib.mkImageMediaOverride config.lib.isoFileSystems;
 
-  isoImage.isoName = lib.mkForce "xnodeos-iso-installer-${pkgs.stdenv.hostPlatform.system}.iso";
+  image.baseName = lib.mkForce "xnodeos-iso-installer-${pkgs.stdenv.hostPlatform.system}";
 }
