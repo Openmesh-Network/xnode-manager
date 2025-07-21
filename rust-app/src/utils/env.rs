@@ -1,14 +1,9 @@
-use std::{
-    env::var,
-    path::{Path, PathBuf},
-};
-
-use log::{error, warn};
+use std::path::{Path, PathBuf};
 
 fn env_var(id: &str) -> Option<String> {
-    var(id)
+    std::env::var(id)
         .inspect_err(|e| {
-            warn!("Could not read env var {}: {}", id, e);
+            log::warn!("Could not read env var {}: {}", id, e);
         })
         .ok()
 }
@@ -72,7 +67,7 @@ pub fn buildcores() -> u64 {
         .and_then(|s| {
             str::parse::<u64>(&s)
                 .inspect_err(|e| {
-                    error!("Could not parse BUILDCORES to u64: {}", e);
+                    log::error!("Could not parse BUILDCORES to u64: {}", e);
                 })
                 .ok()
         })

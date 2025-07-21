@@ -4,8 +4,7 @@ use std::{
     process::Command,
 };
 
-use actix_web::{get, post, web, HttpResponse, Responder};
-use log::warn;
+use actix_web::{HttpResponse, Responder, get, post, web};
 
 use crate::{
     config::models::ContainerChange,
@@ -14,7 +13,7 @@ use crate::{
         models::{RequestId, RequestIdResult},
     },
     utils::{
-        command::{execute_command, CommandExecutionMode},
+        command::{CommandExecutionMode, execute_command},
         env::{
             buildcores, containerconfig, containerprofile, containersettings, containerstate,
             e2fsprogs, nix, systemd,
@@ -76,7 +75,7 @@ async fn get(path: web::Path<String>) -> impl Responder {
                 flake_lock = Some(file);
             }
             Err(e) => {
-                warn!(
+                log::warn!(
                     "Could not read container flake lock {}: {}",
                     path.display(),
                     e

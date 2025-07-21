@@ -4,8 +4,7 @@ use std::{
     thread,
 };
 
-use actix_web::{get, web, HttpResponse, Responder};
-use log::warn;
+use actix_web::{HttpResponse, Responder, get, web};
 use serde_json::json;
 
 use crate::{
@@ -118,7 +117,7 @@ pub fn return_request_id(
     thread::spawn(move || {
         let path = commandstream().join(request_id.to_string());
         if let Err(e) = create_dir_all(&path) {
-            warn!(
+            log::warn!(
                 "Could not create directory for request {} at {}: {}",
                 request_id,
                 path.display(),
@@ -129,7 +128,7 @@ pub fn return_request_id(
         {
             let path = path.join("result");
             if let Err(e) = write(&path, json!(result).to_string()) {
-                warn!(
+                log::warn!(
                     "Could not write result of request {} to {}: {}",
                     request_id,
                     path.display(),

@@ -1,12 +1,10 @@
 use std::{
     fmt::Display,
-    fs::{create_dir_all, write, File},
+    fs::{File, create_dir_all, write},
     io::Error,
     process::Command,
     time::SystemTime,
 };
-
-use log::warn;
 
 use crate::{
     request::models::RequestId,
@@ -54,14 +52,14 @@ pub fn execute_command(mut command: Command, mode: CommandExecutionMode) -> Comm
             .join(request_id.to_string())
             .join(start.to_string());
         if let Err(e) = create_dir_all(&path) {
-            warn!(
+            log::warn!(
                 "Could not create command execution dir {}: {}",
                 path.display(),
                 e
             );
         }
         if let Err(e) = write(path.join("command"), format!("{:?}", command)) {
-            warn!(
+            log::warn!(
                 "Could not write command execution command file {}: {}",
                 path.display(),
                 e
@@ -81,7 +79,7 @@ pub fn execute_command(mut command: Command, mode: CommandExecutionMode) -> Comm
                     Err(_) => "1",
                 },
             ) {
-                warn!(
+                log::warn!(
                     "Could not write command execution result file {}: {}",
                     path.display(),
                     e
