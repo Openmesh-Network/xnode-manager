@@ -20,14 +20,6 @@ pub fn socket() -> PathBuf {
         .unwrap_or(Path::new(&datadir()).join("socket"))
 }
 
-pub fn reverseproxyuser() -> String {
-    env_var("REVERSEPROXYUSER").unwrap_or("nginx".to_string())
-}
-
-pub fn reverseproxygroup() -> String {
-    env_var("REVERSEPROXYGROUP").unwrap_or("nginx".to_string())
-}
-
 pub fn osdir() -> String {
     env_var("OSDIR").unwrap_or("/etc/nixos".to_string())
 }

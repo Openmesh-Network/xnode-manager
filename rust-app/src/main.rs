@@ -1,19 +1,16 @@
 use std::{
-    fs::{OpenOptions, create_dir_all, remove_file},
-    os::unix::fs::chown,
+    fs::{Permissions, create_dir_all, remove_file, set_permissions},
+    os::unix::{fs::PermissionsExt, net::UnixListener},
     path::Path,
 };
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
 use usage::models::AppData as ResourceUsageAppData;
-use users::{get_group_by_name, get_user_by_name};
 use utils::env::{
     backupdir, buildcores, commandstream, containerconfig, containerprofile, containersettings,
     containerstate, datadir, e2fsprogs, nix, nixosrebuild, osdir, socket, systemd,
 };
-
-use crate::utils::env::{reverseproxygroup, reverseproxyuser};
 
 mod config;
 mod file;
@@ -31,71 +28,69 @@ async fn main() -> std::io::Result<()> {
     // Create data directories
     {
         let dir = datadir();
-        create_dir_all(&dir).inspect_err(|e| {
-            log::error!("Could not create data dir at {}: {}", dir.display(), e)
-        })?;
+        create_dir_all(&dir)
+            .unwrap_or_else(|e| panic!("Could not create data dir at {}: {}", dir.display(), e));
     }
     {
         let osdir = osdir();
         let dir = Path::new(&osdir);
         create_dir_all(dir)
-            .inspect_err(|e| log::error!("Could not create OS dir at {}: {}", dir.display(), e))?;
+            .unwrap_or_else(|e| panic!("Could not create OS dir at {}: {}", dir.display(), e));
     }
     {
         let dir = containersettings();
-        create_dir_all(&dir).inspect_err(|e| {
-            log::error!(
+        create_dir_all(&dir).unwrap_or_else(|e| {
+            panic!(
                 "Could not create container settings dir at {}: {}",
                 dir.display(),
                 e
             )
-        })?;
+        });
     }
     {
         let dir = containerstate();
-        create_dir_all(&dir).inspect_err(|e| {
-            log::error!(
+        create_dir_all(&dir).unwrap_or_else(|e| {
+            panic!(
                 "Could not create container state dir at {}: {}",
                 dir.display(),
                 e
             )
-        })?;
+        });
     }
     {
         let dir = containerprofile();
-        create_dir_all(&dir).inspect_err(|e| {
-            log::error!(
+        create_dir_all(&dir).unwrap_or_else(|e| {
+            panic!(
                 "Could not create container profile dir at {}: {}",
                 dir.display(),
                 e
             )
-        })?;
+        });
     }
     {
         let dir = containerconfig();
-        create_dir_all(&dir).inspect_err(|e| {
-            log::error!(
+        create_dir_all(&dir).unwrap_or_else(|e| {
+            panic!(
                 "Could not create container config dir at {}: {}",
                 dir.display(),
                 e
             )
-        })?;
+        });
     }
     {
         let dir = backupdir();
-        create_dir_all(&dir).inspect_err(|e| {
-            log::error!("Could not create backup dir at {}: {}", dir.display(), e)
-        })?;
+        create_dir_all(&dir)
+            .unwrap_or_else(|e| panic!("Could not create backup dir at {}: {}", dir.display(), e));
     }
     {
         let dir = commandstream();
-        create_dir_all(&dir).inspect_err(|e| {
-            log::error!(
+        create_dir_all(&dir).unwrap_or_else(|e| {
+            panic!(
                 "Could not create command stream dir at {}: {}",
                 dir.display(),
                 e
             )
-        })?;
+        });
     }
 
     // Log env for debugging
@@ -115,35 +110,19 @@ async fn main() -> std::io::Result<()> {
     log::info!("SYSTEMD {}", systemd());
     log::info!("E2FSPROGS {}", e2fsprogs());
 
-    // Recreate unix socket
-    {
-        let path = socket();
-        let _ = remove_file(&path);
-        OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&path)
-            .unwrap_or_else(|e| panic!("Could not create socket at {}: {}", socket().display(), e));
-        chown(
-            &path,
-            Some(
-                get_user_by_name(&reverseproxyuser())
-                    .unwrap_or_else(|| {
-                        panic!("Reverse proxy user {} not found", reverseproxyuser())
-                    })
-                    .uid(),
-            ),
-            Some(
-                get_group_by_name(&reverseproxygroup())
-                    .unwrap_or_else(|| {
-                        panic!("Reverse proxy group {} not found", reverseproxygroup())
-                    })
-                    .gid(),
-            ),
+    // Set socket permissions
+    let path = socket();
+    remove_file(&path)
+        .unwrap_or_else(|e| log::warn!("Could not remove unix socket {}: {}", path.display(), e));
+    let unix_socket = UnixListener::bind(&path)
+        .unwrap_or_else(|e| panic!("Could not bind to unix socket {}: {}", path.display(), e));
+    set_permissions(&path, Permissions::from_mode(0o660)).unwrap_or_else(|e| {
+        panic!(
+            "Could not set permissions on unix socket {}: {}",
+            path.display(),
+            e
         )
-        .unwrap_or_else(|e| panic!("Could not grant unix socket access to reverse proxy: {}", e));
-    }
+    });
 
     // Start server
     HttpServer::new(move || {
@@ -158,7 +137,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope(&usage::scope()).configure(usage::configure))
             .service(web::scope(&request::scope()).configure(request::configure))
     })
-    .bind_uds(socket())?
+    .listen_uds(unix_socket)?
     .run()
     .await
 }

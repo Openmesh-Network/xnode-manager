@@ -40,26 +40,6 @@ in
         '';
       };
 
-      reverseProxy = {
-        user = lib.mkOption {
-          type = lib.types.str;
-          default = "nginx";
-          example = "plopmenz";
-          description = ''
-            The user used by the reverse proxy. It will be granted permission to the unix socket.
-          '';
-        };
-
-        group = lib.mkOption {
-          type = lib.types.str;
-          default = "nginx";
-          example = "plopmenz";
-          description = ''
-            The group used by the reverse proxy. It will be granted permission to the unix socket.
-          '';
-        };
-      };
-
       osDir = lib.mkOption {
         type = lib.types.path;
         default = "/etc/nixos";
@@ -172,8 +152,6 @@ in
         RUST_LOG = cfg.verbosity;
         DATADIR = cfg.dataDir;
         SOCKET = cfg.socket;
-        REVERSEPROXYUSER = cfg.reverseProxy.user;
-        REVERSEPROXYGROUP = cfg.reverseProxy.group;
         OSDIR = cfg.osDir;
         CONTAINERSETTINGS = cfg.container.settings;
         CONTAINERSTATE = cfg.container.state;
@@ -190,7 +168,8 @@ in
       serviceConfig = {
         ExecStart = "${lib.getExe xnode-manager}";
         User = "root";
-        Group = "root";
+        Group = "xnode-reverse-proxy"; # Grant access to unix socket
+        StateDirectory = "xnode-manager";
         Restart = "always";
       };
     };
