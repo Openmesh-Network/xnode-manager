@@ -8,18 +8,24 @@ fn env_var(id: &str) -> Option<String> {
         .ok()
 }
 
-pub fn hostname() -> String {
-    env_var("HOSTNAME").unwrap_or("0.0.0.0".to_string())
-}
-
-pub fn port() -> String {
-    env_var("PORT").unwrap_or("34391".to_string())
-}
-
 pub fn datadir() -> PathBuf {
     env_var("DATADIR")
         .map(|d| Path::new(&d).to_path_buf())
         .unwrap_or(Path::new("/var/lib/xnode-manager").to_path_buf())
+}
+
+pub fn socket() -> PathBuf {
+    env_var("SOCKET")
+        .map(|d| Path::new(&d).to_path_buf())
+        .unwrap_or(Path::new(&datadir()).join("socket"))
+}
+
+pub fn reverseproxyuser() -> String {
+    env_var("REVERSEPROXYUSER").unwrap_or("nginx".to_string())
+}
+
+pub fn reverseproxygroup() -> String {
+    env_var("REVERSEPROXYGROUP").unwrap_or("nginx".to_string())
 }
 
 pub fn osdir() -> String {

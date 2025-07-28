@@ -1,12 +1,19 @@
-use std::{fs::create_dir_all, path::Path};
+use std::{
+    fs::{OpenOptions, create_dir_all, remove_file},
+    os::unix::fs::chown,
+    path::Path,
+};
 
 use actix_cors::Cors;
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
 use usage::models::AppData as ResourceUsageAppData;
+use users::{get_group_by_name, get_user_by_name};
 use utils::env::{
     backupdir, buildcores, commandstream, containerconfig, containerprofile, containersettings,
-    containerstate, datadir, e2fsprogs, hostname, nix, nixosrebuild, osdir, port, systemd,
+    containerstate, datadir, e2fsprogs, nix, nixosrebuild, osdir, socket, systemd,
 };
+
+use crate::utils::env::{reverseproxygroup, reverseproxyuser};
 
 mod config;
 mod file;
@@ -93,8 +100,7 @@ async fn main() -> std::io::Result<()> {
 
     // Log env for debugging
     log::info!("Using env:");
-    log::info!("HOSTNAME {}", hostname());
-    log::info!("PORT {}", port());
+    log::info!("SOCKET {}", socket().display());
     log::info!("DATADIR {}", datadir().display());
     log::info!("OSDIR {}", osdir());
     log::info!("CONTAINERSETTINGS {}", containersettings().display());
@@ -109,6 +115,36 @@ async fn main() -> std::io::Result<()> {
     log::info!("SYSTEMD {}", systemd());
     log::info!("E2FSPROGS {}", e2fsprogs());
 
+    // Recreate unix socket
+    {
+        let path = socket();
+        let _ = remove_file(&path);
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)
+            .unwrap_or_else(|e| panic!("Could not create socket at {}: {}", socket().display(), e));
+        chown(
+            &path,
+            Some(
+                get_user_by_name(&reverseproxyuser())
+                    .unwrap_or_else(|| {
+                        panic!("Reverse proxy user {} not found", reverseproxyuser())
+                    })
+                    .uid(),
+            ),
+            Some(
+                get_group_by_name(&reverseproxygroup())
+                    .unwrap_or_else(|| {
+                        panic!("Reverse proxy group {} not found", reverseproxygroup())
+                    })
+                    .gid(),
+            ),
+        )
+        .unwrap_or_else(|e| panic!("Could not grant unix socket access to reverse proxy: {}", e));
+    }
+
     // Start server
     HttpServer::new(move || {
         App::new()
@@ -122,7 +158,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope(&usage::scope()).configure(usage::configure))
             .service(web::scope(&request::scope()).configure(request::configure))
     })
-    .bind(format!("{}:{}", hostname(), port()))?
+    .bind_uds(socket())?
     .run()
     .await
 }

@@ -13,24 +13,6 @@ in
     services.xnode-manager = {
       enable = lib.mkEnableOption "Enable Xnode Manager.";
 
-      hostname = lib.mkOption {
-        type = lib.types.str;
-        default = "127.0.0.1";
-        example = "127.0.0.1";
-        description = ''
-          The hostname under which the app should be accessible.
-        '';
-      };
-
-      port = lib.mkOption {
-        type = lib.types.port;
-        default = 34391;
-        example = 34391;
-        description = ''
-          The port under which the app should be accessible.
-        '';
-      };
-
       verbosity = lib.mkOption {
         type = lib.types.str;
         default = "warn";
@@ -47,6 +29,35 @@ in
         description = ''
           The main directory to store data.
         '';
+      };
+
+      socket = lib.mkOption {
+        type = lib.types.path;
+        default = "${cfg.dataDir}/socket";
+        example = "/var/lib/xnode-manager/socket";
+        description = ''
+          Unix socket to interact with reverse proxy.
+        '';
+      };
+
+      reverseProxy = {
+        user = lib.mkOption {
+          type = lib.types.str;
+          default = "nginx";
+          example = "plopmenz";
+          description = ''
+            The user used by the reverse proxy. It will be granted permission to the unix socket.
+          '';
+        };
+
+        group = lib.mkOption {
+          type = lib.types.str;
+          default = "nginx";
+          example = "plopmenz";
+          description = ''
+            The group used by the reverse proxy. It will be granted permission to the unix socket.
+          '';
+        };
       };
 
       osDir = lib.mkOption {
@@ -158,10 +169,11 @@ in
       description = "Allow configuring and monitoring your Xnode through external platforms, such as Xnode Studio.";
       after = [ "network.target" ];
       environment = {
-        HOSTNAME = cfg.hostname;
-        PORT = toString cfg.port;
         RUST_LOG = cfg.verbosity;
         DATADIR = cfg.dataDir;
+        SOCKET = cfg.socket;
+        REVERSEPROXYUSER = cfg.reverseProxy.user;
+        REVERSEPROXYGROUP = cfg.reverseProxy.group;
         OSDIR = cfg.osDir;
         CONTAINERSETTINGS = cfg.container.settings;
         CONTAINERSTATE = cfg.container.state;

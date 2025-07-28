@@ -272,7 +272,7 @@
                   builtins.map (domain: {
                     name = domain;
                     value = [
-                      { forward = "http://127.0.0.1:${builtins.toString config.services.xnode-manager.port}"; }
+                      { forward = "http://unix:${config.services.xnode-manager.socket}"; }
                     ];
                   }) ([ "manager.xnode.local" ] ++ (lib.optionals (domain != "") [ domain ]))
                 );
