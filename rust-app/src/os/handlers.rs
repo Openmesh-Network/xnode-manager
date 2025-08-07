@@ -4,13 +4,13 @@ use std::{
     process::Command,
 };
 
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder, get, post, web};
 
 use crate::{
     os::models::{OSChange, OSConfiguration},
     request::{handlers::return_request_id, models::RequestIdResult},
     utils::{
-        command::{execute_command, CommandExecutionMode},
+        command::{CommandExecutionMode, execute_command},
         env::{nix, nixosrebuild, osdir, systemd},
         error::ResponseError,
     },
@@ -107,10 +107,9 @@ async fn set(change: web::Json<OSChange>) -> impl Responder {
                 command.arg(input);
             }
             command.arg("--flake").arg(path);
-            if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id })
-            {
+            if let Err(e) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
                 return RequestIdResult::Error {
-                    error: format!("Error updating OS flake: {}", err),
+                    error: format!("Error updating OS flake: {}", e),
                 };
             }
         }
@@ -121,9 +120,9 @@ async fn set(change: web::Json<OSChange>) -> impl Responder {
             .arg("switch")
             .arg("--flake")
             .arg(path);
-        if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
+        if let Err(e) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
             return RequestIdResult::Error {
-                error: format!("Error switching to new OS config: {}", err),
+                error: format!("Error switching to new OS config: {}", e),
             };
         }
 
@@ -136,9 +135,9 @@ async fn reboot() -> impl Responder {
     return_request_id(Box::new(move |request_id| {
         let mut command = Command::new(format!("{}systemctl", systemd()));
         command.arg("reboot");
-        if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
+        if let Err(e) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
             return RequestIdResult::Error {
-                error: format!("Error rebooting OS: {}", err),
+                error: format!("Error rebooting OS: {}", e),
             };
         }
 

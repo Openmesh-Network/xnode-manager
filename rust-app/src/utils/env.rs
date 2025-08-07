@@ -48,6 +48,12 @@ pub fn containerconfig() -> PathBuf {
         .unwrap_or(Path::new("/etc/nixos-containers").to_path_buf())
 }
 
+pub fn systemdconfig() -> PathBuf {
+    env_var("SYSTEMDCONFIG")
+        .map(|d| Path::new(&d).to_path_buf())
+        .unwrap_or(Path::new("/etc/systemd/system.control").to_path_buf())
+}
+
 pub fn backupdir() -> PathBuf {
     env_var("BACKUPDIR")
         .map(|d| Path::new(&d).to_path_buf())

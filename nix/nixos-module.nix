@@ -82,6 +82,15 @@ in
           default = "/etc/nixos-containers";
           example = "/etc/nixos-containers";
           description = ''
+            The directory to store the container nspawn config.
+          '';
+        };
+
+        systemd-config = lib.mkOption {
+          type = lib.types.path;
+          default = "/etc/systemd/system.control";
+          example = "/etc/systemd/system.control";
+          description = ''
             The directory to store the container systemd config.
           '';
         };
@@ -157,6 +166,7 @@ in
         CONTAINERSTATE = cfg.container.state;
         CONTAINERPROFILE = cfg.container.profile;
         CONTAINERCONFIG = cfg.container.config;
+        SYSTEMDCONFIG = cfg.container.systemd-config;
         BACKUPDIR = cfg.backupDir;
         COMMANDSTREAM = cfg.commandstream;
         BUILDCORES = toString cfg.buildCores;

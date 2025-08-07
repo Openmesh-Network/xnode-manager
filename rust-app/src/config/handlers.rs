@@ -16,7 +16,7 @@ use crate::{
         command::{CommandExecutionMode, execute_command},
         env::{
             buildcores, containerconfig, containerprofile, containersettings, containerstate,
-            e2fsprogs, nix, systemd,
+            e2fsprogs, nix, systemd, systemdconfig,
         },
         error::ResponseError,
         fs::copy_dir_all,
@@ -145,18 +145,22 @@ async fn set(path: web::Path<String>, change: web::Json<ContainerChange>) -> imp
             }
             command.arg("--flake").arg(&path);
 
-            if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id })
-            {
+            if let Err(e) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
                 return RequestIdResult::Error {
                     error: format!(
                         "Error flake updating nixos container {}: {}",
-                        container_id, err
+                        container_id, e
                     ),
                 };
             }
         }
 
-        if let Some(e) = create_conf_file(&container_id, &change.settings.network) {
+        if let Some(e) = create_conf_file(
+            &container_id,
+            &change.settings.network,
+            &change.settings.nvidia_gpus,
+            request_id,
+        ) {
             return e;
         }
         if let Some(e) = create_state_dir(&container_id) {
@@ -171,9 +175,9 @@ async fn set(path: web::Path<String>, change: web::Json<ContainerChange>) -> imp
             .arg("reload-or-restart")
             .arg(format!("container@{}", container_id));
 
-        if let Err(err) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
+        if let Err(e) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
             return RequestIdResult::Error {
-                error: format!("Error creating nixos container {}: {}", container_id, err),
+                error: format!("Error creating nixos container {}: {}", container_id, e),
             };
         }
 
@@ -207,7 +211,7 @@ async fn remove(path: web::Path<String>) -> impl Responder {
         if let Some(e) = remove_state_dir(&container_id, request_id) {
             return e;
         }
-        if let Some(e) = remove_conf_file(&container_id) {
+        if let Some(e) = remove_conf_file(&container_id, request_id) {
             return e;
         }
 
@@ -257,9 +261,9 @@ fn create_profile(
             flake.to_string_lossy()
         ));
 
-    if let Err(err) = execute_command(cli_command, CommandExecutionMode::Stream { request_id }) {
+    if let Err(e) = execute_command(cli_command, CommandExecutionMode::Stream { request_id }) {
         return Some(RequestIdResult::Error {
-            error: format!("Error building configuration {}: {}", flake.display(), err,),
+            error: format!("Error building configuration {}: {}", flake.display(), e),
         });
     }
 
@@ -391,17 +395,45 @@ fn remove_state_dir(container_id: &str, request_id: RequestId) -> Option<Request
     None
 }
 
-fn create_conf_file(container_id: &str, network: &Option<String>) -> Option<RequestIdResult> {
+fn create_conf_file(
+    container_id: &str,
+    network: &Option<String>,
+    nvidia_gpus: &Option<Vec<u64>>,
+    request_id: RequestId,
+) -> Option<RequestIdResult> {
     let conf_file = containerconfig().join(format!("{}.conf", container_id));
     log::info!("Creating conf file {}", conf_file.display());
 
-    let conf_content = if let Some(network_zone) = network {
-        format!("EXTRA_NSPAWN_FLAGS=\"--network-zone={} \"", network_zone)
-    } else {
-        "".to_string()
-    };
+    let nspawn_flags: Vec<String> = []
+        .into_iter()
+        .chain(
+            network
+                .as_ref()
+                .map(|network_zone| vec![format!("--network-zone={}", network_zone)])
+                .unwrap_or_default(),
+        )
+        .chain(
+            nvidia_gpus
+                .as_ref()
+                .map(|gpus| {
+                    gpus.iter()
+                        .map(|gpu_id| gpu_id.to_string())
+                        .chain(
+                            ["ctl", "-modeset", "-uvm", "-uvm-tools"]
+                                .into_iter()
+                                .map(|str| str.to_string()),
+                        )
+                        .map(|postfix| format!("--bind-ro=/dev/nvidia{}", postfix))
+                        .collect::<Vec<String>>()
+                })
+                .unwrap_or_default(),
+        )
+        .collect();
 
-    if let Err(e) = write(&conf_file, conf_content) {
+    if let Err(e) = write(
+        &conf_file,
+        format!("EXTRA_NSPAWN_FLAGS=\"{}\"", nspawn_flags.join(" ")),
+    ) {
         return Some(RequestIdResult::Error {
             error: format!(
                 "Error writing nixos container configuration file {}: {}",
@@ -411,9 +443,66 @@ fn create_conf_file(container_id: &str, network: &Option<String>) -> Option<Requ
         });
     }
 
+    let systemd_conf_file = systemdconfig()
+        .join(format!("container@{}.service.d", container_id))
+        .join("99-XnodeManager.conf");
+    log::info!("Creating systemd conf file {}", conf_file.display());
+
+    if let Some(dir) = systemd_conf_file.parent() {
+        if let Err(e) = create_dir_all(dir) {
+            return Some(RequestIdResult::Error {
+                error: format!(
+                    "Error creating nixos container systemd configuration folder {}: {}",
+                    dir.display(),
+                    e
+                ),
+            });
+        }
+    }
+
+    let systemd_config: Vec<String> = ["[Service]"]
+        .into_iter()
+        .map(|str| str.to_string())
+        .chain(
+            nvidia_gpus
+                .as_ref()
+                .map(|gpus| {
+                    gpus.iter()
+                        .map(|gpu_id| gpu_id.to_string())
+                        .chain(
+                            ["ctl", "-caps*", "-modeset", "-uvm", "-uvm-tools"]
+                                .into_iter()
+                                .map(|str| str.to_string()),
+                        )
+                        .map(|postfix| format!("DeviceAllow=/dev/nvidia{} rw", postfix))
+                        .collect::<Vec<String>>()
+                })
+                .unwrap_or_default(),
+        )
+        .collect();
+
+    if let Err(e) = write(&systemd_conf_file, systemd_config.join("\n")) {
+        return Some(RequestIdResult::Error {
+            error: format!(
+                "Error writing nixos container systemd configuration file {}: {}",
+                systemd_conf_file.display(),
+                e
+            ),
+        });
+    }
+
+    let mut reload_command = Command::new(format!("{}systemctl", systemd()));
+    reload_command.arg("daemon-reload");
+    if let Err(e) = execute_command(reload_command, CommandExecutionMode::Stream { request_id }) {
+        return Some(RequestIdResult::Error {
+            error: format!("Error reloading systemd daemon: {}", e),
+        });
+    }
+
     None
 }
-fn remove_conf_file(container_id: &str) -> Option<RequestIdResult> {
+
+fn remove_conf_file(container_id: &str, request_id: RequestId) -> Option<RequestIdResult> {
     let conf_file = containerconfig().join(format!("{}.conf", container_id));
     if let Err(e) = remove_file(&conf_file) {
         return Some(RequestIdResult::Error {
@@ -422,6 +511,27 @@ fn remove_conf_file(container_id: &str) -> Option<RequestIdResult> {
                 conf_file.display(),
                 e
             ),
+        });
+    }
+
+    let systemd_conf_file = systemdconfig()
+        .join(format!("container@{}.service.d", container_id))
+        .join("99-XnodeManager.conf");
+    if let Err(e) = remove_file(&systemd_conf_file) {
+        return Some(RequestIdResult::Error {
+            error: format!(
+                "Error deleting nixos container systemd configuration file {}: {}",
+                systemd_conf_file.display(),
+                e
+            ),
+        });
+    }
+
+    let mut reload_command = Command::new(format!("{}systemctl", systemd()));
+    reload_command.arg("daemon-reload");
+    if let Err(e) = execute_command(reload_command, CommandExecutionMode::Stream { request_id }) {
+        return Some(RequestIdResult::Error {
+            error: format!("Error reloading systemd daemon: {}", e),
         });
     }
 

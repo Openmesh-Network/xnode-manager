@@ -314,9 +314,12 @@
             }
           )
           (
-            # START USER CONFIG
-            { }
-            # END USER CONFIG
+            { pkgs, ... }@args:
+            {
+              # START USER CONFIG
+
+              # END USER CONFIG
+            }
           )
         ];
       };
