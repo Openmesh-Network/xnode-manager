@@ -52,6 +52,7 @@ async fn get(path: web::Path<String>) -> impl Responder {
     let flake: String;
     let mut flake_lock: Option<String> = None;
     let mut network: Option<String> = None;
+    let mut nvidia_gpus: Vec<u64> = vec![];
 
     {
         let path = path.join("flake.nix");
@@ -87,8 +88,34 @@ async fn get(path: web::Path<String>) -> impl Responder {
         let path = containerconfig().join(format!("{}.conf", &container_id));
         match read_to_string(&path) {
             Ok(file) => {
-                if let Some(network_zone) = between(&file, "--network-zone=", " ") {
-                    network = Some(network_zone.to_string());
+                if let Some(nspawn_flags) = between(&file, "\"", "\"") {
+                    nspawn_flags.split(" ").for_each(|flag| {
+                        if flag.starts_with("--network-zone=") {
+                            network = Some(flag.replace("--network-zone=", ""));
+                        }
+                        if flag.starts_with("--bind-ro=") {
+                            let path = flag.replace("--bind-ro=", "");
+                            if path.starts_with("/dev/nvidia") {
+                                let device = path.replace("/dev/nvidia", "");
+                                if !["ctl", "-modeset", "-uvm", "-uvm-tools"]
+                                    .contains(&device.as_str())
+                                {
+                                    match device.parse::<u64>() {
+                                        Ok(device_id) => {
+                                            nvidia_gpus.push(device_id);
+                                        }
+                                        Err(e) => {
+                                            log::warn!(
+                                                "Could not parse nvidia device id {} to u64: {}",
+                                                device,
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
                 }
             }
             Err(e) => {
@@ -105,6 +132,11 @@ async fn get(path: web::Path<String>) -> impl Responder {
         flake,
         flake_lock,
         network,
+        nvidia_gpus: if nvidia_gpus.is_empty() {
+            None
+        } else {
+            Some(nvidia_gpus)
+        },
     })
 }
 

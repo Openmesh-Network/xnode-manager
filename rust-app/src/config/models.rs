@@ -5,6 +5,7 @@ pub struct ContainerConfiguration {
     pub flake: String,
     pub flake_lock: Option<String>,
     pub network: Option<String>,
+    pub nvidia_gpus: Option<Vec<u64>>,
 }
 
 #[derive(Serialize, Deserialize)]
