@@ -33,4 +33,4 @@ jobs:
         run: nix build --accept-flake-config --print-out-paths | cachix push openmesh
 
       - name: Upload XnodeOS default config to Cachix
-        run: nix build ./os#nixosConfigurations.xnode.config.system.build.toplevel --accept-flake-config --print-out-paths | cachix push openmesh
+        run: sed -i -e 's/github:Openmesh-Network\/xnode-manager/github:Openmesh-Network\/xnode-manager\/cache/g' ./os/flake.nix && nix build ./os#nixosConfigurations.xnode.config.system.build.toplevel --accept-flake-config --print-out-paths | cachix push openmesh
