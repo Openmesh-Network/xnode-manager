@@ -30,7 +30,7 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Upload Xnode Manager package to Cachix
-        run: nix build --accept-flake-config --print-out-paths | cachix push openmesh
+        run: nix build --accept-flake-config --print-out-paths --fallback | cachix push openmesh
 
       - name: Upload XnodeOS default config to Cachix
-        run: sed -i -e 's/github:Openmesh-Network\/xnode-manager/github:Openmesh-Network\/xnode-manager\/cache/g' ./os/flake.nix && nix build ./os#nixosConfigurations.xnode.config.system.build.toplevel --accept-flake-config --print-out-paths | cachix push openmesh
+        run: sed -i -e 's/github:Openmesh-Network\/xnode-manager/github:Openmesh-Network\/xnode-manager\/cache/g' ./os/flake.nix && nix build ./os#nixosConfigurations.xnode.config.system.build.toplevel --accept-flake-config --print-out-paths --fallback | cachix push openmesh
