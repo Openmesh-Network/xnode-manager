@@ -1,4 +1,4 @@
-{ rustPlatform }:
+{ rustPlatform, pkgs }:
 rustPlatform.buildRustPackage {
   pname = "xnode-manager";
   version = "1.0.0";
@@ -9,6 +9,10 @@ rustPlatform.buildRustPackage {
   };
 
   doDist = false;
+
+  buildInputs = with pkgs; [
+    acl
+  ];
 
   meta = {
     mainProgram = "xnode-manager";

@@ -178,7 +178,7 @@ in
       serviceConfig = {
         ExecStart = "${lib.getExe xnode-manager}";
         User = "root";
-        Group = "xnode-reverse-proxy"; # Grant access to unix socket
+        Group = "root";
         StateDirectory = "xnode-manager";
         Restart = "always";
       };

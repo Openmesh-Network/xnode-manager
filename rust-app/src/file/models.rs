@@ -36,6 +36,17 @@ pub struct RemoveDirectory {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct GetPermissions {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SetPermissions {
+    pub path: String,
+    pub permissions: Vec<Permission>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct File {
     pub content: Output,
 }
@@ -46,4 +57,22 @@ pub struct Directory {
     pub files: Vec<String>,
     pub symlinks: Vec<String>,
     pub unknown: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum Entity {
+    User(String),
+    Group(String),
+    Any,
+    Max,
+    Unknown,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Permission {
+    pub granted_to: Entity,
+    pub read: bool,
+    pub write: bool,
+    pub execute: bool,
+    pub default: bool,
 }

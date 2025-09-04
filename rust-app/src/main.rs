@@ -6,6 +6,7 @@ use std::{
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
+use exacl::{AclEntry, Perm, from_mode, getfacl, setfacl};
 use usage::models::AppData as ResourceUsageAppData;
 use utils::env::{
     backupdir, buildcores, commandstream, containerconfig, containerprofile, containersettings,
@@ -111,12 +112,18 @@ async fn main() -> std::io::Result<()> {
     log::info!("E2FSPROGS {}", e2fsprogs());
 
     // Set socket permissions
-    let path = socket();
+    let path: std::path::PathBuf = socket();
     remove_file(&path)
         .unwrap_or_else(|e| log::warn!("Could not remove unix socket {}: {}", path.display(), e));
     let unix_socket = UnixListener::bind(&path)
         .unwrap_or_else(|e| panic!("Could not bind to unix socket {}: {}", path.display(), e));
-    set_permissions(&path, Permissions::from_mode(0o660)).unwrap_or_else(|e| {
+    let mut socket_acl = from_mode(0o660);
+    socket_acl.push(AclEntry::allow_group(
+        "xnode-reverse-proxy",
+        Perm::READ | Perm::WRITE,
+        None,
+    ));
+    setfacl(&[&path], &socket_acl, None).unwrap_or_else(|e| {
         panic!(
             "Could not set permissions on unix socket {}: {}",
             path.display(),

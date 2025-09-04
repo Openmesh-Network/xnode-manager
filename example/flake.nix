@@ -30,9 +30,10 @@
           };
         }
         inputs.xnode-manager.nixosModules.default
+        inputs.xnode-manager.nixosModules.reverse-proxy
         inputs.xnode-auth.nixosModules.default
         (
-          { config, ... }:
+          { config, lib, ... }:
           {
             nix = {
               settings = {
@@ -48,12 +49,20 @@
               verbosity = "info";
             };
 
-            services.nginx = {
+            security.acme = {
+              acceptTerms = true;
+              defaults.email = "info@xnode-manager.container";
+            };
+
+            systemd.services."acme-xnode-manager.container".script = lib.mkForce ''echo "selfsigned only"'';
+            services.xnode-reverse-proxy = {
               enable = true;
-              virtualHosts."xnode-manager.container" = {
-                locations."/" = {
-                  proxyPass = "http://127.0.0.1:${builtins.toString config.services.xnode-manager.port}";
-                };
+              rules = {
+                "xnode-manager.container" = [
+                  {
+                    forward = "http://unix:${config.services.xnode-manager.socket}";
+                  }
+                ];
               };
             };
 
@@ -66,6 +75,7 @@
               hostName = "xnode-manager";
               firewall.allowedTCPPorts = [
                 80
+                443
               ];
             };
           }

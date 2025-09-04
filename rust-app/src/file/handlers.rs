@@ -1,14 +1,15 @@
 use std::{
-    fs,
+    fs::{self},
     path::{Path, PathBuf},
 };
 
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder, get, post, web};
+use exacl::{AclEntry, AclEntryKind, Flag, Perm, getfacl, setfacl};
 
 use crate::{
     file::models::{
-        CreateDirectory, Directory, File, ReadDirectory, ReadFile, RemoveDirectory, RemoveFile,
-        WriteFile,
+        CreateDirectory, Directory, Entity, File, GetPermissions, Permission, ReadDirectory,
+        ReadFile, RemoveDirectory, RemoveFile, SetPermissions, WriteFile,
     },
     utils::{env::containerstate, error::ResponseError},
 };
@@ -155,6 +156,84 @@ async fn remove_directory(
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
             "Error removing directory at path {}: {}",
+            path.display(),
+            e
+        ))),
+    }
+}
+
+#[get("/{scope}/get_permissions")]
+async fn get_permissions(
+    path: web::Path<String>,
+    target: web::Query<GetPermissions>,
+) -> impl Responder {
+    let scope = path.into_inner();
+    let path = get_path(&scope, &target.path);
+    match getfacl(&path, None) {
+        Ok(permissions) => HttpResponse::Ok().json(
+            permissions
+                .into_iter()
+                .map(|permission| Permission {
+                    granted_to: match permission.kind {
+                        AclEntryKind::User => Entity::User(permission.name),
+                        AclEntryKind::Group => Entity::Group(permission.name),
+                        AclEntryKind::Other => Entity::Any,
+                        AclEntryKind::Mask => Entity::Max,
+                        _ => Entity::Unknown,
+                    },
+                    read: permission.perms.contains(Perm::READ),
+                    write: permission.perms.contains(Perm::WRITE),
+                    execute: permission.perms.contains(Perm::EXECUTE),
+                    default: permission.flags.contains(Flag::DEFAULT),
+                })
+                .collect::<Vec<Permission>>(),
+        ),
+        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Error getting permissions on path {}: {}",
+            path.display(),
+            e
+        ))),
+    }
+}
+
+#[post("/{scope}/set_permissions")]
+async fn set_permissions(
+    path: web::Path<String>,
+    target: web::Json<SetPermissions>,
+) -> impl Responder {
+    let scope = path.into_inner();
+    let path = get_path(&scope, &target.path);
+    let acl: Vec<AclEntry> = target
+        .permissions
+        .iter()
+        .filter_map(|permission| {
+            let mut perms = Perm::empty();
+            if permission.read {
+                perms.insert(Perm::READ);
+            }
+            if permission.write {
+                perms.insert(Perm::WRITE);
+            }
+            if permission.execute {
+                perms.insert(Perm::EXECUTE);
+            }
+            let mut flags = Flag::empty();
+            if permission.default {
+                flags.insert(Flag::DEFAULT);
+            }
+            match &permission.granted_to {
+                Entity::User(user) => Some(AclEntry::allow_user(user, perms, flags)),
+                Entity::Group(group) => Some(AclEntry::allow_group(group, perms, flags)),
+                Entity::Any => Some(AclEntry::allow_other(perms, flags)),
+                Entity::Max => Some(AclEntry::allow_mask(perms, flags)),
+                Entity::Unknown => None,
+            }
+        })
+        .collect();
+    match setfacl(&[&path], &acl, None) {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Error setting permissions on path {}: {}",
             path.display(),
             e
         ))),
