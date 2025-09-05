@@ -61,10 +61,9 @@ pub struct Directory {
 
 #[derive(Serialize, Deserialize)]
 pub enum Entity {
-    User(String),
-    Group(String),
+    User(u32),
+    Group(u32),
     Any,
-    Max,
     Unknown,
 }
 
@@ -74,5 +73,4 @@ pub struct Permission {
     pub read: bool,
     pub write: bool,
     pub execute: bool,
-    pub default: bool,
 }

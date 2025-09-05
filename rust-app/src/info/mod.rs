@@ -9,4 +9,6 @@ pub fn scope() -> String {
 
 pub fn configure(cfg: &mut ServiceConfig) {
     cfg.service(handlers::flake);
+    cfg.service(handlers::users);
+    cfg.service(handlers::groups);
 }

@@ -1,10 +1,11 @@
 use std::{
-    fs::{self},
+    fs::{self, metadata},
+    os::unix::fs::{MetadataExt, chown},
     path::{Path, PathBuf},
 };
 
 use actix_web::{HttpResponse, Responder, get, post, web};
-use exacl::{AclEntry, AclEntryKind, Flag, Perm, getfacl, setfacl};
+use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, ACLEntry, PosixACL, Qualifier};
 
 use crate::{
     file::models::{
@@ -169,22 +170,34 @@ async fn get_permissions(
 ) -> impl Responder {
     let scope = path.into_inner();
     let path = get_path(&scope, &target.path);
-    match getfacl(&path, None) {
+    let (owner_user, owner_group) = match metadata(&path) {
+        Ok(metadata) => (metadata.uid(), metadata.gid()),
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                "Error getting owner of path {}: {}",
+                path.display(),
+                e
+            )));
+        }
+    };
+    match PosixACL::read_acl(&path) {
         Ok(permissions) => HttpResponse::Ok().json(
             permissions
+                .entries()
                 .into_iter()
+                .filter(|permission| !matches!(permission.qual, Qualifier::Mask))
                 .map(|permission| Permission {
-                    granted_to: match permission.kind {
-                        AclEntryKind::User => Entity::User(permission.name),
-                        AclEntryKind::Group => Entity::Group(permission.name),
-                        AclEntryKind::Other => Entity::Any,
-                        AclEntryKind::Mask => Entity::Max,
+                    granted_to: match permission.qual {
+                        Qualifier::UserObj => Entity::User(owner_user),
+                        Qualifier::GroupObj => Entity::Group(owner_group),
+                        Qualifier::Other => Entity::Any,
+                        Qualifier::User(id) => Entity::User(id),
+                        Qualifier::Group(id) => Entity::Group(id),
                         _ => Entity::Unknown,
                     },
-                    read: permission.perms.contains(Perm::READ),
-                    write: permission.perms.contains(Perm::WRITE),
-                    execute: permission.perms.contains(Perm::EXECUTE),
-                    default: permission.flags.contains(Flag::DEFAULT),
+                    read: permission.perm & ACL_READ != 0,
+                    write: permission.perm & ACL_WRITE != 0,
+                    execute: permission.perm & ACL_EXECUTE != 0,
                 })
                 .collect::<Vec<Permission>>(),
         ),
@@ -203,34 +216,82 @@ async fn set_permissions(
 ) -> impl Responder {
     let scope = path.into_inner();
     let path = get_path(&scope, &target.path);
-    let acl: Vec<AclEntry> = target
-        .permissions
-        .iter()
-        .filter_map(|permission| {
-            let mut perms = Perm::empty();
-            if permission.read {
-                perms.insert(Perm::READ);
+
+    let owner_user =
+        match target
+            .permissions
+            .iter()
+            .find_map(|permission| match permission.granted_to {
+                Entity::User(id) => Some(id),
+                _ => None,
+            }) {
+            Some(id) => id,
+            None => {
+                return HttpResponse::InternalServerError().json(ResponseError::new(
+                    "No user permission (one is required).".to_string(),
+                ));
             }
-            if permission.write {
-                perms.insert(Perm::WRITE);
+        };
+    let owner_group =
+        match target
+            .permissions
+            .iter()
+            .find_map(|permission| match permission.granted_to {
+                Entity::Group(id) => Some(id),
+                _ => None,
+            }) {
+            Some(id) => id,
+            None => {
+                return HttpResponse::InternalServerError().json(ResponseError::new(
+                    "No group permission (one is required).".to_string(),
+                ));
             }
-            if permission.execute {
-                perms.insert(Perm::EXECUTE);
+        };
+
+    if let Err(e) = chown(&path, Some(owner_user), Some(owner_group)) {
+        return HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Error setting owner {}:{} on path {}: {}",
+            owner_user,
+            owner_group,
+            path.display(),
+            e
+        )));
+    }
+
+    let mut acl = PosixACL::empty();
+    for permission in &target.permissions {
+        let mut perm = 0;
+        if permission.read {
+            perm |= ACL_READ;
+        }
+        if permission.write {
+            perm |= ACL_WRITE;
+        }
+        if permission.execute {
+            perm |= ACL_EXECUTE;
+        }
+        match permission.granted_to {
+            Entity::User(id) => {
+                if id == owner_user {
+                    acl.set(Qualifier::UserObj, perm);
+                } else {
+                    acl.set(Qualifier::User(id), perm);
+                }
             }
-            let mut flags = Flag::empty();
-            if permission.default {
-                flags.insert(Flag::DEFAULT);
+            Entity::Group(id) => {
+                if id == owner_group {
+                    acl.set(Qualifier::GroupObj, perm);
+                } else {
+                    acl.set(Qualifier::Group(id), perm);
+                }
             }
-            match &permission.granted_to {
-                Entity::User(user) => Some(AclEntry::allow_user(user, perms, flags)),
-                Entity::Group(group) => Some(AclEntry::allow_group(group, perms, flags)),
-                Entity::Any => Some(AclEntry::allow_other(perms, flags)),
-                Entity::Max => Some(AclEntry::allow_mask(perms, flags)),
-                Entity::Unknown => None,
+            Entity::Any => {
+                acl.set(Qualifier::Other, perm);
             }
-        })
-        .collect();
-    match setfacl(&[&path], &acl, None) {
+            Entity::Unknown => {}
+        };
+    }
+    match acl.write_acl(&path) {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
             "Error setting permissions on path {}: {}",

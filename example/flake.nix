@@ -1,6 +1,6 @@
 {
   inputs = {
-    xnode-manager.url = "github:Openmesh-Network/xnode-manager";
+    xnode-manager.url = "path:.."; # "github:Openmesh-Network/xnode-manager";
     nixpkgs.follows = "xnode-manager/nixpkgs";
 
     xnode-auth.url = "github:Openmesh-Network/xnode-auth";

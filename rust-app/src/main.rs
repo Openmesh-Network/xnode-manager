@@ -1,17 +1,19 @@
 use std::{
-    fs::{Permissions, create_dir_all, remove_file, set_permissions},
-    os::unix::{fs::PermissionsExt, net::UnixListener},
+    fs::{create_dir_all, remove_file},
+    os::unix::net::UnixListener,
     path::Path,
 };
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
-use exacl::{AclEntry, Perm, from_mode, getfacl, setfacl};
+use posix_acl::{ACL_READ, ACL_WRITE, PosixACL, Qualifier};
 use usage::models::AppData as ResourceUsageAppData;
 use utils::env::{
     backupdir, buildcores, commandstream, containerconfig, containerprofile, containersettings,
     containerstate, datadir, e2fsprogs, nix, nixosrebuild, osdir, socket, systemd,
 };
+
+use crate::{info::handlers::get_groups, utils::error::ResponseError};
 
 mod config;
 mod file;
@@ -117,13 +119,32 @@ async fn main() -> std::io::Result<()> {
         .unwrap_or_else(|e| log::warn!("Could not remove unix socket {}: {}", path.display(), e));
     let unix_socket = UnixListener::bind(&path)
         .unwrap_or_else(|e| panic!("Could not bind to unix socket {}: {}", path.display(), e));
-    let mut socket_acl = from_mode(0o660);
-    socket_acl.push(AclEntry::allow_group(
-        "xnode-reverse-proxy",
-        Perm::READ | Perm::WRITE,
-        None,
-    ));
-    setfacl(&[&path], &socket_acl, None).unwrap_or_else(|e| {
+    let mut socket_acl = PosixACL::new(0o660);
+
+    let reverse_proxy_group = "xnode-reverse-proxy";
+    match get_groups(None).and_then(|groups| {
+        groups
+            .into_iter()
+            .find_map(|group| (group.name == reverse_proxy_group).then_some(Ok(group.id)))
+            .unwrap_or_else(|| {
+                Err(ResponseError::new(format!(
+                    "Could not find group {}",
+                    reverse_proxy_group
+                )))
+            })
+    }) {
+        Ok(group) => {
+            socket_acl.set(Qualifier::Group(group), ACL_READ | ACL_WRITE);
+        }
+        Err(e) => {
+            log::warn!(
+                "Error assigning unix socket permission to reverse proxy group: {}",
+                e.error
+            )
+        }
+    };
+
+    socket_acl.write_acl(&path).unwrap_or_else(|e| {
         panic!(
             "Could not set permissions on unix socket {}: {}",
             path.display(),
