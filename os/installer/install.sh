@@ -103,7 +103,7 @@ nixos-facter -o /mnt/etc/nixos/facter.json
 
 if [[ $ENCRYPTED ]]; then
   # Generate Secure Boot Keys
-  mkdir -p /mnt/var/lib/sbctl
+  mkdir -p /mnt/var/lib/sbctl/keys
   sbctl create-keys --export /mnt/var/lib/sbctl/keys --database-path /mnt/var/lib/sbctl
 
   # Encrypt disk password for unattended (TPM2) boot decryption (Clevis)

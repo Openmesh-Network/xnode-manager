@@ -28,7 +28,7 @@ pub struct User {
     pub login: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct Group {
     pub name: String,
     pub id: u32,
