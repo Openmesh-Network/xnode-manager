@@ -5,7 +5,7 @@ use std::{
 };
 
 use actix_web::{HttpResponse, Responder, get, post, web};
-use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, ACLEntry, PosixACL, Qualifier};
+use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, PosixACL, Qualifier};
 
 use crate::{
     file::models::{

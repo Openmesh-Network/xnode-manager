@@ -264,6 +264,7 @@
                 acceptTerms = true;
                 defaults.email = if (acme-email != "") then acme-email else "xnode@openmesh.network";
               };
+              security.acme.defaults.extraLegoRenewFlags = [ "--ari-disable" ]; # ARI causes issues currently, re-enable once more stable
 
               systemd.services."acme-manager.xnode.local".script = lib.mkForce ''echo "selfsigned only"'';
               services.xnode-reverse-proxy = {
