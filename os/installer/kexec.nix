@@ -78,8 +78,8 @@
   systemd.services.apply-network-config = {
     wantedBy = [ "multi-user.target" ];
     description = "Apply run time provided network config.";
-    wants = [ "network-pre.target" ];
-    before = [ "network-pre.target" ];
+    wants = [ "network-online.target" ];
+    after = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       User = "root";
@@ -115,6 +115,8 @@
             ip address add $config dev $name
           done
 
+          ip link set $name up
+
           for route in $routes; do
             protocol=$(echo "$route" | jq -r '.protocol')
             dev=$(echo "$route" | jq -r '.dev')
@@ -123,8 +125,15 @@
                 continue
             fi
 
-            config="$(echo $route | jq -r '.dst') via $(echo $route | jq -r '.gateway')"
-            ip route add $config dev $name
+            args=""
+            flags=$(echo "$route" | jq -r '.flags')
+            if [[ $flags == *"onlink"* ]]; then
+              args="$args onlink"
+            fi
+
+            destination=$(echo $route | jq -r '.dst')
+            gateway=$(echo $route | jq -r '.gateway')
+            ip route add $destination via $gateway $args dev $name
           done
         done
       fi

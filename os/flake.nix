@@ -232,6 +232,7 @@
                       (route: {
                         destination = if (route.dst == "default") then "0.0.0.0/0" else route.dst;
                         gateway = route.gateway;
+                        onlink = builtins.elem "onlink" route.flags;
                       })
                       (
                         builtins.filter (
@@ -251,6 +252,7 @@
                     routes = builtins.map (route: {
                       Destination = route.destination;
                       Gateway = route.gateway;
+                      GatewayOnLink = if (route.onlink) then "yes" else "no";
                     }) interface.value.route;
                   };
                 }) network-config
