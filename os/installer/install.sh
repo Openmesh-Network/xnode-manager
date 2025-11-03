@@ -129,6 +129,9 @@ fi
 if [[ $USER_PASSWD ]]; then
   echo -n "${USER_PASSWD}" > /mnt/etc/nixos/user-passwd
 fi
+if [[ $NETWORK_CONFIG ]]; then
+  echo -n "${NETWORK_CONFIG}" > /mnt/etc/nixos/network-config
+fi
 if [[ $INITIAL_CONFIG ]]; then
   sed -i "/# START USER CONFIG/,/# END USER CONFIG/c\# START USER CONFIG\n${INITIAL_CONFIG}\n# END USER CONFIG" /mnt/etc/nixos/flake.nix
 fi

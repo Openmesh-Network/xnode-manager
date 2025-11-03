@@ -79,6 +79,7 @@
             {
               boot.loader.timeout = 0; # Speed up boot by skipping selection
               zramSwap.enable = true; # Compress memory
+              boot.kernel.sysctl."fs.inotify.max_user_instances" = 2147483647; # Containers can easily use more inotify instances than default 128
 
               environment.systemPackages = [
                 pkgs.mergerfs
@@ -156,7 +157,7 @@
                   anyInterface = true;
                 };
                 networks = {
-                  "wired" = {
+                  "99-wired" = {
                     matchConfig.Name = "en*";
                     networkConfig = {
                       DHCP = "yes";
@@ -164,7 +165,7 @@
                     dhcpV4Config.RouteMetric = 100;
                     dhcpV6Config.WithoutRA = "solicit";
                   };
-                  "wireless" = {
+                  "99-wireless" = {
                     matchConfig.Name = "wl*";
                     networkConfig = {
                       DHCP = "yes";
@@ -211,6 +212,49 @@
                   domain = "container";
                 };
               };
+            }
+          )
+          (
+            let
+              raw-network-config =
+                if (builtins.pathExists ./network-config) then
+                  builtins.fromJSON (builtins.readFile ./network-config)
+                else
+                  { };
+              network-config = builtins.map (address: {
+                name = address.address;
+                value = {
+                  ip = builtins.map (ip: { address = "${ip.local}/${ip.prefixlen}"; }) (
+                    builtins.filter (ip: ip.scope == "global" && !ip.dynamic) address.addr_info
+                  );
+                  route =
+                    builtins.map
+                      (route: {
+                        destination = if (route.dst == "default") then "0.0.0.0/0" else route.dst;
+                        gateway = route.gateway;
+                      })
+                      (
+                        builtins.filter (
+                          route: route.protocol == "static" && route.dev == address.ifname
+                        ) raw-network-config.route
+                      );
+                };
+              }) raw-network-config.address;
+            in
+            {
+              systemd.network.networks = builtins.listToAttrs (
+                builtins.map (interface: {
+                  name = "00-${interface.name}";
+                  value = {
+                    matchConfig.MACAddress = interface.name;
+                    address = builtins.map (ip: ip.address) interface.value.ip;
+                    routes = builtins.map (route: {
+                      Destination = route.destination;
+                      Gateway = route.gateway;
+                    }) interface.value.route;
+                  };
+                }) network-config
+              );
             }
           )
           (
