@@ -75,11 +75,15 @@
     source /xnode-config/env
   '';
 
+  # https://github.com/nix-community/nixos-images/blob/main/nix/kexec-installer/restore_routes.py
+  networking.firewall.enable = false;
+  networking.useNetworkd = true;
+  systemd.network.enable = true;
   systemd.services.apply-network-config = {
     wantedBy = [ "multi-user.target" ];
     description = "Apply run time provided network config.";
-    wants = [ "network-online.target" ];
-    after = [ "network-online.target" ];
+    wants = [ "network-pre.target" ];
+    before = [ "network-pre.target" ];
     serviceConfig = {
       Type = "oneshot";
       User = "root";
@@ -94,13 +98,25 @@
       # Extract environmental variables
       source /xnode-config/env
 
+      output="/etc/systemd/network"
       if [[ $NETWORK_CONFIG ]]; then
         interfaces=$(echo "$NETWORK_CONFIG" | jq -c '.address.[]')
         routes=$(echo "$NETWORK_CONFIG" | jq -c '.route.[]')
         for iface in $interfaces; do
           mac=$(echo "$iface" | jq -r '.address')
-          og_name=$(echo "$iface" | jq -r '.ifname')
-          name=$(grep -l "$mac" /sys/class/net/*/address | sed 's|/sys/class/net/\(.*\)/address|\1|')
+          name=$(echo "$iface" | jq -r '.ifname')
+          systemd="''${output}/00-''${mac}.network"
+
+          cat << EOF > "$systemd"
+      [Match]
+      MACAddress = $mac
+
+      [Network]
+      DHCP = yes
+      LLDP = yes
+      IPv6AcceptRA = yes
+      MulticastDNS = yes
+      EOF
 
           addresses=$(echo "$iface" | jq -c '.addr_info[]')
           for address in $addresses; do
@@ -111,29 +127,40 @@
                 continue
             fi
 
-            config="$(echo $address | jq -r '.local')/$(echo $address | jq -r '.prefixlen')"
-            ip address add $config dev $name
-          done
+            ip="$(echo $address | jq -r '.local')/$(echo $address | jq -r '.prefixlen')"
 
-          ip link set $name up
+            cat << EOF >> "$systemd"
+      Address = $ip
+      EOF
+          done
 
           for route in $routes; do
             protocol=$(echo "$route" | jq -r '.protocol')
             dev=$(echo "$route" | jq -r '.dev')
 
-            if [ "$protocol" != "static" ] || [ "$dev" != "$og_name" ]; then
+            if [ "$protocol" != "static" ] || [ "$dev" != "$name" ]; then
                 continue
             fi
 
-            args=""
+            onlink="no"
             flags=$(echo "$route" | jq -r '.flags')
             if [[ $flags == *"onlink"* ]]; then
-              args="$args onlink"
+              onlink="yes"
             fi
 
             destination=$(echo $route | jq -r '.dst')
+            if [ "$destination" == "default" ]; then
+              destination="0.0.0.0/0"
+            fi
             gateway=$(echo $route | jq -r '.gateway')
-            ip route add $destination via $gateway $args dev $name
+
+            cat << EOF >> "$systemd"
+
+      [Route]
+      Destination = $destination
+      Gateway = $gateway
+      GatewayOnLink = $onlink
+      EOF
           done
         done
       fi
