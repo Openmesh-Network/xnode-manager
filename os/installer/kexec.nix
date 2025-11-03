@@ -12,7 +12,7 @@
     (import ./config.nix args)
   ];
 
-  boot.initrd.compressor = "cat";
+  boot.initrd.compressor = "xz";
 
   # https://github.com/nix-community/nixos-images/blob/main/nix/kexec-installer/module.nix#L50
   system.build.kexecInstallerTarball = pkgs.runCommand "kexec-tarball" { } ''
@@ -54,6 +54,7 @@
     ''
   );
 
+  # https://github.com/nix-community/nixos-images/blob/main/nix/restore-remote-access.nix
   boot.initrd.systemd.enable = true;
   boot.initrd.systemd.services.restore-config-from-initrd = {
     unitConfig = {
@@ -110,7 +111,7 @@
                 continue
             fi
 
-            config="$(echo "$address" | jq -r '.local')/$(echo "$address" | jq -r '.prefixlen')"
+            config="$(echo $address | jq -r '.local')/$(echo $address | jq -r '.prefixlen')"
             ip address add $config dev $name
           done
 
@@ -122,7 +123,7 @@
                 continue
             fi
 
-            config="$(echo "$route" | jq -r '.dst') via $(echo "$route" | jq -r '.gateway')"
+            config="$(echo $route | jq -r '.dst') via $(echo $route | jq -r '.gateway')"
             ip route add $config dev $name
           done
         done

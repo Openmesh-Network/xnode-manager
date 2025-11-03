@@ -20,6 +20,10 @@
   boot.loader.timeout = lib.mkForce 0;
   services.getty.autologinUser = lib.mkForce "root";
   zramSwap.enable = true;
+  networking.nameservers = [
+    "1.1.1.1"
+    "8.8.8.8"
+  ];
 
   systemd.services.install-xnodeos = {
     wantedBy = [ "multi-user.target" ];
