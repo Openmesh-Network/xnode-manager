@@ -12,16 +12,20 @@
     (import ./config.nix args)
   ];
 
-  boot.initrd.compressor = "xz";
+  boot.initrd.compressor = "cat";
 
   # https://github.com/nix-community/nixos-images/blob/main/nix/kexec-installer/module.nix#L50
   system.build.kexecInstallerTarball = pkgs.runCommand "kexec-tarball" { } ''
     mkdir xnodeos $out
-    cp "${config.system.build.netbootRamdisk}/initrd" xnodeos/initrd
+    cp "${config.system.build.netbootRamdisk}/initrd" xnodeos/initrd-base
     cp "${config.system.build.kernel}/${config.system.boot.loader.kernelFile}" xnodeos/bzImage
     cp "${config.system.build.kexecScript}" xnodeos/install
     cp "${pkgs.pkgsStatic.kexec-tools}/bin/kexec" xnodeos/kexec
+    cp "${pkgs.pkgsStatic.coreutils}/bin/cp" xnodeos/cp
+    cp "${pkgs.pkgsStatic.coreutils}/bin/mkdir" xnodeos/mkdir
+    cp "${pkgs.pkgsStatic.findutils}/bin/find" xnodeos/find
     cp "${pkgs.pkgsStatic.iproute2.override { iptables = null; }}/bin/ip" xnodeos/ip
+    cp "${pkgs.pkgsStatic.cpio}/bin/cpio" xnodeos/cpio
     tar -czvf $out/xnodeos-kexec-installer-${pkgs.stdenv.hostPlatform.system}.tar.gz xnodeos
   '';
 
@@ -31,22 +35,43 @@
     pkgs.writeScript "kexec-boot" ''
       #!/usr/bin/env bash
       SCRIPT_DIR=$( cd -- "$( dirname -- "''${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-      NETWORK_CONFIG="{ \"address\": $(''${SCRIPT_DIR}/ip -j address show), \"route\":  $(''${SCRIPT_DIR}/ip -j route show) }"
-      ''${SCRIPT_DIR}/kexec --load ''${SCRIPT_DIR}/bzImage \
-        --initrd=''${SCRIPT_DIR}/initrd \
-        --command-line "init=${config.system.build.toplevel}/init ${toString config.boot.kernelParams} && $(cat << EOF
+      cd ''${SCRIPT_DIR}
 
+      ./mkdir -p ./xnode-config
+
+      NETWORK_CONFIG=$(echo "{ \"address\": $(./ip --json address show), \"route\":  $(./ip --json route show) }" | sed 's/"/\\"/g')
+      cat << EOF > ./xnode-config/env
       export XNODE_OWNER="''${XNODE_OWNER}" && export DOMAIN="''${DOMAIN}" && export ACME_EMAIL="''${ACME_EMAIL}" && export USER_PASSWD="''${USER_PASSWD}" && export ENCRYPTED="''${ENCRYPTED}" && export NETWORK_CONFIG="''${NETWORK_CONFIG}" && export INITIAL_CONFIG="''${INITIAL_CONFIG}"
       EOF
-      )"
-      ''${SCRIPT_DIR}/kexec -e
+
+      cp ./initrd-base ./initrd
+      ./find ./xnode-config | ./cpio --format newc --create >> ./initrd
+
+      ./kexec --load ./bzImage \
+        --initrd=./initrd \
+        --command-line "init=${config.system.build.toplevel}/init ${toString config.boot.kernelParams}"
+      ./kexec -e
     ''
   );
 
+  boot.initrd.systemd.enable = true;
+  boot.initrd.systemd.services.restore-config-from-initrd = {
+    unitConfig = {
+      DefaultDependencies = false;
+      RequiresMountsFor = "/sysroot /dev";
+    };
+    wantedBy = [ "initrd.target" ];
+    requiredBy = [ "rw-etc.service" ];
+    before = [ "rw-etc.service" ];
+    serviceConfig.Type = "oneshot";
+    script = ''
+      cp -r xnode-config /sysroot
+    '';
+  };
+
   systemd.services.install-xnodeos.script = lib.mkBefore ''
     # Extract environmental variables
-    sed '2q;d' /proc/cmdline > /tmp/xnode-env
-    source /tmp/xnode-env
+    source /xnode-config/env
   '';
 
   systemd.services.apply-network-config = {
@@ -66,8 +91,7 @@
     ];
     script = ''
       # Extract environmental variables
-      sed '2q;d' /proc/cmdline > /tmp/xnode-env
-      source /tmp/xnode-env
+      source /xnode-config/env
 
       if [[ $NETWORK_CONFIG ]]; then
         interfaces=$(echo "$NETWORK_CONFIG" | jq -c '.address.[]')
