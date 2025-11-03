@@ -220,12 +220,15 @@
                 if (builtins.pathExists ./network-config) then
                   builtins.fromJSON (builtins.readFile ./network-config)
                 else
-                  { };
+                  {
+                    address = [ ];
+                    route = [ ];
+                  };
               network-config = builtins.map (address: {
                 name = address.address;
                 value = {
-                  ip = builtins.map (ip: { address = "${ip.local}/${ip.prefixlen}"; }) (
-                    builtins.filter (ip: ip.scope == "global" && !ip.dynamic) address.addr_info
+                  ip = builtins.map (ip: { address = "${ip.local}/${builtins.toString ip.prefixlen}"; }) (
+                    builtins.filter (ip: ip.scope == "global" && !(ip.dynamic or false)) address.addr_info
                   );
                   route =
                     builtins.map
@@ -248,6 +251,12 @@
                   name = "00-${interface.name}";
                   value = {
                     matchConfig.MACAddress = interface.name;
+                    networkConfig = {
+                      DHCP = "yes";
+                      LLDP = "yes";
+                      IPv6AcceptRA = "yes";
+                      MulticastDNS = "yes";
+                    };
                     address = builtins.map (ip: ip.address) interface.value.ip;
                     routes = builtins.map (route: {
                       Destination = route.destination;
