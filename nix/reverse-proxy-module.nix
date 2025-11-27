@@ -145,20 +145,19 @@ in
       networking.firewall = lib.mkIf cfg.openFirewall (
         if (cfg.program.type == "nginx") then
           {
-            allowedTCPPorts =
-              [
-                80
-                443
-              ]
-              ++ (lib.attrsets.foldlAttrs (
-                acc: name: rule:
-                (
-                  acc
-                  ++ (builtins.map (entry: lib.toInt entry.port) (
-                    builtins.filter (entry: entry.protocol == "tcp") rule.stream
-                  ))
-                )
-              ) [ ] rules);
+            allowedTCPPorts = [
+              80
+              443
+            ]
+            ++ (lib.attrsets.foldlAttrs (
+              acc: name: rule:
+              (
+                acc
+                ++ (builtins.map (entry: lib.toInt entry.port) (
+                  builtins.filter (entry: entry.protocol == "tcp") rule.stream
+                ))
+              )
+            ) [ ] rules);
             allowedUDPPorts = (
               lib.attrsets.foldlAttrs (
                 acc: name: rule:
@@ -209,6 +208,7 @@ in
                       );
                       extraConfig = ''
                         zone ${id} 64k;
+                        keepalive ${builtins.toString (builtins.length entries)};
                       '';
                     };
                   }
