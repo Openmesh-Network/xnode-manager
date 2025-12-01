@@ -19,6 +19,11 @@ pub struct Flake {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct EvalQuery {
+    pub statement: String,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct User {
     pub name: String,
     pub id: u32,

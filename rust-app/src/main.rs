@@ -10,7 +10,7 @@ use posix_acl::{ACL_READ, ACL_WRITE, PosixACL, Qualifier};
 use usage::models::AppData as ResourceUsageAppData;
 use utils::env::{
     backupdir, buildcores, commandstream, containerconfig, containerprofile, containersettings,
-    containerstate, datadir, e2fsprogs, nix, nixosrebuild, osdir, socket, systemd,
+    containerstate, datadir, e2fsprogs, nix, osdir, socket, systemd,
 };
 
 use crate::{info::handlers::get_groups, utils::error::ResponseError};
@@ -109,7 +109,6 @@ async fn main() -> std::io::Result<()> {
     log::info!("COMMANDSTREAM {}", commandstream().display());
     log::info!("BUILDCORES {}", buildcores());
     log::info!("NIX {}", nix());
-    log::info!("NIXOSREBUILD {}", nixosrebuild());
     log::info!("SYSTEMD {}", systemd());
     log::info!("E2FSPROGS {}", e2fsprogs());
 

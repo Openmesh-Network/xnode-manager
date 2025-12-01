@@ -5,11 +5,12 @@ use std::{
 };
 
 use actix_web::{HttpResponse, Responder, get, web};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use serde_json::json;
 
 use crate::{
     request::models::{CommandInfo, RequestInfo},
-    utils::{env::commandstream, error::ResponseError, output::Output},
+    utils::{env::commandstream, error::ResponseError},
 };
 
 use super::models::{RequestId, RequestIdResponse, RequestIdResult};
@@ -48,8 +49,8 @@ async fn command_info(path: web::Path<(RequestId, String)>) -> impl Responder {
     let path = get_path(request_id).join(command);
 
     let command: String;
-    let stdout: Output;
-    let stderr: Output;
+    let stdout: String;
+    let stderr: String;
     {
         let path = path.join("command");
         match read_to_string(&path) {
@@ -69,7 +70,7 @@ async fn command_info(path: web::Path<(RequestId, String)>) -> impl Responder {
         let path = path.join("stdout");
         match read(&path) {
             Ok(file) => {
-                stdout = file.into();
+                stdout = BASE64_STANDARD.encode(file);
             }
             Err(e) => {
                 return HttpResponse::InternalServerError().json(ResponseError::new(format!(
@@ -84,7 +85,7 @@ async fn command_info(path: web::Path<(RequestId, String)>) -> impl Responder {
         let path = path.join("stderr");
         match read(&path) {
             Ok(file) => {
-                stderr = file.into();
+                stderr = BASE64_STANDARD.encode(file);
             }
             Err(e) => {
                 return HttpResponse::InternalServerError().json(ResponseError::new(format!(

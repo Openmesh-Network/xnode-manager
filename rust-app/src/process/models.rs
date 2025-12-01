@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::output::Output;
-
 #[derive(Serialize, Deserialize)]
 pub struct SystemCtlProcess {
     pub unit: String,
@@ -38,8 +36,8 @@ pub struct JournalCtlLog {
 
 #[derive(Serialize, Deserialize)]
 pub struct Log {
-    pub timestamp: u64, // Epoch time in Microseconds
-    pub message: Output,
+    pub timestamp: u64,  // Epoch time in Microseconds
+    pub message: String, // base64 bytes
     pub level: LogLevel,
 }
 
@@ -49,6 +47,16 @@ pub enum LogLevel {
     Warn,
     Info,
     Unknown,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Usage {
+    pub cpu: Option<u64>,
+    pub memory: Option<u64>,
+    pub network_ingress: Option<u64>,
+    pub network_egress: Option<u64>,
+    pub disk_read: Option<u64>,
+    pub disk_write: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -8,7 +8,7 @@ use std::{
 use actix_web::{HttpResponse, Responder, get, web};
 
 use crate::{
-    info::models::{Flake, FlakeMetadata, FlakeQuery, Group, User},
+    info::models::{EvalQuery, Flake, FlakeMetadata, FlakeQuery, Group, User},
     utils::{
         command::{CommandExecutionMode, execute_command},
         env::{containerstate, nix},
@@ -56,6 +56,31 @@ async fn flake(query: web::Query<FlakeQuery>) -> impl Responder {
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
             "Error getting flake metadata of {}: {}",
             &query.flake, e
+        ))),
+    }
+}
+
+#[get("/eval")]
+async fn eval(query: web::Query<EvalQuery>) -> impl Responder {
+    let mut command = Command::new(format!("{}nix", nix()));
+    command
+        .env("NIX_REMOTE", "daemon")
+        .arg("eval")
+        .arg(&query.statement);
+
+    match execute_command(command, CommandExecutionMode::Simple) {
+        Ok(output) => match output.into() {
+            Output::UTF8 { output: output_str } => HttpResponse::Ok().json(output_str),
+            Output::Bytes { output } => {
+                HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                    "Eval result could not be decoded as UTF8: {:?}.",
+                    output
+                )))
+            }
+        },
+        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Error evaluating {}: {}",
+            &query.statement, e
         ))),
     }
 }

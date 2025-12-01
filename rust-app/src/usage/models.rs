@@ -34,3 +34,12 @@ pub struct DiskUsage {
     pub used: u64,
     pub total: u64,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct NetworkUsage {
+    pub name: String,
+    pub mac: String,
+    pub addresses: Vec<String>,
+    pub received: u64,
+    pub transmitted: u64,
+}

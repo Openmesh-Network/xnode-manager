@@ -11,7 +11,7 @@ use crate::{
     request::{handlers::return_request_id, models::RequestIdResult},
     utils::{
         command::{CommandExecutionMode, execute_command},
-        env::{nix, nixosrebuild, osdir, systemd},
+        env::{buildcores, nix, osdir, systemd},
         error::ResponseError,
     },
 };
@@ -114,15 +114,29 @@ async fn set(change: web::Json<OSChange>) -> impl Responder {
             }
         }
 
-        let mut command = Command::new(format!("{}nixos-rebuild", nixosrebuild()));
+        let mut command = Command::new(format!("{}nix", nix()));
         command
             .env("NIX_REMOTE", "daemon")
-            .arg("switch")
-            .arg("--flake")
-            .arg(path);
+            .arg("build")
+            .arg("--profile")
+            .arg("/nix/var/nix/profiles/system")
+            .arg("/etc/nixos#nixosConfigurations.xnode.config.system.build.toplevel")
+            .arg("--out-link")
+            .arg("/etc/nixos/result")
+            .arg("--cores")
+            .arg(buildcores().to_string());
+
         if let Err(e) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
             return RequestIdResult::Error {
-                error: format!("Error switching to new OS config: {}", e),
+                error: format!("Error building OS configuration: {}", e),
+            };
+        }
+
+        let mut command = Command::new("/etc/nixos/result/bin/switch-to-configuration");
+        command.arg("switch");
+        if let Err(e) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
+            return RequestIdResult::Error {
+                error: format!("Error switching to new OS configuration: {}", e),
             };
         }
 

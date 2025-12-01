@@ -282,19 +282,22 @@ fn create_profile(
         });
     }
 
-    let mut cli_command = Command::new(format!("{}nix", nix()));
-    cli_command
+    let mut command = Command::new(format!("{}nix", nix()));
+    command
         .env("NIX_REMOTE", "daemon")
-        .env("NIX_BUILD_CORES", buildcores().to_string())
         .arg("build")
         .arg("--profile")
         .arg(container_profile.join("system"))
         .arg(format!(
             "{}#nixosConfigurations.container.config.system.build.toplevel",
             flake.to_string_lossy()
-        ));
+        ))
+        .arg("--out-link")
+        .arg(flake.join("result"))
+        .arg("--cores")
+        .arg(buildcores().to_string());
 
-    if let Err(e) = execute_command(cli_command, CommandExecutionMode::Stream { request_id }) {
+    if let Err(e) = execute_command(command, CommandExecutionMode::Stream { request_id }) {
         return Some(RequestIdResult::Error {
             error: format!("Error building configuration {}: {}", flake.display(), e),
         });
@@ -405,12 +408,10 @@ fn remove_state_dir(container_id: &str, request_id: RequestId) -> Option<Request
     let state_dir = containerstate().join(container_id);
 
     // /var/empty is immutable, preventing deletion
-    let mut cli_command = Command::new(format!("{}chattr", e2fsprogs()));
-    cli_command
-        .arg("-i")
-        .arg(state_dir.join("var").join("empty"));
+    let mut command = Command::new(format!("{}chattr", e2fsprogs()));
+    command.arg("-i").arg(state_dir.join("var").join("empty"));
 
-    let _ = execute_command(cli_command, CommandExecutionMode::Stream { request_id });
+    let _ = execute_command(command, CommandExecutionMode::Stream { request_id });
 
     if remove_dir_all(&state_dir).is_err() {
         // Ignore first error: Directory not empty (os error 39)
@@ -481,16 +482,16 @@ fn create_conf_file(
         .join("99-XnodeManager.conf");
     log::info!("Creating systemd conf file {}", conf_file.display());
 
-    if let Some(dir) = systemd_conf_file.parent() {
-        if let Err(e) = create_dir_all(dir) {
-            return Some(RequestIdResult::Error {
-                error: format!(
-                    "Error creating nixos container systemd configuration folder {}: {}",
-                    dir.display(),
-                    e
-                ),
-            });
-        }
+    if let Some(dir) = systemd_conf_file.parent()
+        && let Err(e) = create_dir_all(dir)
+    {
+        return Some(RequestIdResult::Error {
+            error: format!(
+                "Error creating nixos container systemd configuration folder {}: {}",
+                dir.display(),
+                e
+            ),
+        });
     }
 
     let systemd_config: Vec<String> = ["[Service]"]

@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::output::Output;
-
 #[derive(Serialize, Deserialize)]
 pub struct ReadFile {
     pub path: String,
@@ -10,7 +8,7 @@ pub struct ReadFile {
 #[derive(Serialize, Deserialize)]
 pub struct WriteFile {
     pub path: String,
-    pub content: Vec<u8>,
+    pub content: String, // base64 bytes
 }
 
 #[derive(Serialize, Deserialize)]
@@ -48,7 +46,7 @@ pub struct SetPermissions {
 
 #[derive(Serialize, Deserialize)]
 pub struct File {
-    pub content: Output,
+    pub content: String, // base64 bytes
 }
 
 #[derive(Serialize, Deserialize)]

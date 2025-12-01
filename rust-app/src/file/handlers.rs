@@ -5,6 +5,7 @@ use std::{
 };
 
 use actix_web::{HttpResponse, Responder, get, post, web};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, PosixACL, Qualifier};
 
 use crate::{
@@ -21,7 +22,7 @@ async fn read_file(path: web::Path<String>, file: web::Query<ReadFile>) -> impl 
     let path = get_path(&scope, &file.path);
     match fs::read(&path) {
         Ok(output) => HttpResponse::Ok().json(File {
-            content: output.into(),
+            content: BASE64_STANDARD.encode(output),
         }),
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
             "Error reading file at path {}: {}",
@@ -314,10 +315,10 @@ fn get_path(scope: &str, path_from_root: &str) -> PathBuf {
 fn remove_first_slash(string: &str) -> &str {
     let mut chars = string.chars();
 
-    if let Some(char) = chars.next() {
-        if char != '/' {
-            return string;
-        }
+    if let Some(char) = chars.next()
+        && char != '/'
+    {
+        return string;
     }
 
     chars.as_str()

@@ -1,6 +1,7 @@
 {
   inputs = {
-    xnode-manager.url = "path:.."; # "github:Openmesh-Network/xnode-manager";
+    xnodeos.url = "github:Openmesh-Network/xnodeos";
+    xnode-manager.url = "github:Openmesh-Network/xnode-manager";
     nixpkgs.follows = "xnode-manager/nixpkgs";
 
     xnode-auth.url = "github:Openmesh-Network/xnode-auth";
@@ -21,16 +22,12 @@
         inherit inputs;
       };
       modules = [
-        inputs.xnode-manager.nixosModules.container
+        inputs.xnodeos.nixosModules.container
         {
-          services.xnode-container.xnode-config = {
-            host-platform = ./xnode-config/host-platform;
-            state-version = ./xnode-config/state-version;
-            hostname = ./xnode-config/hostname;
-          };
+          services.xnode-container.xnode-config = ./xnode-config;
         }
         inputs.xnode-manager.nixosModules.default
-        inputs.xnode-manager.nixosModules.reverse-proxy
+        inputs.xnodeos.nixosModules.reverse-proxy
         inputs.xnode-auth.nixosModules.default
         (
           { config, lib, ... }:
@@ -69,14 +66,6 @@
             services.xnode-auth = {
               enable = true;
               domains."xnode-manager.container".accessList."eth:519ce4c129a981b2cbb4c3990b1391da24e8ebf3" = { };
-            };
-
-            networking = {
-              hostName = "xnode-manager";
-              firewall.allowedTCPPorts = [
-                80
-                443
-              ];
             };
           }
         )

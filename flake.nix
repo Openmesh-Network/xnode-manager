@@ -2,7 +2,7 @@
   description = "Configure and monitor your Xnode";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
     systems.url = "github:nix-systems/default";
   };
 
@@ -52,8 +52,6 @@
 
       nixosModules = {
         default = ./nix/nixos-module.nix;
-        container = ./nix/container-module.nix;
-        reverse-proxy = ./nix/reverse-proxy-module.nix;
       };
     };
 }

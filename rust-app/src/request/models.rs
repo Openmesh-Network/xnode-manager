@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::utils::output::Output;
-
 pub type RequestId = u32;
 
 #[derive(Serialize, Deserialize)]
@@ -24,7 +22,7 @@ pub struct RequestInfo {
 #[derive(Serialize, Deserialize)]
 pub struct CommandInfo {
     pub command: String,
-    pub stdout: Output,
-    pub stderr: Output,
+    pub stdout: String, // base64 bytes
+    pub stderr: String, // base64 bytes
     pub result: Option<String>,
 }

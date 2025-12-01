@@ -82,10 +82,6 @@ pub fn nix() -> String {
     env_var("NIX").unwrap_or("".to_string())
 }
 
-pub fn nixosrebuild() -> String {
-    env_var("NIXOSREBUILD").unwrap_or("".to_string())
-}
-
 pub fn systemd() -> String {
     env_var("SYSTEMD").unwrap_or("".to_string())
 }

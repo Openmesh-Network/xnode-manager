@@ -1,7 +1,7 @@
 { rustPlatform, pkgs }:
 rustPlatform.buildRustPackage {
   pname = "xnode-manager";
-  version = "1.0.1";
+  version = "1.1.0";
   src = ../rust-app;
 
   cargoLock = {

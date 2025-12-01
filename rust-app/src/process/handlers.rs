@@ -1,12 +1,13 @@
 use std::process::Command;
 
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder, get, post, web};
+use base64::{Engine, prelude::BASE64_STANDARD};
 
 use crate::{
-    process::models::{LogQuery, ProcessCommand},
+    process::models::{LogQuery, ProcessCommand, Usage},
     request::{handlers::return_request_id, models::RequestIdResult},
     utils::{
-        command::{execute_command, CommandExecutionMode},
+        command::{CommandExecutionMode, execute_command},
         env::systemd,
         error::ResponseError,
         output::Output,
@@ -111,10 +112,10 @@ async fn logs(path: web::Path<(String, String)>, query: web::Query<LogQuery>) ->
                             .into_iter()
                             .map(|log| Log {
                                 timestamp: log.__REALTIME_TIMESTAMP.parse().unwrap_or(0),
-                                message: match log.MESSAGE {
-                                    JournalCtlLogMessage::String(output) => Output::UTF8 { output },
-                                    JournalCtlLogMessage::Raw(output) => Output::Bytes { output }
-                                },
+                                message: BASE64_STANDARD.encode(match log.MESSAGE {
+                                    JournalCtlLogMessage::String(output) => output.into_bytes(),
+                                    JournalCtlLogMessage::Raw(output) => output
+                                }),
                                 level: journal_ctl_priority_to_log_level(&log.PRIORITY)
                             })
                             .collect();
@@ -137,6 +138,102 @@ async fn logs(path: web::Path<(String, String)>, query: web::Query<LogQuery>) ->
         },
         Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
             "Error executing get logs of process {} of {} command: {}",
+            &process, &scope, e
+        ))),
+    }
+}
+
+#[get("/{scope}/{process}/usage")]
+async fn usage(path: web::Path<(String, String)>) -> impl Responder {
+    let (scope, process) = path.into_inner();
+
+    let mut command = Command::new(format!("{}systemctl", systemd()));
+    command.arg("show").arg(&process);
+    if scope.starts_with("container:") {
+        command
+            .arg("--machine")
+            .arg(scope.replace("container:", ""));
+    }
+    match execute_command(command, CommandExecutionMode::Simple) {
+        Ok(output) => match output.into() {
+            Output::UTF8 { output: output_str } => {
+                let mut usage = Usage {
+                    cpu: None,
+                    memory: None,
+                    network_ingress: None,
+                    network_egress: None,
+                    disk_read: None,
+                    disk_write: None,
+                };
+
+                for line in output_str.split("\n") {
+                    if let Some((property, value)) = line.split_once("\n") {
+                        if value == "[not set]" || value == "[no data]" {
+                            continue;
+                        }
+
+                        let value = match value.parse() {
+                            Ok(value) => value,
+                            Err(_) => {
+                                log::warn!(
+                                    "Usage of process {} of {} contains unexpected value: {}",
+                                    &process,
+                                    &scope,
+                                    line
+                                );
+                                continue;
+                            }
+                        };
+
+                        match property {
+                            "CPUUsageNSec" => {
+                                usage.cpu = Some(value);
+                            }
+                            "MemoryCurrent" => {
+                                usage.memory = Some(value);
+                            }
+                            "IPIngressBytes" => {
+                                usage.network_ingress = Some(value);
+                            }
+                            "IPEgressBytes" => {
+                                usage.network_egress = Some(value);
+                            }
+                            "IOReadBytes" => {
+                                usage.disk_read = Some(value);
+                            }
+                            "IOWriteBytes" => {
+                                usage.disk_write = Some(value);
+                            }
+                            _ => {
+                                log::warn!(
+                                    "Usage of process {} of {} contains unexpected property: {}",
+                                    &process,
+                                    &scope,
+                                    line
+                                );
+                            }
+                        }
+                    } else {
+                        log::warn!(
+                            "Usage of process {} of {} contains unexpected line: {}",
+                            &process,
+                            &scope,
+                            line
+                        );
+                    }
+                }
+
+                HttpResponse::Ok().json(usage)
+            }
+            Output::Bytes { output } => {
+                HttpResponse::InternalServerError().json(ResponseError::new(format!(
+                    "Usage of process {} of {} could not be decoded as UTF8: {:?}.",
+                    &process, &scope, output
+                )))
+            }
+        },
+        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
+            "Error executing get usage of process {} of {} command: {}",
             &process, &scope, e
         ))),
     }

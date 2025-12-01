@@ -1,10 +1,13 @@
-use actix_web::{get, web, HttpResponse, Responder};
-use sysinfo::Disks;
+use actix_web::{HttpResponse, Responder, get, web};
+use sysinfo::{Disks, Networks};
 
 use super::models::{CpuUsage, DiskUsage, MemoryUsage};
-use crate::{usage::models::AppData, utils::error::ResponseError};
+use crate::{
+    usage::models::{AppData, NetworkUsage},
+    utils::error::ResponseError,
+};
 
-#[get("/{scope}/cpu")]
+#[get("/cpu")]
 async fn cpu(data: web::Data<AppData>) -> impl Responder {
     let mut sys;
     match data.system.lock() {
@@ -15,7 +18,7 @@ async fn cpu(data: web::Data<AppData>) -> impl Responder {
             return HttpResponse::InternalServerError().json(ResponseError::new(format!(
                 "Error getting system info: {}",
                 e
-            )))
+            )));
         }
     }
 
@@ -32,7 +35,7 @@ async fn cpu(data: web::Data<AppData>) -> impl Responder {
     HttpResponse::Ok().json(response)
 }
 
-#[get("/{scope}/memory")]
+#[get("/memory")]
 async fn memory(data: web::Data<AppData>) -> impl Responder {
     let mut sys;
     match data.system.lock() {
@@ -43,7 +46,7 @@ async fn memory(data: web::Data<AppData>) -> impl Responder {
             return HttpResponse::InternalServerError().json(ResponseError::new(format!(
                 "Error getting system info: {}",
                 e
-            )))
+            )));
         }
     }
 
@@ -55,7 +58,7 @@ async fn memory(data: web::Data<AppData>) -> impl Responder {
     HttpResponse::Ok().json(response)
 }
 
-#[get("/{scope}/disk")]
+#[get("/disk")]
 async fn disk() -> impl Responder {
     let disks = Disks::new_with_refreshed_list();
     let response: Vec<DiskUsage> = disks
@@ -69,6 +72,23 @@ async fn disk() -> impl Responder {
                 .unwrap_or_else(|| "Non-UTF8 mount point".to_string()),
             total: disk.total_space(),
             used: disk.total_space() - disk.available_space(),
+        })
+        .collect();
+    HttpResponse::Ok().json(response)
+}
+
+#[get("/network")]
+async fn network() -> impl Responder {
+    let networks = Networks::new_with_refreshed_list();
+    let response: Vec<NetworkUsage> = networks
+        .list()
+        .iter()
+        .map(|(interface, data)| NetworkUsage {
+            name: interface.clone(),
+            mac: data.mac_address().to_string(),
+            addresses: data.ip_networks().iter().map(|ip| ip.to_string()).collect(),
+            received: data.total_received(),
+            transmitted: data.total_transmitted(),
         })
         .collect();
     HttpResponse::Ok().json(response)
