@@ -151,6 +151,8 @@ async fn main() -> std::io::Result<()> {
         )
     });
 
+    println!("{}", "hi");
+
     // Start server
     HttpServer::new(move || {
         App::new()

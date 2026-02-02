@@ -264,6 +264,19 @@ async fn remove(path: web::Path<String>) -> impl Responder {
     }))
 }
 
+#[get("/container/{container}/permissions/get")]
+async fn permissions_get(path: web::Path<String>) -> impl Responder {
+    HttpResponse::Ok().finish()
+}
+
+#[post("/container/{container}/permissions/set")]
+async fn permissions_set(
+    path: web::Path<String>,
+    change: web::Json<ContainerChange>,
+) -> impl Responder {
+    HttpResponse::Ok().finish()
+}
+
 fn create_profile(
     flake: PathBuf,
     container_id: &str,
@@ -548,10 +561,8 @@ fn remove_conf_file(container_id: &str, request_id: RequestId) -> Option<Request
         });
     }
 
-    let systemd_conf_file = systemdconfig()
-        .join(format!("container@{}.service.d", container_id))
-        .join("99-XnodeManager.conf");
-    if let Err(e) = remove_file(&systemd_conf_file) {
+    let systemd_conf_file = systemdconfig().join(format!("container@{}.service.d", container_id));
+    if let Err(e) = remove_dir_all(&systemd_conf_file) {
         return Some(RequestIdResult::Error {
             error: format!(
                 "Error deleting nixos container systemd configuration file {}: {}",

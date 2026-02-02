@@ -12,4 +12,5 @@ pub fn configure(cfg: &mut ServiceConfig) {
     cfg.service(handlers::memory);
     cfg.service(handlers::disk);
     cfg.service(handlers::network);
+    cfg.service(handlers::gpu);
 }

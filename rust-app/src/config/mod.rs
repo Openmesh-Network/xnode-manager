@@ -11,5 +11,7 @@ pub fn configure(cfg: &mut ServiceConfig) {
     cfg.service(handlers::containers);
     cfg.service(handlers::get);
     cfg.service(handlers::set);
+    cfg.service(handlers::permissions_get);
+    cfg.service(handlers::permissions_set);
     cfg.service(handlers::remove);
 }

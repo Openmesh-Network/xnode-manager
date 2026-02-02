@@ -165,6 +165,7 @@ in
         SYSTEMD = "${cfg.systemd}/bin/";
         E2FSPROGS = "${pkgs.e2fsprogs}/bin/";
       };
+      startLimitIntervalSec = 0;
       serviceConfig = {
         ExecStart = "${lib.getExe xnode-manager}";
         User = "root";
