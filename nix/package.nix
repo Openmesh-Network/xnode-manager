@@ -10,8 +10,11 @@ rustPlatform.buildRustPackage {
 
   doDist = false;
 
-  buildInputs = with pkgs; [
-    acl
+  buildInputs = [
+    pkgs.acl
+
+    pkgs.pkg-config
+    pkgs.systemdLibs
   ];
 
   meta = {

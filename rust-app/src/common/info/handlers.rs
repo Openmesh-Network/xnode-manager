@@ -1,119 +1,13 @@
 use std::{
-    fs::read_to_string,
     path::{Path, PathBuf},
-    process::Command,
     str::FromStr,
 };
 
-use actix_web::{HttpResponse, Responder, get, web};
+use tokio::fs::read_to_string;
 
-use crate::{
-    info::models::{EvalQuery, Flake, FlakeMetadata, FlakeQuery, Group, User},
-    utils::{
-        command::{CommandExecutionMode, execute_command},
-        env::{containerstate, nix},
-        error::ResponseError,
-        output::Output,
-    },
-};
+use crate::common::error::ResponseError;
 
-#[get("/flake")]
-async fn flake(query: web::Query<FlakeQuery>) -> impl Responder {
-    let mut command = Command::new(format!("{}nix", nix()));
-    command
-        .env("NIX_REMOTE", "daemon")
-        .arg("flake")
-        .arg("metadata")
-        .arg(&query.flake)
-        .arg("--json")
-        .arg("--no-use-registries")
-        .arg("--refresh")
-        .arg("--no-write-lock-file");
-
-    match execute_command(command, CommandExecutionMode::Simple) {
-        Ok(output) => match output.into() {
-            Output::UTF8 { output: output_str } => {
-                match serde_json::from_str::<FlakeMetadata>(&output_str) {
-                    Ok(output_parsed) => HttpResponse::Ok().json(Flake {
-                        last_modified: output_parsed.lastModified,
-                        revision: output_parsed.revision,
-                    }),
-                    Err(e) => {
-                        HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                        "Flake metadata could not be parsed to expected format: {}. Metadata: {}",
-                        e, output_str
-                    )))
-                    }
-                }
-            }
-            Output::Bytes { output } => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Flake metadata could not be decoded as UTF8: {:?}.",
-                    output
-                )))
-            }
-        },
-        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
-            "Error getting flake metadata of {}: {}",
-            &query.flake, e
-        ))),
-    }
-}
-
-#[get("/eval")]
-async fn eval(query: web::Query<EvalQuery>) -> impl Responder {
-    let mut command = Command::new(format!("{}nix", nix()));
-    command
-        .env("NIX_REMOTE", "daemon")
-        .arg("eval")
-        .arg(&query.statement);
-
-    match execute_command(command, CommandExecutionMode::Simple) {
-        Ok(output) => match output.into() {
-            Output::UTF8 { output: output_str } => HttpResponse::Ok().json(output_str),
-            Output::Bytes { output } => {
-                HttpResponse::InternalServerError().json(ResponseError::new(format!(
-                    "Eval result could not be decoded as UTF8: {:?}.",
-                    output
-                )))
-            }
-        },
-        Err(e) => HttpResponse::InternalServerError().json(ResponseError::new(format!(
-            "Error evaluating {}: {}",
-            &query.statement, e
-        ))),
-    }
-}
-
-#[get("/users/{scope}/users")]
-async fn users(path: web::Path<String>) -> impl Responder {
-    let scope = path.into_inner();
-    let prefix = if scope.starts_with("container:") {
-        Some(containerstate().join(scope.replace("container:", "")))
-    } else {
-        None
-    };
-
-    match get_users(prefix) {
-        Ok(users) => HttpResponse::Ok().json(users),
-        Err(e) => HttpResponse::InternalServerError().json(e),
-    }
-}
-
-#[get("/users/{scope}/groups")]
-async fn groups(path: web::Path<String>) -> impl Responder {
-    let scope = path.into_inner();
-    let prefix = if scope.starts_with("container:") {
-        Some(containerstate().join(scope.replace("container:", "")))
-    } else {
-        None
-    };
-
-    match get_groups(prefix) {
-        Ok(groups) => HttpResponse::Ok().json(groups),
-        Err(e) => HttpResponse::InternalServerError().json(e),
-    }
-}
+use super::models::{Group, User};
 
 impl FromStr for User {
     type Err = ResponseError;
@@ -219,13 +113,13 @@ impl FromStr for Group {
     }
 }
 
-pub fn get_users(prefix: Option<PathBuf>) -> Result<Vec<User>, ResponseError> {
+pub async fn get_users(prefix: Option<PathBuf>) -> Result<Vec<User>, ResponseError> {
     let path = prefix
         .unwrap_or(Path::new("/").to_path_buf())
         .join("etc")
         .join("passwd");
 
-    let file_content = match read_to_string(&path) {
+    let file_content = match read_to_string(&path).await {
         Ok(file_content) => file_content,
         Err(e) => {
             return Err(ResponseError::new(e.to_string()));
@@ -239,13 +133,13 @@ pub fn get_users(prefix: Option<PathBuf>) -> Result<Vec<User>, ResponseError> {
         .collect::<Result<Vec<User>, ResponseError>>()
 }
 
-pub fn get_groups(prefix: Option<PathBuf>) -> Result<Vec<Group>, ResponseError> {
+pub async fn get_groups(prefix: Option<PathBuf>) -> Result<Vec<Group>, ResponseError> {
     let path = prefix
         .unwrap_or(Path::new("/").to_path_buf())
         .join("etc")
         .join("group");
 
-    let file_content = match read_to_string(&path) {
+    let file_content = match read_to_string(&path).await {
         Ok(file_content) => file_content,
         Err(e) => {
             return Err(ResponseError::new(e.to_string()));
