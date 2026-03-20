@@ -2,7 +2,8 @@ use std::fmt::Write;
 
 /// Convert bytes to utf8 string lossless by escaping invalid bytes
 /// Source: https://doc.rust-lang.org/std/primitive.slice.html#method.utf8_chunks
-pub fn escaped_utf8_from_bytes(bytes: &[u8]) -> String {
+pub fn escaped_utf8_from_bytes(bytes: impl AsRef<[u8]>) -> String {
+    let bytes = bytes.as_ref();
     let mut repr = String::new();
     repr.push_str("c\"");
     for chunk in bytes.utf8_chunks() {
@@ -16,15 +17,4 @@ pub fn escaped_utf8_from_bytes(bytes: &[u8]) -> String {
     }
     repr.push('"');
     repr
-}
-
-pub fn between<'a>(str: &'a str, start: &'a str, end: &'a str) -> Option<&'a str> {
-    if let Some(start_index) = str.find(start) {
-        let start_end = start_index + start.len();
-        if let Some(end_offset) = str[start_end..].find(end) {
-            return Some(&str[start_end..(start_end + end_offset)]);
-        }
-    }
-
-    None
 }

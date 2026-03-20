@@ -8,6 +8,12 @@ pub enum Metadata {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct Size {
+    pub exclusive: u64,
+    pub shared: u64,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Folder {
     pub folders: Vec<String>,
     pub files: Vec<String>,

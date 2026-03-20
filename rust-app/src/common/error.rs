@@ -9,9 +9,15 @@ pub struct ResponseError {
 
 impl ResponseError {
     pub fn new(error: impl Display) -> Self {
-        log::warn!("Response error: {}", error);
-        Self {
-            error: error.to_string(),
-        }
+        let error = error.to_string();
+        log::warn!("Response error: {error}");
+
+        Self { error }
+    }
+}
+
+impl Display for ResponseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error)
     }
 }

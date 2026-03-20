@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -16,8 +18,9 @@ pub struct Process {
 
 #[derive(Serialize, Deserialize)]
 pub struct LogQuery {
-    pub max: Option<u32>,
     pub level: Option<LogLevel>,
+    pub after: Option<u64>,
+    pub max: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -36,8 +39,8 @@ pub struct JournalCtlLog {
 
 #[derive(Serialize, Deserialize)]
 pub struct Log {
-    pub timestamp: u64,  // Epoch time in Microseconds
-    pub message: String, // base64 bytes
+    pub timestamp: u64, // Epoch time in seconds
+    pub message: String,
     pub level: LogLevel,
 }
 
@@ -59,9 +62,21 @@ pub struct Usage {
     pub disk_write: Option<u64>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub enum ProcessCommand {
+pub enum SystemCtlCommand {
     Start,
     Stop,
-    Restart,
+    ReloadOrRestart,
+}
+impl Display for SystemCtlCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SystemCtlCommand::Start => "start",
+                SystemCtlCommand::Stop => "stop",
+                SystemCtlCommand::ReloadOrRestart => "reload-or-restart",
+            }
+        )
+    }
 }

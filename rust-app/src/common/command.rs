@@ -1,8 +1,17 @@
-use std::{fmt::Display, io::Error};
+use std::{ffi::OsStr, fmt::Display, io::Error, path::Path};
 
+use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 
-use crate::common::{env::systemd, string::escaped_utf8_from_bytes};
+use crate::common::{
+    env::{nix, systemd},
+    string::escaped_utf8_from_bytes,
+};
+
+#[derive(Serialize, Deserialize)]
+pub struct ResponseCommand {
+    pub unit: String,
+}
 
 pub enum SimpleCommandError {
     OutputError { output: Vec<u8> },
@@ -13,9 +22,9 @@ impl Display for SimpleCommandError {
         write!(
             f,
             "{}",
-            match &self {
+            match self {
                 SimpleCommandError::OutputError { output } => {
-                    escaped_utf8_from_bytes(&output)
+                    escaped_utf8_from_bytes(output)
                 }
                 SimpleCommandError::CommandError { e } => e.to_string(),
             }
@@ -25,7 +34,7 @@ impl Display for SimpleCommandError {
 
 pub type SimpleCommandResult = Result<Vec<u8>, SimpleCommandError>;
 pub async fn execute_command_simple(mut command: Command) -> SimpleCommandResult {
-    log::info!("Executing command (simple): {:?}", command);
+    log::info!("Executing command: {:?}", command);
 
     match command.output().await {
         Ok(output_raw) => {
@@ -41,44 +50,84 @@ pub async fn execute_command_simple(mut command: Command) -> SimpleCommandResult
     }
 }
 
-pub struct CommandStream {
-    scope: String,
-    name: String,
-    request_id: String,
-    process: String,
-}
-pub type StreamCommandResult = Result<(), ()>;
-pub async fn execute_command_stream(
+pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
     command: Command,
-    stream: &CommandStream,
-    action: &str,
-) -> StreamCommandResult {
-    log::info!("Executing command (stream): {:?}", command);
-
-    let CommandStream {
-        scope,
-        name,
-        request_id,
-        process,
-    } = stream;
-    let base_command = command.into_std();
+    name: &str,
+    scope: &[SCOPE],
+    chroot: Option<impl AsRef<Path>>,
+) -> SimpleCommandResult {
+    let mut base_command = command.into_std();
 
     let mut command = Command::new(format!("{}systemd-run", systemd()));
-    command
-        .args([
-            "--wait",
-            "--quiet",
-            "--collect",
-            "--unit",
-            &format!("{scope}-{name}-command-{request_id}-{process}-{action}.service"),
-            "--slice",
-            &format!("{action}-{process}-command-{name}-{scope}.slice"),
-        ])
-        .arg(base_command.get_program())
-        .args(base_command.get_args());
+    command.args([
+        "--wait",
+        "--quiet",
+        "--collect",
+        "--unit",
+        &get_scope_unit(name, scope),
+        "--slice",
+        &get_scope_slice(name, scope),
+    ]);
 
-    match command.output().await {
-        Ok(_) => Ok(()),
-        Err(_) => Err(()),
+    if let Some(chroot) = &chroot {
+        command.arg("--root-directory").arg(chroot.as_ref());
     }
+
+    for (key, value) in base_command.get_envs() {
+        if let Some(value) = value {
+            command
+                .arg(" --setenv")
+                .arg([key, value].join(OsStr::new("=")));
+        }
+    }
+    base_command.env_clear();
+
+    let program = base_command.get_program();
+    command.arg(program).args(base_command.get_args());
+
+    if let Some(chroot) = &chroot
+        && let Some(program) = program.to_str()
+        && program.starts_with("/nix/store")
+    {
+        // Program + dependencies need to be copied over to be available in chroot environment
+        let parts = program.split("/");
+        let nix_item: String = parts.take(3).collect();
+        let mut nix_copy = Command::new(format!("{}nix", nix()));
+        nix_copy
+            .env("NIX_REMOTE", "daemon")
+            .args(["copy", &nix_item, "--to"])
+            .arg(chroot.as_ref());
+        execute_command_simple(nix_copy).await?;
+    }
+
+    execute_command_simple(command).await
+}
+
+/// name: build, scope: [container, xnode-manager] -> container-xnode_manager-command-build.service
+pub fn get_scope_unit<SCOPE: AsRef<str>>(name: &str, scope: &[SCOPE]) -> String {
+    let mut unit = scope
+        .iter()
+        .map(|s| s.as_ref())
+        .chain(["command", name])
+        .map(|s| s.replace("-", "_"))
+        .collect::<Vec<String>>()
+        .join("-");
+    unit.push_str(".service");
+
+    unit
+}
+
+/// name: build, scope: [container, xnode-manager] -> build-command-xnode_manager-container-machine.slice
+pub fn get_scope_slice<SCOPE: AsRef<str>>(name: &str, scope: &[SCOPE]) -> String {
+    let mut slice = ["machine"]
+        .into_iter()
+        .chain(scope.iter().map(|s| s.as_ref()))
+        .chain(["command", name])
+        .map(|s| s.replace("-", "_"))
+        .rev()
+        .collect::<Vec<String>>()
+        .join("-");
+    slice.push_str(".slice");
+
+    slice
 }

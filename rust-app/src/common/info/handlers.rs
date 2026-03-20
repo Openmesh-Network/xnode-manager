@@ -3,9 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use tokio::fs::read_to_string;
-
-use crate::common::error::ResponseError;
+use crate::common::{error::ResponseError, file::read_file, string::escaped_utf8_from_bytes};
 
 use super::models::{Group, User};
 
@@ -15,51 +13,35 @@ impl FromStr for User {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let split: Vec<&str> = s.split(":").collect();
 
-        let name = match split.first() {
-            Some(name) => name,
-            None => return Err(ResponseError::new(format!("Missing user name in {}", s))),
-        };
-        let id = match split.get(2) {
-            Some(id) => match u32::from_str(id) {
-                Ok(id) => id,
-                Err(e) => {
-                    return Err(ResponseError::new(format!(
-                        "Could not convert user id {} to u32: {}",
-                        id, e
-                    )));
-                }
-            },
-            None => return Err(ResponseError::new(format!("Missing user id in {}", s))),
-        };
-        let group = match split.get(3) {
-            Some(group) => match u32::from_str(group) {
-                Ok(group) => group,
-                Err(e) => {
-                    return Err(ResponseError::new(format!(
-                        "Could not convert user group {} to u32: {}",
-                        group, e
-                    )));
-                }
-            },
-            None => return Err(ResponseError::new(format!("Missing user group in {}", s))),
-        };
-        let description = match split.get(4) {
-            Some(description) => description,
-            None => {
-                return Err(ResponseError::new(format!(
-                    "Missing user description in {}",
-                    s
-                )));
-            }
-        };
-        let home = match split.get(5) {
-            Some(home) => home,
-            None => return Err(ResponseError::new(format!("Missing user home in {}", s))),
-        };
-        let login = match split.get(6) {
-            Some(login) => login,
-            None => return Err(ResponseError::new(format!("Missing user login in {}", s))),
-        };
+        let name = split
+            .first()
+            .ok_or(ResponseError::new(format!("Missing user name in {s}")))?;
+
+        let id = split
+            .get(2)
+            .ok_or(ResponseError::new(format!("Missing user id in {s}")))?;
+        let id = u32::from_str(id).map_err(|e| {
+            ResponseError::new(format!("Could not convert user id {id} to u32: {e}"))
+        })?;
+
+        let group = split
+            .get(3)
+            .ok_or(ResponseError::new(format!("Missing user group in {s}")))?;
+        let group = u32::from_str(group).map_err(|e| {
+            ResponseError::new(format!("Could not convert user group {group} to u32: {e}"))
+        })?;
+
+        let description = split.get(4).ok_or(ResponseError::new(format!(
+            "Missing user description in {s}"
+        )))?;
+
+        let home = split
+            .get(5)
+            .ok_or(ResponseError::new(format!("Missing user home in {s}")))?;
+
+        let login = split
+            .get(6)
+            .ok_or(ResponseError::new(format!("Missing user login in {s}")))?;
 
         Ok(User {
             name: name.to_string(),
@@ -78,32 +60,27 @@ impl FromStr for Group {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let split: Vec<&str> = s.split(":").collect();
 
-        let name = match split.first() {
-            Some(name) => name,
-            None => return Err(ResponseError::new(format!("Missing user name in {}", s))),
-        };
-        let id = match split.get(2) {
-            Some(id) => match u32::from_str(id) {
-                Ok(id) => id,
-                Err(e) => {
-                    return Err(ResponseError::new(format!(
-                        "Could not convert user id {} to u32: {}",
-                        id, e
-                    )));
-                }
-            },
-            None => return Err(ResponseError::new(format!("Missing user id in {}", s))),
-        };
-        let members: Vec<String> = match split.get(3) {
-            Some(members) => {
+        let name = split
+            .first()
+            .ok_or(ResponseError::new(format!("Missing user name in {s}")))?;
+
+        let id = split
+            .get(2)
+            .ok_or(ResponseError::new(format!("Missing user id in {s}")))?;
+        let id = u32::from_str(id).map_err(|e| {
+            ResponseError::new(format!("Could not convert user id {id} to u32: {e}"))
+        })?;
+
+        let members: Vec<String> = split
+            .get(3)
+            .map(|members| {
                 if members.is_empty() {
                     vec![]
                 } else {
                     members.split(",").map(|s| s.to_string()).collect()
                 }
-            }
-            None => return Err(ResponseError::new(format!("Missing user group in {}", s))),
-        };
+            })
+            .ok_or(ResponseError::new(format!("Missing user group in {s}")))?;
 
         Ok(Group {
             name: name.to_string(),
@@ -119,12 +96,7 @@ pub async fn get_users(prefix: Option<PathBuf>) -> Result<Vec<User>, ResponseErr
         .join("etc")
         .join("passwd");
 
-    let file_content = match read_to_string(&path).await {
-        Ok(file_content) => file_content,
-        Err(e) => {
-            return Err(ResponseError::new(e.to_string()));
-        }
-    };
+    let file_content = read_file(&path).await.map(escaped_utf8_from_bytes)?;
 
     file_content
         .split("\n")
@@ -139,12 +111,7 @@ pub async fn get_groups(prefix: Option<PathBuf>) -> Result<Vec<Group>, ResponseE
         .join("etc")
         .join("group");
 
-    let file_content = match read_to_string(&path).await {
-        Ok(file_content) => file_content,
-        Err(e) => {
-            return Err(ResponseError::new(e.to_string()));
-        }
-    };
+    let file_content = read_file(&path).await.map(escaped_utf8_from_bytes)?;
 
     file_content
         .split("\n")

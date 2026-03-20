@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::common::file::models::Permission;
+use crate::common::file::Permission;
 
 #[derive(Serialize, Deserialize)]
 pub struct MetadataQuery {
@@ -8,8 +8,19 @@ pub struct MetadataQuery {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct SizeQuery {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct ReadFileQuery {
     pub path: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MoveData {
+    pub source: String,
+    pub destination: String,
 }
 
 #[derive(Serialize, Deserialize)]

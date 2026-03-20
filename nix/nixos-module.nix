@@ -33,93 +33,10 @@ in
 
       socket = lib.mkOption {
         type = lib.types.path;
-        default = "${cfg.dataDir}/socket";
-        example = "/var/lib/xnode-manager/socket";
+        default = "/run/xnode-manager/.socket";
+        example = "/var/lib/xnode-manager/.socket";
         description = ''
-          Unix socket to interact with reverse proxy.
-        '';
-      };
-
-      osDir = lib.mkOption {
-        type = lib.types.path;
-        default = "/etc/nixos";
-        example = "/etc/nixos";
-        description = ''
-          The directory to store the OS configuration.
-        '';
-      };
-
-      container = {
-        settings = lib.mkOption {
-          type = lib.types.path;
-          default = "${cfg.dataDir}/containers";
-          example = "/var/lib/xnode-manager/containers";
-          description = ''
-            The directory to store container settings.
-          '';
-        };
-
-        state = lib.mkOption {
-          type = lib.types.path;
-          default = "/var/lib/nixos-containers";
-          example = "/var/lib/nixos-containers";
-          description = ''
-            The directory to store container files.
-          '';
-        };
-
-        profile = lib.mkOption {
-          type = lib.types.path;
-          default = "/nix/var/nix/profiles/per-container";
-          example = "/nix/var/nix/profiles/per-container";
-          description = ''
-            The directory to store the container nix profile.
-          '';
-        };
-
-        config = lib.mkOption {
-          type = lib.types.path;
-          default = "/etc/nixos-containers";
-          example = "/etc/nixos-containers";
-          description = ''
-            The directory to store the container nspawn config.
-          '';
-        };
-
-        systemd-config = lib.mkOption {
-          type = lib.types.path;
-          default = "/etc/systemd/system.control";
-          example = "/etc/systemd/system.control";
-          description = ''
-            The directory to store the container systemd config.
-          '';
-        };
-      };
-
-      backupDir = lib.mkOption {
-        type = lib.types.path;
-        default = "${cfg.dataDir}/backups";
-        example = "/var/lib/xnode-manager/backups";
-        description = ''
-          The directory to store container backups.
-        '';
-      };
-
-      commandstream = lib.mkOption {
-        type = lib.types.path;
-        default = "${cfg.dataDir}/commandstream";
-        example = "/var/lib/xnode-manager/commandstream";
-        description = ''
-          The directory to store command streams.
-        '';
-      };
-
-      buildCores = lib.mkOption {
-        type = lib.types.int;
-        default = 0;
-        example = 0;
-        description = ''
-          Amount of cores to use for nix builds. 0 will use all cores. See NIX_BUILD_CORES for more information.
+          Unix socket to interact with the app.
         '';
       };
 
@@ -128,7 +45,7 @@ in
         default = pkgs.nix;
         example = pkgs.nix;
         description = ''
-          nix equivalent executable to use for system building.
+          nix equivalent executable.
         '';
       };
 
@@ -137,59 +54,87 @@ in
         default = pkgs.systemd;
         example = pkgs.systemd;
         description = ''
-          systemd equivalent executable to use for container management.
+          systemd equivalent executable.
+        '';
+      };
+
+      btrfs = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.btrfs-progs;
+        example = pkgs.btrfs-progs;
+        description = ''
+          btrfs-progs equivalent executable.
         '';
       };
     };
   };
 
   config = lib.mkIf cfg.enable {
-    systemd.services.xnode-manager = {
-      wantedBy = [ "multi-user.target" ];
-      description = "Allow configuring and monitoring your Xnode through external platforms, such as Xnode Studio.";
-      after = [ "network.target" ];
-      environment = {
-        RUST_LOG = cfg.verbosity;
-        DATADIR = cfg.dataDir;
-        SOCKET = cfg.socket;
-        OSDIR = cfg.osDir;
-        CONTAINERSETTINGS = cfg.container.settings;
-        CONTAINERSTATE = cfg.container.state;
-        CONTAINERPROFILE = cfg.container.profile;
-        CONTAINERCONFIG = cfg.container.config;
-        SYSTEMDCONFIG = cfg.container.systemd-config;
-        BACKUPDIR = cfg.backupDir;
-        COMMANDSTREAM = cfg.commandstream;
-        BUILDCORES = toString cfg.buildCores;
-        NIX = "${cfg.nix}/bin/";
-        SYSTEMD = "${cfg.systemd}/bin/";
-        E2FSPROGS = "${pkgs.e2fsprogs}/bin/";
+    systemd.services = {
+      xnode-manager = {
+        wantedBy = [ "multi-user.target" ];
+        description = "Allow configuring and monitoring your Xnode through external platforms, such as Xnode Studio.";
+        after = [ "network.target" ];
+        environment = {
+          RUST_LOG = cfg.verbosity;
+          DATADIR = cfg.dataDir;
+          SOCKET = cfg.socket;
+          NIX = "${cfg.nix}/bin/";
+          SYSTEMD = "${cfg.systemd}/bin/";
+          BTRFS = "${cfg.btrfs}/bin/";
+        };
+        startLimitIntervalSec = 0;
+        serviceConfig = {
+          ExecStart = "${lib.getExe xnode-manager}";
+          StateDirectory = "xnode-manager";
+          RuntimeDirectory = "xnode-manager";
+          Restart = "always";
+        };
       };
-      startLimitIntervalSec = 0;
-      serviceConfig = {
-        ExecStart = "${lib.getExe xnode-manager}";
-        User = "root";
-        Group = "root";
-        StateDirectory = "xnode-manager";
-        Restart = "always";
-      };
-    };
 
-    systemd.services.start-all-containers = {
-      wantedBy = [ "multi-user.target" ];
-      description = "Start all NixOS containers on this host";
-      after = [ "network.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
+      "container@" = {
+        description = "Container %i";
+        serviceConfig = {
+          ExecReload = pkgs.writeScript "reload-container" ''
+            #! ${pkgs.runtimeShell} -e
+            ${cfg.systemd}/bin/systemd-run \
+              --wait --quiet --collect \
+              --machine="%i.container" \
+              --unit="apply.service" \
+              /result/bin/switch-to-configuration test
+          '';
+        };
+        script = ''
+          ${cfg.systemd}/bin/systemd-nspawn \
+            --machine="%i.container" \
+            --slice="run-''${%i//-/_}-container-machine.slice" \
+            --directory="/var/lib/nixos-containers/%i" \
+            $(cat ${cfg.dataDir}/host/permission/container/cli/%i) \
+            "${cfg.dataDir}/container/%i/data/init"
+        '';
       };
-      path = [
-        pkgs.nixos-container
-        pkgs.findutils
-      ];
-      script = ''
-        nixos-container list | xargs -P 10 -I % nixos-container start %
-      '';
+
+      "virtual-machine@" = {
+        description = "Virtual Machine %i";
+        serviceConfig = {
+          ExecReload = pkgs.writeScript "reload-virtual-machine" ''
+            #! ${pkgs.runtimeShell} -e
+            ${cfg.systemd}/bin/systemd-run \
+              --wait --quiet --collect \
+              --machine="%i.virtual-machine" \
+              --unit="apply.service" \
+              /result/bin/switch-to-configuration test
+          '';
+        };
+        script = ''
+          ${cfg.systemd}/bin/systemd-vmspawn \
+            --machine="%i.virtual-machine" \
+            --slice="run-''${%i//-/_}-virtual_machine-machine.slice" \
+            --directory="/var/lib/nixos-containers/%i" \
+            $(cat ${cfg.dataDir}/host/permission/virtual-machine/cli/%i) \
+            "${cfg.dataDir}/virtual-machine/%i/data/init"
+        '';
+      };
     };
   };
 }

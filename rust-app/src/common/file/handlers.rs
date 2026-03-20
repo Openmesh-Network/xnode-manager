@@ -6,9 +6,9 @@ use std::{
 use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, PosixACL, Qualifier};
 use tokio::fs;
 
-use crate::common::error::ResponseError;
+use crate::common::{btrfs::filesystem::du, error::ResponseError};
 
-use super::models::{Entity, Folder, Metadata, Permission};
+use super::models::{Entity, Folder, Metadata, Permission, Size};
 
 pub async fn metadata(path: impl AsRef<Path>) -> Result<Metadata, ResponseError> {
     let path = path.as_ref();
@@ -32,6 +32,36 @@ pub async fn metadata(path: impl AsRef<Path>) -> Result<Metadata, ResponseError>
         })
 }
 
+pub async fn size(path: impl AsRef<Path>) -> Result<Size, ResponseError> {
+    let path = path.as_ref();
+
+    du(path).await.map(|du| Size {
+        exclusive: du.exclusive,
+        shared: du.shared,
+    })
+}
+
+pub async fn r#move(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<(), ResponseError> {
+    let source = source.as_ref();
+    let destination = destination.as_ref();
+
+    if let Some(parent) = destination.parent() {
+        create_folder(parent).await?;
+    }
+    fs::rename(source, destination)
+        .await
+        .map_err(|e| ResponseError {
+            error: format!(
+                "Could not move {source} to {destination}: {e}",
+                source = source.display(),
+                destination = destination.display()
+            ),
+        })
+}
+
 pub async fn read_file(path: impl AsRef<Path>) -> Result<Vec<u8>, ResponseError> {
     let path = path.as_ref();
 
@@ -46,6 +76,9 @@ pub async fn write_file(
 ) -> Result<(), ResponseError> {
     let path = path.as_ref();
 
+    if let Some(parent) = path.parent() {
+        create_folder(parent).await?;
+    }
     fs::write(path, content).await.map_err(|e| ResponseError {
         error: format!("Could not write file {path}: {e}", path = path.display()),
     })
@@ -65,6 +98,9 @@ pub async fn copy_file(
     let source = source.as_ref();
     let destination = destination.as_ref();
 
+    if let Some(parent) = destination.parent() {
+        create_folder(parent).await?;
+    }
     fs::copy(source, destination)
         .await
         .map(|_copied_bytes| ())

@@ -1,19 +1,18 @@
-use std::sync::Mutex;
-
 use nvml_wrapper::{Nvml, error::NvmlError};
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
+use tokio::sync::Mutex;
 
 pub struct AppData {
     pub system: Mutex<System>,
-    pub nvml: Result<Mutex<Nvml>, NvmlError>,
+    pub nvml: Mutex<Result<Nvml, NvmlError>>,
 }
 
 impl Default for AppData {
     fn default() -> Self {
         AppData {
             system: Mutex::new(System::new()),
-            nvml: Nvml::init().map(Mutex::new),
+            nvml: Mutex::new(Nvml::init()),
         }
     }
 }

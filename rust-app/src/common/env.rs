@@ -17,65 +17,7 @@ pub fn datadir() -> PathBuf {
 pub fn socket() -> PathBuf {
     env_var("SOCKET")
         .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new(&datadir()).join("socket"))
-}
-
-pub fn osdir() -> String {
-    env_var("OSDIR").unwrap_or("/etc/nixos".to_string())
-}
-
-pub fn containersettings() -> PathBuf {
-    env_var("CONTAINERSETTINGS")
-        .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new(&datadir()).join("containers"))
-}
-
-pub fn containerstate() -> PathBuf {
-    env_var("CONTAINERSTATE")
-        .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new("/var/lib/nixos-containers").to_path_buf())
-}
-
-pub fn containerprofile() -> PathBuf {
-    env_var("CONTAINERPROFILE")
-        .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new("/nix/var/nix/profiles/per-container").to_path_buf())
-}
-
-pub fn containerconfig() -> PathBuf {
-    env_var("CONTAINERCONFIG")
-        .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new("/etc/nixos-containers").to_path_buf())
-}
-
-pub fn systemdconfig() -> PathBuf {
-    env_var("SYSTEMDCONFIG")
-        .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new("/etc/systemd/system.control").to_path_buf())
-}
-
-pub fn backupdir() -> PathBuf {
-    env_var("BACKUPDIR")
-        .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new(&datadir()).join("backups"))
-}
-
-pub fn commandstream() -> PathBuf {
-    env_var("COMMANDSTREAM")
-        .map(|d| Path::new(&d).to_path_buf())
-        .unwrap_or(Path::new(&datadir()).join("commandstream"))
-}
-
-pub fn buildcores() -> u64 {
-    env_var("BUILDCORES")
-        .and_then(|s| {
-            str::parse::<u64>(&s)
-                .inspect_err(|e| {
-                    log::error!("Could not parse BUILDCORES to u64: {}", e);
-                })
-                .ok()
-        })
-        .unwrap_or(0)
+        .unwrap_or(Path::new("/run/xnode-manager/.socket").to_path_buf())
 }
 
 pub fn nix() -> String {
@@ -86,6 +28,6 @@ pub fn systemd() -> String {
     env_var("SYSTEMD").unwrap_or("".to_string())
 }
 
-pub fn e2fsprogs() -> String {
-    env_var("E2FSPROGS").unwrap_or("".to_string())
+pub fn btrfs() -> String {
+    env_var("BTRFS").unwrap_or("".to_string())
 }

@@ -11,10 +11,10 @@ pub fn service() -> impl HttpServiceFactory {
     web::scope(&scope())
         .app_data(web::Data::new(models::AppData::default()))
         .configure(|cfg| {
-            cfg.service(handlers::cpu);
-            cfg.service(handlers::memory);
-            cfg.service(handlers::disk);
-            cfg.service(handlers::network);
-            cfg.service(handlers::gpu);
+            cfg.service(handlers::cpu_endpoint);
+            cfg.service(handlers::memory_endpoint);
+            cfg.service(handlers::disk_endpoint);
+            cfg.service(handlers::network_endpoint);
+            cfg.service(handlers::gpu_endpoint);
         })
 }

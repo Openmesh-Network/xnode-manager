@@ -9,16 +9,18 @@ pub fn scope() -> String {
 
 pub fn service() -> impl HttpServiceFactory {
     web::scope(&scope()).configure(|cfg| {
-        cfg.service(handlers::metadata);
-        cfg.service(handlers::read_file);
-        cfg.service(handlers::write_file);
-        cfg.service(handlers::remove_file);
-        cfg.service(handlers::copy_file);
-        cfg.service(handlers::read_folder);
-        cfg.service(handlers::create_folder);
-        cfg.service(handlers::remove_folder);
-        cfg.service(handlers::copy_folder);
-        cfg.service(handlers::get_permissions);
-        cfg.service(handlers::set_permissions);
+        cfg.service(handlers::metadata_endpoint);
+        cfg.service(handlers::size_endpoint);
+        cfg.service(handlers::move_endpoint);
+        cfg.service(handlers::read_file_endpoint);
+        cfg.service(handlers::write_file_endpoint);
+        cfg.service(handlers::remove_file_endpoint);
+        cfg.service(handlers::copy_file_endpoint);
+        cfg.service(handlers::read_folder_endpoint);
+        cfg.service(handlers::create_folder_endpoint);
+        cfg.service(handlers::remove_folder_endpoint);
+        cfg.service(handlers::copy_folder_endpoint);
+        cfg.service(handlers::get_permissions_endpoint);
+        cfg.service(handlers::set_permissions_endpoint);
     })
 }
