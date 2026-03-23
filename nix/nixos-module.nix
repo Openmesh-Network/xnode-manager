@@ -93,7 +93,6 @@ in
       };
 
       "container@" = {
-        description = "Container %i";
         serviceConfig = {
           ExecReload = pkgs.writeScript "reload-container" ''
             #! ${pkgs.runtimeShell} -e
@@ -115,7 +114,6 @@ in
       };
 
       "virtual-machine@" = {
-        description = "Virtual Machine %i";
         serviceConfig = {
           ExecReload = pkgs.writeScript "reload-virtual-machine" ''
             #! ${pkgs.runtimeShell} -e
