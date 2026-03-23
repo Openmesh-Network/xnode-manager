@@ -35,6 +35,8 @@ pub struct DiskUsage {
     pub mount_point: String,
     pub used: u64,
     pub total: u64,
+    pub read: u64,
+    pub written: u64,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -62,8 +62,10 @@ pub async fn disk() -> Result<Vec<DiskUsage>, ResponseError> {
         .iter()
         .map(|disk| DiskUsage {
             mount_point: disk.mount_point().to_string_lossy().to_string(),
-            total: disk.total_space(), // todo run `btrfs filesystem df` per mount point for more accurate usage info
+            total: disk.total_space(), // TODO run `btrfs filesystem df` per mount point for more accurate usage info
             used: disk.total_space() - disk.available_space(),
+            read: disk.usage().total_read_bytes,
+            written: disk.usage().total_written_bytes,
         })
         .collect())
 }
