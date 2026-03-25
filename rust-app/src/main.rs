@@ -1,12 +1,8 @@
-use std::{fs::create_dir_all, os::unix::net::UnixListener};
+use std::os::unix::net::UnixListener;
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer};
-use common::{
-    env::{datadir, socket},
-    error::ResponseError,
-    info::get_groups,
-};
+use common::{env::socket, error::ResponseError, info::get_groups};
 use posix_acl::{ACL_READ, ACL_WRITE, PosixACL, Qualifier};
 
 mod common;
@@ -15,17 +11,6 @@ mod host;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
-
-    // Create data directory
-    {
-        let dir = datadir();
-        create_dir_all(&dir).unwrap_or_else(|e| {
-            panic!(
-                "Could not create data dir at {dir}: {e}",
-                dir = dir.display()
-            )
-        });
-    }
 
     // Create unix socket
     let path: std::path::PathBuf = socket();
