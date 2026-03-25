@@ -134,5 +134,10 @@ in
         '';
       };
     };
+
+    boot.extraSystemdUnitPaths = [
+      "${cfg.dataDir}/host/permission/container/systemd"
+      "${cfg.dataDir}/host/permission/virtual-machine/systemd"
+    ];
   };
 }

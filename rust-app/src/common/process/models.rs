@@ -65,6 +65,7 @@ pub struct Usage {
 pub enum SystemCtlCommand {
     Start,
     Stop,
+    Restart,
     ReloadOrRestart,
 }
 impl Display for SystemCtlCommand {
@@ -75,6 +76,7 @@ impl Display for SystemCtlCommand {
             match self {
                 SystemCtlCommand::Start => "start",
                 SystemCtlCommand::Stop => "stop",
+                SystemCtlCommand::Restart => "restart",
                 SystemCtlCommand::ReloadOrRestart => "reload-or-restart",
             }
         )

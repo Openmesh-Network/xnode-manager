@@ -1,4 +1,5 @@
 use std::{
+    io::ErrorKind,
     os::unix::fs::{MetadataExt, chown},
     path::Path,
 };
@@ -86,9 +87,19 @@ pub async fn write_file(
 
 pub async fn remove_file(path: impl AsRef<Path>) -> Result<(), ResponseError> {
     let path = path.as_ref();
-    fs::remove_file(path).await.map_err(|e| ResponseError {
-        error: format!("Could not remove file {path}: {e}", path = path.display()),
-    })
+    fs::remove_file(path)
+        .await
+        .or_else(|e| {
+            if e.kind() == ErrorKind::NotFound {
+                // Treat file not found as remove success
+                return Ok(());
+            }
+
+            Err(e)
+        })
+        .map_err(|e| ResponseError {
+            error: format!("Could not remove file {path}: {e}", path = path.display()),
+        })
 }
 
 pub async fn copy_file(
@@ -169,9 +180,19 @@ pub async fn create_folder(path: impl AsRef<Path>) -> Result<(), ResponseError> 
 pub async fn remove_folder(path: impl AsRef<Path>) -> Result<(), ResponseError> {
     let path = path.as_ref();
 
-    fs::remove_dir_all(path).await.map_err(|e| ResponseError {
-        error: format!("Could not remove folder {path}: {e}", path = path.display()),
-    })
+    fs::remove_dir_all(path)
+        .await
+        .or_else(|e| {
+            if e.kind() == ErrorKind::NotFound {
+                // Treat folder not found as remove success
+                return Ok(());
+            }
+
+            Err(e)
+        })
+        .map_err(|e| ResponseError {
+            error: format!("Could not remove folder {path}: {e}", path = path.display()),
+        })
 }
 
 #[async_recursion::async_recursion]
