@@ -10,7 +10,35 @@ use crate::common::{
 
 #[derive(Serialize, Deserialize)]
 pub struct ResponseCommand {
-    pub unit: String,
+    pub id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum CommandAfterCondition {
+    Always,
+    Success,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum CommandAfter {
+    Command {
+        id: String,
+        condition: Option<CommandAfterCondition>,
+    },
+    Date {
+        date: u64, // Epoch time in seconds
+    },
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CommandOptions {
+    pub after: Option<CommandAfter>,
+}
+
+impl AsRef<CommandOptions> for CommandOptions {
+    fn as_ref(&self) -> &Self {
+        self
+    }
 }
 
 pub enum SimpleCommandError {
@@ -55,8 +83,10 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
     name: &str,
     scope: &[SCOPE],
     chroot: Option<impl AsRef<Path>>,
+    options: impl AsRef<CommandOptions>,
 ) -> SimpleCommandResult {
     let mut base_command = command.into_std();
+    let options = options.as_ref();
 
     let mut command = Command::new(format!("{}systemd-run", systemd()));
     command.args([
@@ -68,6 +98,25 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
         "--slice",
         &get_scope_slice(name, scope),
     ]);
+
+    if let Some(after) = &options.after {
+        match after {
+            CommandAfter::Command { id, condition } => {
+                command.args(["--property", &format!("After={id}")]);
+                if let Some(condition) = condition {
+                    match condition {
+                        CommandAfterCondition::Always => {}
+                        CommandAfterCondition::Success => {
+                            command.args(["--property", &format!("Requires={id}")]);
+                        }
+                    };
+                }
+            }
+            CommandAfter::Date { date } => {
+                command.args(["--on-calendar", &format!("@{date}")]);
+            }
+        };
+    }
 
     if let Some(chroot) = &chroot {
         command.arg("--root-directory").arg(chroot.as_ref());

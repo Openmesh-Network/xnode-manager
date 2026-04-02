@@ -12,3 +12,14 @@ pub struct FlakeMetadata {
     pub last_modified: u64,
     pub revision: String,
 }
+
+#[derive(Serialize, Deserialize)]
+pub enum ApplyWhen {
+    Now,
+    NextBoot,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ApplyQuery {
+    pub when: Option<ApplyWhen>,
+}

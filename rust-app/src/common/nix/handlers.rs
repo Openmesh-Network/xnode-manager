@@ -3,7 +3,7 @@ use std::{fmt::Display, path::Path};
 use tokio::process::Command;
 
 use crate::common::{
-    command::{execute_command_scoped, execute_command_simple},
+    command::{CommandOptions, execute_command_scoped, execute_command_simple},
     env::nix,
     error::ResponseError,
     path::get_scoped_path,
@@ -12,8 +12,9 @@ use crate::common::{
 use super::models::{CliFlakeMetadata, FlakeMetadata};
 
 pub enum Operation {
-    Build,
     Update,
+    Build,
+    Apply,
 }
 impl Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -21,8 +22,9 @@ impl Display for Operation {
             f,
             "{}",
             match self {
-                Operation::Build => "build",
                 Operation::Update => "update",
+                Operation::Build => "build",
+                Operation::Apply => "apply",
             }
         )
     }
@@ -32,6 +34,7 @@ pub async fn build<SCOPE: AsRef<str>, PATH: AsRef<str>>(
     scope: &[SCOPE],
     path: &[PATH],
     chroot: bool,
+    options: impl AsRef<CommandOptions>,
 ) -> Result<(), ResponseError> {
     let mut command = Command::new(format!("{}nix", nix()));
     command.args(["build", "--out-link"]).arg(
@@ -48,6 +51,7 @@ pub async fn build<SCOPE: AsRef<str>, PATH: AsRef<str>>(
         scope,
         path,
         chroot,
+        options,
     )
     .await
 }
@@ -57,6 +61,7 @@ pub async fn update<INPUTS: AsRef<str>, SCOPE: AsRef<str>, PATH: AsRef<str>>(
     scope: &[SCOPE],
     path: &[PATH],
     chroot: bool,
+    options: impl AsRef<CommandOptions>,
 ) -> Result<(), ResponseError> {
     let mut command = Command::new(format!("{}nix", nix()));
     command
@@ -64,7 +69,7 @@ pub async fn update<INPUTS: AsRef<str>, SCOPE: AsRef<str>, PATH: AsRef<str>>(
         .args(inputs.iter().map(|s| s.as_ref()))
         .arg("--flake");
 
-    alter_flake(command, Operation::Update, "", scope, path, chroot).await
+    alter_flake(command, Operation::Update, "", scope, path, chroot, options).await
 }
 
 pub async fn flake_metadata(flake: &str) -> Result<FlakeMetadata, ResponseError> {
@@ -119,6 +124,7 @@ async fn alter_flake<SCOPE: AsRef<str>, PATH: AsRef<str>>(
     scope: &[SCOPE],
     path: &[PATH],
     chroot: bool,
+    options: impl AsRef<CommandOptions>,
 ) -> Result<(), ResponseError> {
     let path = get_scoped_path(scope, path);
     let flake = format!("{path}{suffix}", path = path.to_string_lossy());
@@ -131,11 +137,19 @@ async fn alter_flake<SCOPE: AsRef<str>, PATH: AsRef<str>>(
             &operation.to_string(),
             scope,
             Some(path.parent().unwrap_or(Path::new("/"))),
+            options,
         )
         .await
     } else {
         command.env("NIX_REMOTE", "daemon");
-        execute_command_scoped(command, &operation.to_string(), scope, None::<String>).await
+        execute_command_scoped(
+            command,
+            &operation.to_string(),
+            scope,
+            None::<String>,
+            options,
+        )
+        .await
     };
 
     result

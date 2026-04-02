@@ -13,6 +13,7 @@ pub fn service() -> impl HttpServiceFactory {
         cfg.service(handlers::set_endpoint);
         cfg.service(handlers::version_endpoint);
         cfg.service(handlers::update_endpoint);
+        cfg.service(handlers::build_endpoint);
         cfg.service(handlers::apply_endpoint);
     })
 }
