@@ -93,6 +93,8 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
         "--wait",
         "--quiet",
         "--collect",
+        "--property",
+        "Type=oneshot",
         "--unit",
         &get_scope_unit(name, scope),
         "--slice",
