@@ -4,7 +4,7 @@ use tokio::process::Command;
 use crate::common::{
     command::{CommandOptions, ResponseCommand, execute_command_scoped, get_scope_unit},
     error::ResponseError,
-    file::{read_file, write_file},
+    file::{r#move, read_file, write_file},
     nix::{ApplyQuery, ApplyWhen, Operation, build, update},
     path::get_scoped_path,
     response::{wrap_json_response, wrap_raw_response},
@@ -71,6 +71,12 @@ async fn apply_endpoint(
     let unit = get_scope_unit(&operation, &scope);
 
     spawn(async move {
+        r#move(
+            get_scoped_path(&scope, &["new-result"]),
+            get_scoped_path(&scope, &["result"]),
+        )
+        .await?;
+
         let path = get_scoped_path(&scope, &["result", "bin", "switch-to-configuration"]);
         let mut command = Command::new(path);
         command.arg(match &query.when {

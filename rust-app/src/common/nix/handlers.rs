@@ -41,7 +41,7 @@ pub async fn build<SCOPE: AsRef<str>, PATH: AsRef<str>>(
         get_scoped_path(scope, path)
             .parent()
             .unwrap_or(Path::new("/"))
-            .join("result"),
+            .join("new-result"),
     );
 
     alter_flake(
