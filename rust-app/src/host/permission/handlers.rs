@@ -124,9 +124,68 @@ pub async fn set_permission(
 
     if cli_changed {
         let path = get_scoped_path(&["host", "permission", kind], &["cli", name]);
-        if let Some(extra_args) = &permission.extra_args {
-            write_file(path, extra_args.join(" ")).await?;
-        }
+        let args: Vec<String> = []
+            .into_iter()
+            .chain(
+                permission
+                    .bind
+                    .as_ref()
+                    .into_iter()
+                    .flatten()
+                    .map(|(destination, bind)| {
+                        let property = if bind.readonly.unwrap_or(true) {
+                            "--bind-ro"
+                        } else {
+                            "--bind"
+                        };
+                        match &bind.path {
+                            Some(source) => format!("{property}={source}:{destination}"),
+                            None => format!("{property}={destination}"),
+                        }
+                    }),
+            )
+            .chain(
+                permission
+                    .device
+                    .as_ref()
+                    .and_then(|device| device.policy.as_ref())
+                    .map(|policy| format!("--property=DevicePolicy={policy}")),
+            )
+            .chain(
+                permission
+                    .device
+                    .as_ref()
+                    .and_then(|device| device.allow.as_ref())
+                    .into_iter()
+                    .flatten()
+                    .map(|(device, allow)| {
+                        let allowed = [
+                            if allow.read.unwrap_or(false) { "r" } else { "" },
+                            if allow.write.unwrap_or(false) {
+                                "w"
+                            } else {
+                                ""
+                            },
+                            if allow.mknod.unwrap_or(false) {
+                                "m"
+                            } else {
+                                ""
+                            },
+                        ]
+                        .join("");
+                        format!("--property=DeviceAllow={device} {allowed}")
+                    }),
+            )
+            .chain(
+                permission
+                    .extra_args
+                    .as_ref()
+                    .into_iter()
+                    .flatten()
+                    .map(|extra_arg| extra_arg.to_string()),
+            )
+            .collect();
+        write_file(path, args.join(" ")).await?;
         if allow_restart {
             execute(
                 None,

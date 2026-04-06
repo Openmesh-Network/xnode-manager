@@ -98,15 +98,42 @@ pub struct DiskPermission {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct BindPermission {
-    pub path: String,
-    pub readonly: bool,
+    pub path: Option<String>,
+    pub readonly: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub enum DevicePolicyPermission {
+    Strict,
+    Closed,
+    Auto,
+}
+
+impl Display for DevicePolicyPermission {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                DevicePolicyPermission::Strict => "strict",
+                DevicePolicyPermission::Closed => "closed",
+                DevicePolicyPermission::Auto => "auto",
+            }
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct DeviceAllowPermission {
+    pub read: Option<bool>,
+    pub write: Option<bool>,
+    pub mknod: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct DevicePermission {
-    pub read: bool,
-    pub write: bool,
-    pub mknod: bool,
+    pub policy: Option<DevicePolicyPermission>,
+    pub allow: Option<HashMap<String, DeviceAllowPermission>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -114,6 +141,6 @@ pub struct Permission {
     pub process: Option<ScopedProcessPermission>,
     pub disk: Option<DiskPermission>,
     pub bind: Option<HashMap<String, BindPermission>>,
-    pub device: Option<HashMap<String, DevicePermission>>,
+    pub device: Option<DevicePermission>,
     pub extra_args: Option<Vec<String>>,
 }
