@@ -1,36 +1,33 @@
-use actix_web::{HttpResponse, Responder, get, post, rt::spawn, web};
+use actix_web::{Responder, get, post, rt::spawn, web};
 use tokio::process::Command;
 
 use crate::common::{
     command::{CommandOptions, ResponseCommand, execute_command_scoped, get_scope_unit},
-    error::ResponseError,
     file::{r#move, read_file, write_file},
-    nix::{ApplyQuery, ApplyWhen, Operation, build, update},
+    nix::{ApplyQuery, ApplyWhen, Operation, UpdateData, build, update},
     path::get_scoped_path,
-    response::{wrap_json_response, wrap_raw_response},
+    response::{ResponseError, ResponseResult, json_response, raw_response},
 };
 
-use super::models::UpdateData;
-
 #[get("/get")]
-async fn get_endpoint() -> impl Responder {
+async fn get_endpoint() -> ResponseResult<impl Responder> {
     let scope = ["host"];
     let path = get_scoped_path(&scope, &["config", "flake.nix"]);
-    wrap_json_response(read_file(path).await)
+    read_file(path).await.map(raw_response)
 }
 
 #[post("/set")]
-async fn set_endpoint(data: web::Bytes) -> impl Responder {
+async fn set_endpoint(data: web::Bytes) -> ResponseResult<impl Responder> {
     let scope = ["host"];
     let path = get_scoped_path(&scope, &["config", "flake.nix"]);
-    wrap_raw_response(write_file(path, &data).await)
+    write_file(path, &data).await.map(raw_response)
 }
 
 #[get("/version")]
-async fn version_endpoint() -> impl Responder {
+async fn version_endpoint() -> ResponseResult<impl Responder> {
     let scope = ["host"];
     let path = get_scoped_path(&scope, &["config", "flake.lock"]);
-    wrap_json_response(read_file(path).await)
+    read_file(path).await.map(raw_response)
 }
 
 #[post("/update")]
@@ -43,9 +40,18 @@ async fn update_endpoint(
     let options = options.into_inner();
     let unit = get_scope_unit(&Operation::Update.to_string(), &scope);
 
-    spawn(async move { update(&data.inputs, &scope, &["config"], false, options).await });
+    spawn(async move {
+        update(
+            &data.inputs,
+            &scope,
+            &["config"],
+            None::<&[&String]>,
+            options,
+        )
+        .await
+    });
 
-    HttpResponse::Ok().json(ResponseCommand { id: unit })
+    json_response(ResponseCommand { id: unit })
 }
 
 #[post("/build")]
@@ -54,9 +60,9 @@ async fn build_endpoint(options: web::Query<CommandOptions>) -> impl Responder {
     let options = options.into_inner();
     let unit = get_scope_unit(&Operation::Build.to_string(), &scope);
 
-    spawn(async move { build(&scope, &["config"], false, options).await });
+    spawn(async move { build(&scope, &["config"], None::<&[&String]>, options).await });
 
-    HttpResponse::Ok().json(ResponseCommand { id: unit })
+    json_response(ResponseCommand { id: unit })
 }
 
 #[post("/apply")]
@@ -87,10 +93,17 @@ async fn apply_endpoint(
             None => "switch",
         });
 
-        execute_command_scoped(command, &operation, &scope, None::<String>, options)
-            .await
-            .map_err(|e| ResponseError::new(format!("Could not apply configuration to host: {e}")))
+        execute_command_scoped(
+            command,
+            &operation,
+            &scope,
+            None::<String>,
+            None::<String>,
+            options,
+        )
+        .await
+        .map_err(|e| ResponseError::new(format!("Could not apply configuration to host: {e}")))
     });
 
-    HttpResponse::Ok().json(ResponseCommand { id: unit })
+    json_response(ResponseCommand { id: unit })
 }

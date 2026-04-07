@@ -2,6 +2,10 @@ use std::path::PathBuf;
 
 use super::env::datadir;
 
+pub fn get_scope_root<SCOPE: AsRef<str>>(scope: &[SCOPE]) -> PathBuf {
+    get_scoped_path(scope, &[] as &[&str])
+}
+
 pub fn get_scoped_path<SCOPE: AsRef<str>, PATH: AsRef<str>>(
     scope: &[SCOPE],
     path: &[PATH],

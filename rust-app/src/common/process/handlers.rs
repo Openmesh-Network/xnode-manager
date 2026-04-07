@@ -1,7 +1,9 @@
 use tokio::process::Command;
 
 use crate::common::{
-    command::execute_command_simple, env::systemd, error::ResponseError,
+    command::execute_command_simple,
+    env::systemd,
+    response::{ResponseError, ResponseResult},
     string::escaped_utf8_from_bytes,
 };
 
@@ -10,7 +12,7 @@ use super::models::{
     SystemCtlProcess, Usage,
 };
 
-pub async fn list(machine: Option<&str>) -> Result<Vec<Process>, ResponseError> {
+pub async fn list(machine: Option<impl AsRef<str>>) -> ResponseResult<Vec<Process>> {
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command.args([
         "list-units",
@@ -18,13 +20,13 @@ pub async fn list(machine: Option<&str>) -> Result<Vec<Process>, ResponseError> 
         "--output=json",
         "--no-pager",
     ]);
-    if let Some(machine) = machine {
-        command.args(["--machine", machine]);
+    if let Some(machine) = &machine {
+        command.args(["--machine", machine.as_ref()]);
     }
 
     // For error logging
     let machine = machine
-        .map(|m| format!("machine:{m}"))
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
     let output = execute_command_simple(command).await.map_err(|e| {
@@ -53,10 +55,12 @@ pub async fn list(machine: Option<&str>) -> Result<Vec<Process>, ResponseError> 
 }
 
 pub async fn logs(
-    machine: Option<&str>,
-    process: &str,
+    machine: Option<impl AsRef<str>>,
+    process: impl AsRef<str>,
     query: &LogQuery,
-) -> Result<Vec<Log>, ResponseError> {
+) -> ResponseResult<Vec<Log>> {
+    let process = process.as_ref();
+
     let mut command = Command::new(format!("{}journalctl", systemd()));
     command.args([
         "--unit",
@@ -68,8 +72,8 @@ pub async fn logs(
         "__REALTIME_TIMESTAMP,MESSAGE,PRIORITY",
     ]);
 
-    if let Some(machine) = machine {
-        command.args(["--machine", machine]);
+    if let Some(machine) = &machine {
+        command.args(["--machine", machine.as_ref()]);
     }
     if let Some(level) = &query.level {
         command.args([
@@ -92,7 +96,7 @@ pub async fn logs(
 
     // For error logging
     let machine = machine
-        .map(|m| format!("machine:{m}"))
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
     let output = execute_command_simple(command).await.map_err(|e| {
@@ -131,16 +135,21 @@ pub async fn logs(
         })
 }
 
-pub async fn usage(machine: Option<&str>, process: &str) -> Result<Usage, ResponseError> {
+pub async fn usage(
+    machine: Option<impl AsRef<str>>,
+    process: impl AsRef<str>,
+) -> ResponseResult<Usage> {
+    let process = process.as_ref();
+
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command.args(["show", process, "--property=CPUUsageNSec,MemoryCurrent,IOReadBytes,IOWriteBytes,IPIngressBytes,IPEgressBytes"]);
-    if let Some(machine) = machine {
-        command.args(["--machine", machine]);
+    if let Some(machine) = &machine {
+        command.args(["--machine", machine.as_ref()]);
     }
 
     // For error logging
     let machine = machine
-        .map(|m| format!("machine:{m}"))
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
     let output = execute_command_simple(command).await.map_err(|e| {
@@ -213,19 +222,21 @@ pub async fn usage(machine: Option<&str>, process: &str) -> Result<Usage, Respon
 }
 
 pub async fn execute(
-    machine: Option<&str>,
-    process: &str,
+    machine: Option<impl AsRef<str>>,
+    process: impl AsRef<str>,
     systemctl_command: SystemCtlCommand,
-) -> Result<(), ResponseError> {
+) -> ResponseResult<()> {
+    let process = process.as_ref();
+
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command.args([&systemctl_command.to_string(), process]);
-    if let Some(machine) = machine {
-        command.args(["--machine", machine]);
+    if let Some(machine) = &machine {
+        command.args(["--machine", machine.as_ref()]);
     }
 
     // For error logging
     let machine = machine
-        .map(|m| format!("machine:{m}"))
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
     execute_command_simple(command)

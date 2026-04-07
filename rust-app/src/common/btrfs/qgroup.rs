@@ -2,9 +2,13 @@ use std::path::Path;
 
 use tokio::process::Command;
 
-use crate::common::{command::execute_command_simple, env::btrfs, error::ResponseError};
+use crate::common::{
+    command::execute_command_simple,
+    env::btrfs,
+    response::{ResponseError, ResponseResult},
+};
 
-pub async fn limit(path: impl AsRef<Path>, size: Option<u64>) -> Result<(), ResponseError> {
+pub async fn limit(path: impl AsRef<Path>, size: Option<u64>) -> ResponseResult<()> {
     let path = path.as_ref();
     let size = size
         .map(|bytes| format!("{bytes}B"))
@@ -15,10 +19,10 @@ pub async fn limit(path: impl AsRef<Path>, size: Option<u64>) -> Result<(), Resp
     execute_command_simple(command)
         .await
         .map(|_output| ())
-        .map_err(|e| ResponseError {
-            error: format!(
+        .map_err(|e| {
+            ResponseError::new(format!(
                 "Could not limit {path} to {size}: {e}",
                 path = path.display()
-            ),
+            ))
         })
 }

@@ -92,8 +92,6 @@ pub struct ScopedProcessPermission {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct DiskPermission {
     pub total: Option<u64>,
-    pub data: Option<u64>,
-    pub backup: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -143,4 +141,10 @@ pub struct Permission {
     pub bind: Option<HashMap<String, BindPermission>>,
     pub device: Option<DevicePermission>,
     pub extra_args: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SetQuery {
+    pub detect_changes: Option<bool>,
+    pub allow_restart: Option<bool>,
 }

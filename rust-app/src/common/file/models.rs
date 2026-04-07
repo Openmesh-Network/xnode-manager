@@ -35,3 +35,14 @@ pub struct Permission {
     pub write: bool,
     pub execute: bool,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct PathQuery {
+    pub path: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SourceDestinationData {
+    pub source: String,
+    pub destination: String,
+}

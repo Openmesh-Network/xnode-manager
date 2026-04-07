@@ -83,6 +83,7 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
     name: &str,
     scope: &[SCOPE],
     chroot: Option<impl AsRef<Path>>,
+    machine: Option<impl AsRef<str>>,
     options: impl AsRef<CommandOptions>,
 ) -> SimpleCommandResult {
     let mut base_command = command.into_std();
@@ -95,11 +96,23 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
         "--collect",
         "--property",
         "Type=oneshot",
-        "--unit",
-        &get_scope_unit(name, scope),
-        "--slice",
-        &get_scope_slice(name, scope),
     ]);
+
+    if let Some(machine) = &machine {
+        command.args([
+            "--machine",
+            machine.as_ref(),
+            "--unit",
+            &format!("command-{name}.service"),
+        ]);
+    } else {
+        command.args([
+            "--unit",
+            &get_scope_unit(name, scope),
+            "--slice",
+            &get_scope_slice(name, scope),
+        ]);
+    }
 
     if let Some(after) = &options.after {
         match after {

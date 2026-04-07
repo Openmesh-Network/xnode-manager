@@ -5,8 +5,8 @@ use tokio::process::Command;
 use crate::common::{
     command::{CommandOptions, execute_command_scoped, execute_command_simple},
     env::nix,
-    error::ResponseError,
     path::get_scoped_path,
+    response::{ResponseError, ResponseResult},
 };
 
 use super::models::{CliFlakeMetadata, FlakeMetadata};
@@ -30,12 +30,12 @@ impl Display for Operation {
     }
 }
 
-pub async fn build<SCOPE: AsRef<str>, PATH: AsRef<str>>(
+pub async fn build<SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
     scope: &[SCOPE],
     path: &[PATH],
-    chroot: bool,
+    chroot: Option<&[CHROOT]>,
     options: impl AsRef<CommandOptions>,
-) -> Result<(), ResponseError> {
+) -> ResponseResult<()> {
     let mut command = Command::new(format!("{}nix", nix()));
     command.args(["build", "--out-link"]).arg(
         get_scoped_path(scope, path)
@@ -56,13 +56,13 @@ pub async fn build<SCOPE: AsRef<str>, PATH: AsRef<str>>(
     .await
 }
 
-pub async fn update<INPUTS: AsRef<str>, SCOPE: AsRef<str>, PATH: AsRef<str>>(
+pub async fn update<INPUTS: AsRef<str>, SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
     inputs: &[INPUTS],
     scope: &[SCOPE],
     path: &[PATH],
-    chroot: bool,
+    chroot: Option<&[CHROOT]>,
     options: impl AsRef<CommandOptions>,
-) -> Result<(), ResponseError> {
+) -> ResponseResult<()> {
     let mut command = Command::new(format!("{}nix", nix()));
     command
         .args(["flake", "update"])
@@ -72,7 +72,7 @@ pub async fn update<INPUTS: AsRef<str>, SCOPE: AsRef<str>, PATH: AsRef<str>>(
     alter_flake(command, Operation::Update, "", scope, path, chroot, options).await
 }
 
-pub async fn flake_metadata(flake: &str) -> Result<FlakeMetadata, ResponseError> {
+pub async fn flake_metadata(flake: &str) -> ResponseResult<FlakeMetadata> {
     let mut command = Command::new(format!("{}nix", nix()));
     command.env("NIX_REMOTE", "daemon").args([
         "flake",
@@ -103,7 +103,7 @@ pub async fn flake_metadata(flake: &str) -> Result<FlakeMetadata, ResponseError>
         })
 }
 
-pub async fn eval(statement: &str) -> Result<String, ResponseError> {
+pub async fn eval(statement: &str) -> ResponseResult<String> {
     let mut command = Command::new(format!("{}nix", nix()));
     command
         .env("NIX_REMOTE", "daemon")
@@ -117,42 +117,57 @@ pub async fn eval(statement: &str) -> Result<String, ResponseError> {
         .map_err(|e| ResponseError::new(format!("Eval result could not be decoded as UTF8: {e}.")))
 }
 
-async fn alter_flake<SCOPE: AsRef<str>, PATH: AsRef<str>>(
+async fn alter_flake<SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
     mut command: Command,
     operation: Operation,
     suffix: &str,
     scope: &[SCOPE],
     path: &[PATH],
-    chroot: bool,
+    chroot: Option<&[CHROOT]>,
     options: impl AsRef<CommandOptions>,
-) -> Result<(), ResponseError> {
+) -> ResponseResult<()> {
     let path = get_scoped_path(scope, path);
-    let flake = format!("{path}{suffix}", path = path.to_string_lossy());
-    command.arg(&flake);
 
-    let result = if chroot {
+    if let Some(chroot) = chroot {
+        let chroot = get_scoped_path(scope, chroot);
+        let in_chroot_path = path.strip_prefix(&chroot).map_err(|e| {
+            ResponseError::new(format!(
+                "Couldn't strip chroot {chroot} from {path}: {e}",
+                chroot = chroot.display(),
+                path = path.display()
+            ))
+        })?;
+        let flake = format!(
+            "{in_chroot_path}{suffix}",
+            in_chroot_path = in_chroot_path.to_string_lossy()
+        );
+        command.arg(&flake);
         command.env("HOME", "/tmp");
         execute_command_scoped(
             command,
             &operation.to_string(),
             scope,
-            Some(path.parent().unwrap_or(Path::new("/"))),
+            Some(chroot),
+            None::<String>,
             options,
         )
         .await
+        .map(|_output| ())
+        .map_err(|e| ResponseError::new(format!("Could not {operation} {flake}: {e}")))
     } else {
+        let flake = format!("{path}{suffix}", path = path.to_string_lossy());
+        command.arg(&flake);
         command.env("NIX_REMOTE", "daemon");
         execute_command_scoped(
             command,
             &operation.to_string(),
             scope,
             None::<String>,
+            None::<String>,
             options,
         )
         .await
-    };
-
-    result
         .map(|_output| ())
         .map_err(|e| ResponseError::new(format!("Could not {operation} {flake}: {e}")))
+    }
 }

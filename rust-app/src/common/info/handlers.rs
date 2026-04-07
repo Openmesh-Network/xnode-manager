@@ -1,9 +1,10 @@
-use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::{path::Path, str::FromStr};
 
-use crate::common::{error::ResponseError, file::read_file, string::escaped_utf8_from_bytes};
+use crate::common::{
+    file::read_file,
+    response::{ResponseError, ResponseResult},
+    string::escaped_utf8_from_bytes,
+};
 
 use super::models::{Group, User};
 
@@ -15,33 +16,33 @@ impl FromStr for User {
 
         let name = split
             .first()
-            .ok_or(ResponseError::new(format!("Missing user name in {s}")))?;
+            .ok_or_else(|| ResponseError::new(format!("Missing user name in {s}")))?;
 
         let id = split
             .get(2)
-            .ok_or(ResponseError::new(format!("Missing user id in {s}")))?;
+            .ok_or_else(|| ResponseError::new(format!("Missing user id in {s}")))?;
         let id = u32::from_str(id).map_err(|e| {
             ResponseError::new(format!("Could not convert user id {id} to u32: {e}"))
         })?;
 
         let group = split
             .get(3)
-            .ok_or(ResponseError::new(format!("Missing user group in {s}")))?;
+            .ok_or_else(|| ResponseError::new(format!("Missing user group in {s}")))?;
         let group = u32::from_str(group).map_err(|e| {
             ResponseError::new(format!("Could not convert user group {group} to u32: {e}"))
         })?;
 
-        let description = split.get(4).ok_or(ResponseError::new(format!(
-            "Missing user description in {s}"
-        )))?;
+        let description = split
+            .get(4)
+            .ok_or_else(|| ResponseError::new(format!("Missing user description in {s}")))?;
 
         let home = split
             .get(5)
-            .ok_or(ResponseError::new(format!("Missing user home in {s}")))?;
+            .ok_or_else(|| ResponseError::new(format!("Missing user home in {s}")))?;
 
         let login = split
             .get(6)
-            .ok_or(ResponseError::new(format!("Missing user login in {s}")))?;
+            .ok_or_else(|| ResponseError::new(format!("Missing user login in {s}")))?;
 
         Ok(User {
             name: name.to_string(),
@@ -62,11 +63,11 @@ impl FromStr for Group {
 
         let name = split
             .first()
-            .ok_or(ResponseError::new(format!("Missing user name in {s}")))?;
+            .ok_or_else(|| ResponseError::new(format!("Missing user name in {s}")))?;
 
         let id = split
             .get(2)
-            .ok_or(ResponseError::new(format!("Missing user id in {s}")))?;
+            .ok_or_else(|| ResponseError::new(format!("Missing user id in {s}")))?;
         let id = u32::from_str(id).map_err(|e| {
             ResponseError::new(format!("Could not convert user id {id} to u32: {e}"))
         })?;
@@ -80,7 +81,7 @@ impl FromStr for Group {
                     members.split(",").map(|s| s.to_string()).collect()
                 }
             })
-            .ok_or(ResponseError::new(format!("Missing user group in {s}")))?;
+            .ok_or_else(|| ResponseError::new(format!("Missing user group in {s}")))?;
 
         Ok(Group {
             name: name.to_string(),
@@ -90,8 +91,9 @@ impl FromStr for Group {
     }
 }
 
-pub async fn get_users(prefix: Option<PathBuf>) -> Result<Vec<User>, ResponseError> {
+pub async fn get_users(prefix: Option<impl AsRef<Path>>) -> ResponseResult<Vec<User>> {
     let path = prefix
+        .map(|prefix| prefix.as_ref().to_path_buf())
         .unwrap_or(Path::new("/").to_path_buf())
         .join("etc")
         .join("passwd");
@@ -105,8 +107,9 @@ pub async fn get_users(prefix: Option<PathBuf>) -> Result<Vec<User>, ResponseErr
         .collect::<Result<Vec<User>, ResponseError>>()
 }
 
-pub async fn get_groups(prefix: Option<PathBuf>) -> Result<Vec<Group>, ResponseError> {
+pub async fn get_groups(prefix: Option<impl AsRef<Path>>) -> ResponseResult<Vec<Group>> {
     let path = prefix
+        .map(|prefix| prefix.as_ref().to_path_buf())
         .unwrap_or(Path::new("/").to_path_buf())
         .join("etc")
         .join("group");

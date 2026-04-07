@@ -93,16 +93,6 @@ in
       };
 
       "container@" = {
-        serviceConfig = {
-          ExecReload = pkgs.writeScript "reload-container" ''
-            #! ${pkgs.runtimeShell} -e
-            ${cfg.systemd}/bin/systemd-run \
-              --wait --quiet --collect \
-              --machine="%i.container" \
-              --unit="apply.service" \
-              /result/bin/switch-to-configuration test
-          '';
-        };
         script = ''
           ${cfg.systemd}/bin/systemd-nspawn \
             --machine="%i.container" \
@@ -114,16 +104,6 @@ in
       };
 
       "virtual-machine@" = {
-        serviceConfig = {
-          ExecReload = pkgs.writeScript "reload-virtual-machine" ''
-            #! ${pkgs.runtimeShell} -e
-            ${cfg.systemd}/bin/systemd-run \
-              --wait --quiet --collect \
-              --machine="%i.virtual-machine" \
-              --unit="apply.service" \
-              /result/bin/switch-to-configuration test
-          '';
-        };
         script = ''
           ${cfg.systemd}/bin/systemd-vmspawn \
             --machine="%i.virtual-machine" \

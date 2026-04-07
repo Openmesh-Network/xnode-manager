@@ -14,6 +14,11 @@ pub struct FlakeMetadata {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct UpdateData {
+    pub inputs: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub enum ApplyWhen {
     Now,
     NextBoot,
