@@ -7,9 +7,10 @@ use crate::{
         file::{r#move, read_file, write_file},
         nix::{ApplyQuery, ApplyWhen, Operation, UpdateData, build, update},
         path::get_scoped_path,
+        process::list,
         response::{ResponseError, ResponseResult, json_response, raw_response},
     },
-    container::ensure_initialized,
+    container::handlers::ensure_initialized,
 };
 
 #[get("/get")]
@@ -109,27 +110,42 @@ async fn apply_endpoint(
         )
         .await?;
 
-        let mut command = Command::new("/result/bin/switch-to-configuration");
-        command.arg(match &query.when {
-            Some(when) => match when {
-                ApplyWhen::Now => "switch",
-                ApplyWhen::NextBoot => "boot",
-            },
-            None => "switch",
-        });
+        match &query.when.unwrap_or(ApplyWhen::Now) {
+            ApplyWhen::Now => {
+                let mut command = Command::new("/result/bin/switch-to-configuration");
+                command.arg("switch");
 
-        execute_command_scoped(
-            command,
-            &operation,
-            &scope,
-            None::<String>,
-            Some(format!("{container}.container")),
-            options,
-        )
-        .await
-        .map_err(|e| {
-            ResponseError::new(format!("Could not apply configuration to {container}: {e}"))
-        })
+                execute_command_scoped(
+                    command,
+                    &operation,
+                    &scope,
+                    None::<String>,
+                    Some(format!("{container}.container")),
+                    options,
+                )
+                .await
+                .map_err(|e| {
+                    ResponseError::new(format!("Could not apply configuration to {container}: {e}"))
+                })
+            }
+            ApplyWhen::NextBoot => {
+                let mut command: Command = Command::new("/result/bin/switch-to-configuration");
+                command.arg("boot");
+
+                execute_command_scoped(
+                    command,
+                    &operation,
+                    &scope,
+                    Some(get_scoped_path(&scope, &["data"])),
+                    None::<String>,
+                    options,
+                )
+                .await
+                .map_err(|e| {
+                    ResponseError::new(format!("Could not apply configuration to {container}: {e}"))
+                })
+            }
+        }
     });
 
     json_response(ResponseCommand { id: unit })

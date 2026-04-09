@@ -12,7 +12,7 @@ use crate::{
         path::get_scope_root,
         response::{ResponseError, ResponseResult, json_response, raw_response},
     },
-    container::ensure_initialized,
+    container::handlers::ensure_initialized,
 };
 
 #[get("/metadata")]
