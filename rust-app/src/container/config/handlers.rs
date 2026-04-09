@@ -7,7 +7,6 @@ use crate::{
         file::{r#move, read_file, write_file},
         nix::{ApplyQuery, ApplyWhen, Operation, UpdateData, build, update},
         path::get_scoped_path,
-        process::list,
         response::{ResponseError, ResponseResult, json_response, raw_response},
     },
     container::handlers::ensure_initialized,
@@ -84,6 +83,7 @@ async fn build_endpoint(
     )
     .await?;
     write_file(xnode_config.join("name"), &container).await?;
+    write_file(xnode_config.join("type"), "container").await?;
 
     spawn(async move { build(&scope, &["data", "config"], Some(&["data"]), options).await });
 
