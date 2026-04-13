@@ -42,14 +42,14 @@ pub async fn set_permission(
     let kind = kind.as_ref();
     let name = name.as_ref();
 
-    let root = get_scope_root(&[kind, name]);
+    let app_root = get_scope_root(&[kind, name]);
     let mut skip = false;
 
-    if let Err(e) = metadata(&root).await {
+    if let Err(e) = metadata(&app_root).await {
         if let Some(typed) = &e.typed_error
             && matches!(typed, TypedResponseError::PathNotFound { path: _path })
         {
-            // Container doesn't exist yes, limit will be applied on initialization
+            // App doesn't exist yes, limit will be applied on initialization
             skip = true;
         } else {
             return Err(e);
@@ -85,42 +85,22 @@ pub async fn set_permission(
         if disk_changed {
             match &permission.disk {
                 Some(disk) => {
-                    limit(&root, disk.total).await?;
+                    limit(&app_root, disk.total).await?;
                 }
                 None => {
-                    limit(&root, None).await?;
+                    limit(&app_root, None).await?;
                 }
             }
         }
 
         if slice_changed {
-            if let Some(process) = &permission.process {
-                let root = get_scoped_path(&["host", "permission", kind], &["systemd"]);
-                let suffix = format!(
-                    "{name}-{kind}-machine.slice",
-                    name = name.replace("-", "_"),
-                    kind = kind.replace("-", "_")
-                );
-                write_slice(root.join(&suffix), &process.total).await?;
-                write_slice(root.join(format!("run-{suffix}")), &process.run).await?;
-                match &process.command {
-                    Some(command) => {
-                        write_slice(root.join(format!("command-{suffix}")), &command.total).await?;
-                        write_slice(root.join(format!("build-command-{suffix}")), &command.build)
-                            .await?;
-                        write_slice(
-                            root.join(format!("update-command-{suffix}")),
-                            &command.update,
-                        )
-                        .await?;
-                    }
-                    None => {
-                        write_slice(root.join(format!("command-{suffix}")), &None).await?;
-                        write_slice(root.join(format!("build-command-{suffix}")), &None).await?;
-                        write_slice(root.join(format!("update-command-{suffix}")), &None).await?;
-                    }
-                }
-            }
+            let folder = get_scoped_path(&["host", "permission", kind], &["systemd"]);
+            let file = format!(
+                "{name}-{kind}-machine.slice",
+                name = name.replace("-", "_"),
+                kind = kind.replace("-", "_")
+            );
+            write_slice(folder.join(&file), &permission.process).await?;
 
             let mut command = Command::new(format!("{}systemctl", systemd()));
             command.arg("daemon-reload");
@@ -235,61 +215,44 @@ async fn write_slice(
             }
 
             if let Some(memory) = &process.memory {
-                let mut accounting = false;
+                slice.push_str("MemoryAccounting=true\n");
                 if let Some(max) = &memory.max {
-                    accounting = true;
                     slice.push_str(&format!("MemoryMax={max}\n"));
                 }
                 if let Some(soft_max) = &memory.soft_max {
-                    accounting = true;
                     slice.push_str(&format!("MemoryHigh={soft_max}\n"));
-                }
-                if accounting {
-                    slice.push_str("MemoryAccounting=true\n");
                 }
             }
 
             if let Some(subprocess) = &process.subprocess {
-                let mut accounting = false;
+                slice.push_str("TasksAccounting=true\n");
                 if let Some(max) = &subprocess.max {
-                    accounting = true;
                     slice.push_str(&format!("TasksMax={max}\n"));
-                }
-                if accounting {
-                    slice.push_str("TasksAccounting=true\n");
                 }
             }
 
             if let Some(io) = &process.io {
-                let mut accounting = false;
+                slice.push_str("IOAccounting=true\n");
                 for (device, io) in io {
                     if let Some(weight) = &io.weight {
-                        accounting = true;
                         slice.push_str(&format!("IODeviceWeight={device} {weight}\n"));
                     }
                     if let Some(max_bandwidth) = &io.max_bandwidth {
                         if let Some(read) = &max_bandwidth.read {
-                            accounting = true;
                             slice.push_str(&format!("IOReadBandwidthMax={device} {read}\n"));
                         }
                         if let Some(write) = &max_bandwidth.write {
-                            accounting = true;
                             slice.push_str(&format!("IOWriteBandwidthMax={device} {write}\n"));
                         }
                     };
                     if let Some(max_iops) = &io.max_iops {
                         if let Some(read) = &max_iops.read {
-                            accounting = true;
                             slice.push_str(&format!("IOReadIOPSMax={device} {read}\n"));
                         }
                         if let Some(write) = &max_iops.write {
-                            accounting = true;
                             slice.push_str(&format!("IOWriteIOPSMax={device} {write}\n"));
                         }
                     };
-                }
-                if accounting {
-                    slice.push_str("IOAccounting=true\n");
                 }
             }
 

@@ -3,19 +3,19 @@ use std::{collections::HashMap, fmt::Display};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub enum CPUWeight {
+pub enum Weight {
     Idle,
     Value(u64),
 }
 
-impl Display for CPUWeight {
+impl Display for Weight {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                CPUWeight::Idle => "idle".to_string(),
-                CPUWeight::Value(v) => v.to_string(),
+                Weight::Idle => "idle".to_string(),
+                Weight::Value(v) => v.to_string(),
             }
         )
     }
@@ -24,7 +24,7 @@ impl Display for CPUWeight {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct CPUPermission {
     /// In case there is more work than compute power, in what relative priority to allocate compute to this process. (default 100)
-    pub weight: Option<CPUWeight>,
+    pub weight: Option<Weight>,
     /// Maximum compute power this process is allowed to use. (e.g. 100 is one core, 250 is two and a half cores)
     pub max: Option<u64>,
     /// Specific core indexes, the process will only run on these cores.
@@ -60,7 +60,7 @@ pub struct IopsPermission {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct InputOutputPermission {
     /// In case there is more work than IO, in what relative priority to allocate IO to this process. (default 100)
-    pub weight: Option<CPUWeight>,
+    pub weight: Option<Weight>,
     /// Maximum block IO bandwidth this process is allowed to use in bytes.
     pub max_bandwidth: Option<BandwidthPermission>,
     /// Maximum block IO IOs-per-Second this process is allowed to use.
@@ -73,20 +73,6 @@ pub struct ProcessPermission {
     pub memory: Option<MemoryPermission>,
     pub subprocess: Option<SubprocessPermission>,
     pub io: Option<HashMap<String, InputOutputPermission>>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct CommandProcessPermission {
-    pub total: Option<ProcessPermission>,
-    pub build: Option<ProcessPermission>,
-    pub update: Option<ProcessPermission>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct ScopedProcessPermission {
-    pub total: Option<ProcessPermission>,
-    pub run: Option<ProcessPermission>,
-    pub command: Option<CommandProcessPermission>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -136,7 +122,7 @@ pub struct DevicePermission {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Permission {
-    pub process: Option<ScopedProcessPermission>,
+    pub process: Option<ProcessPermission>,
     pub disk: Option<DiskPermission>,
     pub bind: Option<HashMap<String, BindPermission>>,
     pub device: Option<DevicePermission>,

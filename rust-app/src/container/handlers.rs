@@ -3,6 +3,7 @@ use actix_web::{Responder, post, web};
 use crate::{
     common::{
         btrfs::{quota, subvolume},
+        env::default_permission,
         file::metadata,
         path::get_scope_root,
         process::{SystemCtlCommand, execute},
@@ -60,13 +61,7 @@ async fn initialize_container(container: impl AsRef<str>) -> ResponseResult<()> 
             && matches!(typed, TypedResponseError::PathNotFound { path: _path })
         {
             // Replace file not found with default Permission
-            return Ok(crate::host::permission::models::Permission {
-                process: None,
-                disk: None,
-                bind: None,
-                device: None,
-                extra_args: None,
-            });
+            return Ok(default_permission().container);
         }
 
         Err(e)
