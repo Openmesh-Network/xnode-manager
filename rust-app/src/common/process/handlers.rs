@@ -207,9 +207,9 @@ pub async fn usage(
                 "IOWriteBytes" => {
                     usage.disk_write = Some(value);
                 }
-                _ => {
+                property => {
                     log::warn!(
-                        "Usage of process {process} of {machine} contains unexpected property: {line}"
+                        "Usage of process {process} of {machine} contains unexpected property {property}: {line}"
                     );
                 }
             }

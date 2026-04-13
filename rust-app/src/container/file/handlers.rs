@@ -5,9 +5,9 @@ use actix_web::{Responder, get, post, web};
 use crate::{
     common::{
         file::{
-            PathQuery, Permission, SourceDestinationData, copy_file, copy_folder, create_folder,
-            get_permissions, metadata, r#move, read_file, read_folder, remove_file,
-            remove_first_slash, remove_folder, set_permissions, size, write_file,
+            PathQuery, Permission, ReadFolderOptions, SourceDestinationData, copy, create_folder,
+            get_permissions, metadata, r#move, read_file, read_folder, read_link, remove,
+            remove_first_slash, set_permissions, size, write_file,
         },
         path::get_scope_root,
         response::{ResponseError, ResponseResult, json_response, raw_response},
@@ -46,6 +46,27 @@ async fn move_endpoint(
     r#move(source, destination).await.map(raw_response)
 }
 
+#[post("/remove")]
+async fn remove_endpoint(
+    path: web::Path<String>,
+    query: web::Json<PathQuery>,
+) -> ResponseResult<impl Responder> {
+    let container = path.into_inner();
+    let path = to_container_path(&container, &query.path)?;
+    remove(path).await.map(raw_response)
+}
+
+#[get("/copy")]
+async fn copy_endpoint(
+    path: web::Path<String>,
+    data: web::Json<SourceDestinationData>,
+) -> ResponseResult<impl Responder> {
+    let container = path.into_inner();
+    let source = to_container_path(&container, &data.source)?;
+    let destination = to_container_path(&container, &data.destination)?;
+    copy(source, destination).await.map(raw_response)
+}
+
 #[get("/read_file")]
 async fn read_file_endpoint(
     path: web::Path<String>,
@@ -69,35 +90,15 @@ async fn write_file_endpoint(
     write_file(path, &data).await.map(raw_response)
 }
 
-#[post("/remove_file")]
-async fn remove_file_endpoint(
-    path: web::Path<String>,
-    query: web::Json<PathQuery>,
-) -> ResponseResult<impl Responder> {
-    let container = path.into_inner();
-    let path = to_container_path(&container, &query.path)?;
-    remove_file(path).await.map(raw_response)
-}
-
-#[get("/copy_file")]
-async fn copy_file_endpoint(
-    path: web::Path<String>,
-    data: web::Json<SourceDestinationData>,
-) -> ResponseResult<impl Responder> {
-    let container = path.into_inner();
-    let source = to_container_path(&container, &data.source)?;
-    let destination = to_container_path(&container, &data.destination)?;
-    copy_file(source, destination).await.map(raw_response)
-}
-
 #[get("/read_folder")]
 async fn read_folder_endpoint(
     path: web::Path<String>,
     query: web::Query<PathQuery>,
+    options: web::Query<ReadFolderOptions>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
     let path = to_container_path(&container, &query.path)?;
-    read_folder(path).await.map(json_response)
+    read_folder(path, &options).await.map(json_response)
 }
 
 #[post("/create_folder")]
@@ -112,25 +113,17 @@ async fn create_folder_endpoint(
     create_folder(path).await.map(raw_response)
 }
 
-#[post("/remove_folder")]
-async fn remove_folder_endpoint(
+#[get("/read_link")]
+async fn read_link_endpoint(
     path: web::Path<String>,
-    query: web::Json<PathQuery>,
+    query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
     let path = to_container_path(&container, &query.path)?;
-    remove_folder(path).await.map(raw_response)
-}
-
-#[post("/copy_folder")]
-async fn copy_folder_endpoint(
-    path: web::Path<String>,
-    data: web::Json<SourceDestinationData>,
-) -> ResponseResult<impl Responder> {
-    let container = path.into_inner();
-    let source = to_container_path(&container, &data.source)?;
-    let destination = to_container_path(&container, &data.destination)?;
-    copy_folder(source, destination).await.map(raw_response)
+    read_link(path)
+        .await
+        .map(|path| path.into_os_string())
+        .map(json_response)
 }
 
 #[get("/get_permissions")]

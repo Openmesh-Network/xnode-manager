@@ -2,8 +2,8 @@ use actix_web::{Responder, get, post, web};
 
 use crate::common::{
     file::{
-        PathQuery, Permission, SourceDestinationData, copy_file, copy_folder, create_folder,
-        get_permissions, metadata, r#move, read_file, read_folder, remove_file, remove_folder,
+        PathQuery, Permission, ReadFolderOptions, SourceDestinationData, copy, create_folder,
+        get_permissions, metadata, r#move, read_file, read_folder, read_link, remove,
         set_permissions, size, write_file,
     },
     response::{ResponseResult, json_response, raw_response},
@@ -26,6 +26,18 @@ async fn move_endpoint(data: web::Json<SourceDestinationData>) -> ResponseResult
         .map(raw_response)
 }
 
+#[post("/remove")]
+async fn remove_endpoint(query: web::Json<PathQuery>) -> ResponseResult<impl Responder> {
+    remove(&query.path).await.map(raw_response)
+}
+
+#[get("/copy")]
+async fn copy_endpoint(data: web::Json<SourceDestinationData>) -> ResponseResult<impl Responder> {
+    copy(&data.source, &data.destination)
+        .await
+        .map(raw_response)
+}
+
 #[get("/read_file")]
 async fn read_file_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl Responder> {
     read_file(&query.path).await.map(raw_response)
@@ -39,23 +51,12 @@ async fn write_file_endpoint(
     write_file(&query.path, &data).await.map(raw_response)
 }
 
-#[post("/remove_file")]
-async fn remove_file_endpoint(query: web::Json<PathQuery>) -> ResponseResult<impl Responder> {
-    remove_file(&query.path).await.map(raw_response)
-}
-
-#[get("/copy_file")]
-async fn copy_file_endpoint(
-    data: web::Json<SourceDestinationData>,
-) -> ResponseResult<impl Responder> {
-    copy_file(&data.source, &data.destination)
-        .await
-        .map(raw_response)
-}
-
 #[get("/read_folder")]
-async fn read_folder_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl Responder> {
-    read_folder(&query.path).await.map(json_response)
+async fn read_folder_endpoint(
+    query: web::Query<PathQuery>,
+    options: web::Query<ReadFolderOptions>,
+) -> ResponseResult<impl Responder> {
+    read_folder(&query.path, &options).await.map(json_response)
 }
 
 #[post("/create_folder")]
@@ -63,18 +64,12 @@ async fn create_folder_endpoint(query: web::Json<PathQuery>) -> ResponseResult<i
     create_folder(&query.path).await.map(raw_response)
 }
 
-#[post("/remove_folder")]
-async fn remove_folder_endpoint(query: web::Json<PathQuery>) -> ResponseResult<impl Responder> {
-    remove_folder(&query.path).await.map(raw_response)
-}
-
-#[post("/copy_folder")]
-async fn copy_folder_endpoint(
-    data: web::Json<SourceDestinationData>,
-) -> ResponseResult<impl Responder> {
-    copy_folder(&data.source, &data.destination)
+#[get("/read_link")]
+async fn read_link_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl Responder> {
+    read_link(&query.path)
         .await
-        .map(raw_response)
+        .map(|path| path.into_os_string())
+        .map(json_response)
 }
 
 #[get("/get_permissions")]

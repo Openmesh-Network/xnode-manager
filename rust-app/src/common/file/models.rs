@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub enum Metadata {
     File {},
     Folder {},
+    Link {},
     Unknown {},
 }
 
@@ -14,10 +15,14 @@ pub struct Size {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Folder {
-    pub folders: Vec<String>,
-    pub files: Vec<String>,
-    pub symlinks: Vec<String>,
+pub struct ReadFolderOptions {
+    pub metadata: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FolderItem {
+    pub name: String,
+    pub metadata: Option<Metadata>,
 }
 
 #[derive(Serialize, Deserialize)]

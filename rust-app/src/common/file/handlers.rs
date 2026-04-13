@@ -1,7 +1,7 @@
 use std::{
     io::ErrorKind,
-    os::unix::fs::{MetadataExt, chown},
-    path::Path,
+    os::unix::{ffi::OsStrExt, fs::{MetadataExt, chown}},
+    path::{Path, PathBuf},
 };
 
 use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, PosixACL, Qualifier};
@@ -9,23 +9,25 @@ use tokio::fs;
 
 use crate::common::{
     btrfs::filesystem::du,
-    response::{ResponseError, ResponseResult, TypedResponseError},
+    response::{ResponseError, ResponseResult, TypedResponseError}, string::escaped_utf8_from_bytes,
 };
 
-use super::models::{Entity, Folder, Metadata, Permission, Size};
+use super::{ReadFolderOptions, models::{Entity, FolderItem, Metadata, Permission, Size}};
 
 pub async fn metadata(path: impl AsRef<Path>) -> ResponseResult<Metadata> {
     let path = path.as_ref();
 
-    fs::metadata(path)
+    fs::symlink_metadata(path)
         .await
         .map(|metadata| {
-            if metadata.is_dir() {
-                Metadata::Folder {}
-            } else if metadata.is_file() {
-                Metadata::File {}
+            if metadata.is_symlink() {
+                Metadata::Link { }
+            } else if metadata.is_dir() {
+                Metadata::Folder { }
+            }  else if metadata.is_file() {
+                Metadata::File { }
             } else {
-                Metadata::Unknown {}
+                Metadata::Unknown { }
             }
         })
         .map_err(|e| {
@@ -61,6 +63,33 @@ pub async fn r#move(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> 
             destination = destination.display()
         ))
     })
+}
+
+pub async fn remove(path: impl AsRef<Path>) -> Result<(), ResponseError> {
+    let path = path.as_ref();
+    match metadata(path).await? {
+        Metadata::File {} | Metadata::Link {  } => remove_file(path).await,
+        Metadata::Folder {} => remove_folder(path).await,
+        Metadata::Unknown {} => Err(ResponseError::new(format!("Could not determine type of {path}", path = path.display()))),
+    }
+}
+
+pub async fn copy(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<(), ResponseError> {
+    let source = source.as_ref();
+    let destination = destination.as_ref();
+
+    match metadata(source).await? {
+        Metadata::File {} | Metadata::Link {} => copy_file(source, destination).await,
+        Metadata::Folder {} => copy_folder(source, destination).await,
+        Metadata::Unknown {} => Err(ResponseError::new( format!(
+                "Could not determine type of {source}",
+                source = source.display()
+            ),
+        )),
+    }
 }
 
 pub async fn read_file(path: impl AsRef<Path>) -> ResponseResult<Vec<u8>> {
@@ -136,12 +165,8 @@ pub async fn copy_file(
         })
 }
 
-pub async fn read_folder(path: impl AsRef<Path>) -> ResponseResult<Folder> {
+pub async fn read_folder(path: impl AsRef<Path>, options: &ReadFolderOptions) -> ResponseResult<Vec<FolderItem>> {
     let path = path.as_ref();
-
-    let mut folders = vec![];
-    let mut files = vec![];
-    let mut symlinks = vec![];
 
     let mut entries = fs::read_dir(&path).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
@@ -152,38 +177,25 @@ pub async fn read_folder(path: impl AsRef<Path>) -> ResponseResult<Folder> {
             )))
     })?;
 
+    let mut items = vec![];
+
     while let Some(entry) = entries.next_entry().await.map_err(|e| {
         ResponseError::new(format!(
             "Could not get next read folder {path}: {e}",
             path = path.display()
         ))
     })? {
-        let file_type = entry.file_type().await.map_err(|e| {
-            ResponseError::new(format!(
-                "Could not get read folder {path} entry file type of {entry}: {e}",
-                path = path.display(),
-                entry = entry.file_name().display()
-            ))
-        })?;
-        let file_name = entry
-            .file_name()
-            .into_string()
-            .unwrap_or("NON-UNICODE NAME".to_string());
+        let item_name = escaped_utf8_from_bytes(entry.file_name().as_bytes());
+        let mut item_metadata = None;
 
-        if file_type.is_dir() {
-            folders.push(file_name);
-        } else if file_type.is_file() {
-            files.push(file_name);
-        } else if file_type.is_symlink() {
-            symlinks.push(file_name);
+        if let Some(include_metadata) = options.metadata && include_metadata {
+            item_metadata = metadata(path.join(&item_name)).await.ok();
         }
+
+        items.push(FolderItem {name: item_name, metadata: item_metadata});
     }
 
-    Ok(Folder {
-        folders,
-        files,
-        symlinks,
-    })
+    Ok(items)
 }
 
 pub async fn create_folder(path: impl AsRef<Path>) -> ResponseResult<()> {
@@ -235,14 +247,28 @@ where
     let destination = destination.as_ref();
 
     create_folder(destination).await?;
-    let folder = read_folder(source).await?;
-    for file in folder.files {
-        copy_file(source.join(&file), destination.join(&file)).await?;
+    let folder = read_folder(source, &ReadFolderOptions { metadata: Some(true) }).await?;
+    for item in folder {
+        match item.metadata {
+            Some(Metadata::File {  }) | Some(Metadata::Link {  }) => {
+                copy_file(source.join(&item.name), destination.join(&item.name)).await?;
+            },
+            Some(Metadata::Folder {  }) => {
+                copy_folder(source.join(&item.name), destination.join(&item.name)).await?;
+            }
+            Some(Metadata::Unknown {  }) | None => {
+                return Err(ResponseError::new(format!("Could not get metadata of {name}", name = item.name)));
+            }
+        };
     }
-    for folder in folder.folders {
-        copy_folder(source.join(&folder), destination.join(&folder)).await?;
-    }
+    
     Ok(())
+}
+
+pub async fn read_link(path: impl AsRef<Path>) -> Result<PathBuf, ResponseError> {
+    let path = path.as_ref();
+
+    fs::read_link(path).await.map_err(|e| ResponseError::new(format!("Could not read link {path}: {e}", path = path.display())))
 }
 
 pub async fn get_permissions(path: impl AsRef<Path>) -> ResponseResult<Vec<Permission>> {

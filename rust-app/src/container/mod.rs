@@ -3,7 +3,7 @@ use actix_web::{dev::HttpServiceFactory, rt::spawn, web};
 use crate::common::{
     btrfs::subvolume,
     env::datadir,
-    file::{metadata, read_folder},
+    file::{ReadFolderOptions, metadata, read_folder},
     process::execute,
     response::{ResponseError, ResponseResult, TypedResponseError},
 };
@@ -46,8 +46,9 @@ pub async fn prepare_module() -> ResponseResult<()> {
 
     spawn(async {
         // start all containers
-        let containers = read_folder(path).await.map(|folder| folder.folders)?;
-        for container in containers {
+        let containers = read_folder(path, &ReadFolderOptions { metadata: None }).await?;
+        for item in containers {
+            let container = item.name;
             if let Err(e) = execute(
                 None::<String>,
                 format!("container@{container}.service"),
