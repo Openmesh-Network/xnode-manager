@@ -33,7 +33,7 @@ async fn version_endpoint() -> ResponseResult<impl Responder> {
 #[post("/update")]
 async fn update_endpoint(
     data: web::Json<UpdateData>,
-    options: web::Query<CommandOptions>,
+    options: web::Json<CommandOptions>,
 ) -> impl Responder {
     let scope = ["host"];
     let data = data.into_inner();
@@ -55,7 +55,7 @@ async fn update_endpoint(
 }
 
 #[post("/build")]
-async fn build_endpoint(options: web::Query<CommandOptions>) -> impl Responder {
+async fn build_endpoint(options: web::Json<CommandOptions>) -> impl Responder {
     let scope = ["host"];
     let options = options.into_inner();
     let unit = get_scope_unit(&Operation::Build.to_string(), &scope);
@@ -68,21 +68,21 @@ async fn build_endpoint(options: web::Query<CommandOptions>) -> impl Responder {
 #[post("/apply")]
 async fn apply_endpoint(
     query: web::Query<ApplyQuery>,
-    options: web::Query<CommandOptions>,
-) -> impl Responder {
+    options: web::Json<CommandOptions>,
+) -> ResponseResult<impl Responder> {
     let scope = ["host"];
     let operation = Operation::Apply.to_string();
     let query = query.into_inner();
     let options = options.into_inner();
     let unit = get_scope_unit(&operation, &scope);
 
-    spawn(async move {
-        r#move(
-            get_scoped_path(&scope, &["new-result"]),
-            get_scoped_path(&scope, &["result"]),
-        )
-        .await?;
+    r#move(
+        get_scoped_path(&scope, &["new-result"]),
+        get_scoped_path(&scope, &["result"]),
+    )
+    .await?;
 
+    spawn(async move {
         let path = get_scoped_path(&scope, &["result", "bin", "switch-to-configuration"]);
         let mut command = Command::new(path);
         command.arg(match &query.when {
@@ -105,5 +105,5 @@ async fn apply_endpoint(
         .map_err(|e| ResponseError::new(format!("Could not apply configuration to host: {e}")))
     });
 
-    json_response(ResponseCommand { id: unit })
+    Ok(json_response(ResponseCommand { id: unit }))
 }

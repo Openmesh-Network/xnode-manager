@@ -39,7 +39,8 @@ pub struct JournalCtlLog {
 
 #[derive(Serialize, Deserialize)]
 pub struct Log {
-    pub timestamp: u64, // Epoch time in seconds
+    /// Epoch time in seconds
+    pub timestamp: u64,
     pub message: String,
     pub level: LogLevel,
 }

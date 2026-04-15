@@ -330,7 +330,6 @@ in
       xnode-manager = {
         wantedBy = [ "multi-user.target" ];
         description = "Allow configuring and monitoring your Xnode through external platforms, such as Xnode Studio.";
-        after = [ "network.target" ];
         environment = {
           RUST_LOG = cfg.verbosity;
           DATADIR = cfg.dataDir;

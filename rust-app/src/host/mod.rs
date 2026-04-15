@@ -2,7 +2,9 @@ use actix_web::{dev::HttpServiceFactory, web};
 
 pub mod config;
 pub mod file;
+pub mod handlers;
 pub mod info;
+pub mod list;
 pub mod permission;
 pub mod power;
 pub mod process;
@@ -17,6 +19,7 @@ pub fn service() -> impl HttpServiceFactory {
         .service(config::service())
         .service(file::service())
         .service(info::service())
+        .service(list::service())
         .service(permission::service())
         .service(power::service())
         .service(process::service())

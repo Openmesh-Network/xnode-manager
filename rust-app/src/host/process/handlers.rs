@@ -1,18 +1,12 @@
 use actix_web::{Responder, get, post, web};
 
-use crate::common::{
-    process::{LogQuery, SystemCtlCommand, execute, list, logs, usage},
-    response::{ResponseResult, json_response},
+use crate::{
+    common::{
+        process::{LogQuery, SystemCtlCommand, execute, logs, usage},
+        response::{ResponseResult, json_response, raw_response},
+    },
+    host::handlers::machine,
 };
-
-fn machine() -> Option<impl AsRef<str>> {
-    None::<String>
-}
-
-#[get("/list")]
-async fn list_endpoint() -> ResponseResult<impl Responder> {
-    list(machine()).await.map(json_response)
-}
 
 #[get("/{process}/logs")]
 async fn logs_endpoint(
@@ -34,7 +28,7 @@ async fn start_endpoint(path: web::Path<String>) -> ResponseResult<impl Responde
     let process = path.into_inner();
     execute(machine(), &process, SystemCtlCommand::Start)
         .await
-        .map(json_response)
+        .map(raw_response)
 }
 
 #[post("/{process}/stop")]
@@ -42,7 +36,7 @@ async fn stop_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder
     let process = path.into_inner();
     execute(machine(), &process, SystemCtlCommand::Stop)
         .await
-        .map(json_response)
+        .map(raw_response)
 }
 
 #[post("/{process}/restart")]
@@ -50,7 +44,7 @@ async fn restart_endpoint(path: web::Path<String>) -> ResponseResult<impl Respon
     let process = path.into_inner();
     execute(machine(), &process, SystemCtlCommand::Restart)
         .await
-        .map(json_response)
+        .map(raw_response)
 }
 
 #[post("/{process}/reload")]
@@ -58,5 +52,5 @@ async fn reload_endpoint(path: web::Path<String>) -> ResponseResult<impl Respond
     let process = path.into_inner();
     execute(machine(), &process, SystemCtlCommand::ReloadOrRestart)
         .await
-        .map(json_response)
+        .map(raw_response)
 }

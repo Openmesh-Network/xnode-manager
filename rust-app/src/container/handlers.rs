@@ -29,6 +29,11 @@ async fn remove(path: web::Path<String>) -> ResponseResult<impl Responder> {
     Ok(raw_response(()))
 }
 
+pub fn machine(container: impl AsRef<str>) -> Option<impl AsRef<str>> {
+    let container = container.as_ref();
+    Some(format!("{container}.container"))
+}
+
 pub async fn ensure_initialized(container: impl AsRef<str>) -> ResponseResult<()> {
     let container = container.as_ref();
     let scope = ["container", container];

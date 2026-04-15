@@ -1,20 +1,12 @@
 use actix_web::{Responder, get, post, web};
 
-use crate::common::{
-    process::{LogQuery, SystemCtlCommand, execute, list, logs, usage},
-    response::{ResponseResult, json_response},
+use crate::{
+    common::{
+        process::{LogQuery, SystemCtlCommand, execute, logs, usage},
+        response::{ResponseResult, json_response},
+    },
+    container::handlers::machine,
 };
-
-fn machine(container: impl AsRef<str>) -> Option<impl AsRef<str>> {
-    let container = container.as_ref();
-    Some(format!("{container}.container"))
-}
-
-#[get("/list")]
-async fn list_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
-    let container = path.into_inner();
-    list(machine(&container)).await.map(json_response)
-}
 
 #[get("/{process}/logs")]
 async fn logs_endpoint(

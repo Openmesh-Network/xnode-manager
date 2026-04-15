@@ -42,7 +42,7 @@ async fn version_endpoint(path: web::Path<String>) -> ResponseResult<impl Respon
 async fn update_endpoint(
     path: web::Path<String>,
     data: web::Json<UpdateData>,
-    options: web::Query<CommandOptions>,
+    options: web::Json<CommandOptions>,
 ) -> impl Responder {
     let container = path.into_inner();
     let scope = ["container".to_string(), container.to_string()];
@@ -67,7 +67,7 @@ async fn update_endpoint(
 #[post("/build")]
 async fn build_endpoint(
     path: web::Path<String>,
-    options: web::Query<CommandOptions>,
+    options: web::Json<CommandOptions>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
     ensure_initialized(&container).await?;
@@ -94,7 +94,7 @@ async fn build_endpoint(
 async fn apply_endpoint(
     path: web::Path<String>,
     query: web::Query<ApplyQuery>,
-    options: web::Query<CommandOptions>,
+    options: web::Json<CommandOptions>,
 ) -> impl Responder {
     let container = path.into_inner();
     let scope = ["container".to_string(), container.to_string()];

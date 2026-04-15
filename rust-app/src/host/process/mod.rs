@@ -9,7 +9,6 @@ pub fn scope() -> String {
 
 pub fn service() -> impl HttpServiceFactory {
     web::scope(&scope()).configure(|cfg| {
-        cfg.service(handlers::list_endpoint);
         cfg.service(handlers::logs_endpoint);
         cfg.service(handlers::usage_endpoint);
         cfg.service(handlers::start_endpoint);

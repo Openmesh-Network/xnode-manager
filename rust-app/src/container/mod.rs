@@ -12,6 +12,7 @@ pub mod config;
 pub mod file;
 pub mod handlers;
 pub mod info;
+pub mod list;
 pub mod process;
 
 pub fn scope() -> String {
@@ -25,6 +26,7 @@ pub fn service() -> impl HttpServiceFactory {
         .service(config::service())
         .service(file::service())
         .service(info::service())
+        .service(list::service())
         .service(process::service())
         .configure(|cfg| {
             cfg.service(handlers::remove);

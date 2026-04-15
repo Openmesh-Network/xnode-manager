@@ -26,7 +26,8 @@ pub enum CommandAfter {
         condition: Option<CommandAfterCondition>,
     },
     Date {
-        date: u64, // Epoch time in seconds
+        /// Epoch time in seconds
+        date: u64,
     },
 }
 
