@@ -2,7 +2,7 @@ use actix_web::{Responder, get, post, web};
 
 use crate::{
     common::{
-        process::{LogQuery, SystemCtlCommand, execute, logs, usage},
+        process::{LogQuery, SystemCtlCommand, execute, logs, status, usage},
         response::{ResponseResult, json_response, raw_response},
     },
     host::handlers::machine,
@@ -15,6 +15,12 @@ async fn logs_endpoint(
 ) -> ResponseResult<impl Responder> {
     let process = path.into_inner();
     logs(machine(), &process, &query).await.map(json_response)
+}
+
+#[get("/{process}/status")]
+async fn status_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
+    let process = path.into_inner();
+    status(machine(), &process).await.map(json_response)
 }
 
 #[get("/{process}/usage")]

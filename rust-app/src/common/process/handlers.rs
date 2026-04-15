@@ -7,9 +7,12 @@ use crate::common::{
     string::escaped_utf8_from_bytes,
 };
 
-use super::models::{
-    JournalCtlLog, JournalCtlLogMessage, Log, LogLevel, LogQuery, Process, SystemCtlCommand,
-    SystemCtlProcess, Usage,
+use super::{
+    Status,
+    models::{
+        JournalCtlLog, JournalCtlLogMessage, Log, LogLevel, LogQuery, Process, SystemCtlCommand,
+        SystemCtlProcess, Usage,
+    },
 };
 
 pub async fn list(machine: Option<impl AsRef<str>>) -> ResponseResult<Vec<Process>> {
@@ -135,6 +138,69 @@ pub async fn logs(
         })
 }
 
+pub async fn status(
+    machine: Option<impl AsRef<str>>,
+    process: impl AsRef<str>,
+) -> ResponseResult<Status> {
+    let process = process.as_ref();
+
+    let mut command = Command::new(format!("{}systemctl", systemd()));
+    command.args(["show", process, "--property=SubState"]);
+    if let Some(machine) = &machine {
+        command.args(["--machine", machine.as_ref()]);
+    }
+
+    // For error logging
+    let machine = machine
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
+        .unwrap_or("host".to_string());
+
+    let output = execute_command_simple(command).await.map_err(|e| {
+        ResponseError::new(format!(
+            "Could not retrieve status of {process} of {machine}: {e}"
+        ))
+    })?;
+    let output_str = String::from_utf8(output).map_err(|e| {
+        ResponseError::new(format!(
+            "Status of {process} of {machine} could not be decoded as UTF8: {e}."
+        ))
+    })?;
+
+    let mut running = None;
+
+    for line in output_str.split("\n") {
+        if let Some((property, value)) = line.split_once("=") {
+            if value == "[not set]" || value == "[no data]" {
+                continue;
+            }
+
+            match property {
+                "SubState" => {
+                    running = Some(value == "running");
+                }
+                property => {
+                    log::warn!(
+                        "Status of process {process} of {machine} contains unexpected property {property}: {line}"
+                    );
+                }
+            }
+        } else {
+            log::warn!("Status of process {process} of {machine} contains unexpected line: {line}");
+        }
+    }
+
+    Ok(Status {
+        running: match running {
+            Some(running) => running,
+            None => {
+                return Err(ResponseError::new(format!(
+                    "Status of {process} of {machine} does not contain running property"
+                )));
+            }
+        },
+    })
+}
+
 pub async fn usage(
     machine: Option<impl AsRef<str>>,
     process: impl AsRef<str>,
@@ -173,7 +239,7 @@ pub async fn usage(
     };
 
     for line in output_str.split("\n") {
-        if let Some((property, value)) = line.split_once("\n") {
+        if let Some((property, value)) = line.split_once("=") {
             if value == "[not set]" || value == "[no data]" {
                 continue;
             }

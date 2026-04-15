@@ -17,6 +17,11 @@ pub struct Process {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct Status {
+    pub running: bool,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct LogQuery {
     pub level: Option<LogLevel>,
     pub after: Option<u64>,
