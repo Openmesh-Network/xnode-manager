@@ -49,7 +49,7 @@ async fn move_endpoint(
 #[post("/remove")]
 async fn remove_endpoint(
     path: web::Path<String>,
-    query: web::Json<PathQuery>,
+    query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
     let path = to_container_path(&container, &query.path)?;
@@ -80,7 +80,7 @@ async fn read_file_endpoint(
 #[post("/write_file")]
 async fn write_file_endpoint(
     path: web::Path<String>,
-    query: web::Json<PathQuery>,
+    query: web::Query<PathQuery>,
     data: web::Bytes,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
@@ -104,7 +104,7 @@ async fn read_folder_endpoint(
 #[post("/create_folder")]
 async fn create_folder_endpoint(
     path: web::Path<String>,
-    query: web::Json<PathQuery>,
+    query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
     ensure_initialized(&container).await?;

@@ -27,7 +27,7 @@ async fn move_endpoint(data: web::Json<SourceDestinationData>) -> ResponseResult
 }
 
 #[post("/remove")]
-async fn remove_endpoint(query: web::Json<PathQuery>) -> ResponseResult<impl Responder> {
+async fn remove_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl Responder> {
     remove(&query.path).await.map(raw_response)
 }
 
@@ -45,7 +45,7 @@ async fn read_file_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl
 
 #[post("/write_file")]
 async fn write_file_endpoint(
-    query: web::Json<PathQuery>,
+    query: web::Query<PathQuery>,
     data: web::Bytes,
 ) -> ResponseResult<impl Responder> {
     write_file(&query.path, &data).await.map(raw_response)
@@ -60,7 +60,7 @@ async fn read_folder_endpoint(
 }
 
 #[post("/create_folder")]
-async fn create_folder_endpoint(query: web::Json<PathQuery>) -> ResponseResult<impl Responder> {
+async fn create_folder_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl Responder> {
     create_folder(&query.path).await.map(raw_response)
 }
 
