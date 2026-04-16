@@ -138,7 +138,7 @@ async fn alter_flake<SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
             ))
         })?;
         let flake = format!(
-            "{in_chroot_path}{suffix}",
+            "./{in_chroot_path}{suffix}",
             in_chroot_path = in_chroot_path.to_string_lossy()
         );
         command.arg(&flake);
