@@ -114,16 +114,13 @@ pub async fn logs(
     })?;
 
     // Add array brackets and , between all entries (separated by newlines)
-    let output_json = format!(
-        "[{}]",
-        &output_str[..output_str.len() - 1].replace("\n", ",")
-    );
+    let output_json = format!("[{}]", &output_str.trim_end().replace("\n", ","));
 
     serde_json::from_str::<Vec<JournalCtlLog>>(&output_json)
         .map(|logs| logs
             .into_iter()
             .map(|log| Log {
-                timestamp: log.__REALTIME_TIMESTAMP.parse().unwrap_or(0),
+                timestamp: log.__REALTIME_TIMESTAMP.parse().map(|timestamp: u64| timestamp / 1_000_000).unwrap_or(0),
                 message: match log.MESSAGE {
                     JournalCtlLogMessage::String(output) => output,
                     JournalCtlLogMessage::Raw(output) => escaped_utf8_from_bytes(output)
@@ -168,7 +165,7 @@ pub async fn status(
 
     let mut running = None;
 
-    for line in output_str.split("\n") {
+    for line in output_str.trim_end().split("\n") {
         if let Some((property, value)) = line.split_once("=") {
             if value == "[not set]" || value == "[no data]" {
                 continue;
@@ -238,7 +235,7 @@ pub async fn usage(
         disk_write: None,
     };
 
-    for line in output_str.split("\n") {
+    for line in output_str.trim_end().split("\n") {
         if let Some((property, value)) = line.split_once("=") {
             if value == "[not set]" || value == "[no data]" {
                 continue;
