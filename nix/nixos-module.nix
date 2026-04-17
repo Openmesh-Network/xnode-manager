@@ -349,23 +349,27 @@ in
       };
 
       "container@" = {
+        scriptArgs = "%i";
         script = ''
+          name="$1"
           ${lib.getExe' cfg.systemd "systemd-nspawn"} \
-            --machine="%i.container" \
-            --slice="run-''${%i//-/_}-container-machine.slice" \
-            --directory="${cfg.dataDir}/container/%i/data" \
-            $(cat ${cfg.dataDir}/host/permission/container/cli/%i) \
-            "${cfg.dataDir}/container/%i/data/init"
+            --machine="''${name}.container" \
+            --slice="run-''${name//-/_}-container-machine.slice" \
+            --directory="${cfg.dataDir}/container/''${name}/data" \
+            $(cat "${cfg.dataDir}/host/permission/container/cli/''${name}") \
+            /result/init
         '';
       };
 
       "virtual-machine@" = {
+        scriptArgs = "%i";
         script = ''
+          name="$1"
           ${lib.getExe' cfg.systemd "systemd-vmspawn"} \
-            --machine="%i.virtual-machine" \
-            --slice="run-''${%i//-/_}-virtual_machine-machine.slice" \
-            --directory="${cfg.dataDir}/container/%i/data" \
-            $(cat ${cfg.dataDir}/host/permission/virtual-machine/cli/%i)
+            --machine="''${name}.virtual-machine" \
+            --slice="run-''${name//-/_}-virtual_machine-machine.slice" \
+            --directory="${cfg.dataDir}/container/''${name}/data" \
+            $(cat "${cfg.dataDir}/host/permission/virtual-machine/cli/''${name}")
         '';
       };
     };
