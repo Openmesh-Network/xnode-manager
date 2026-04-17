@@ -37,12 +37,29 @@ pub async fn build<SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
     options: impl AsRef<CommandOptions>,
 ) -> ResponseResult<()> {
     let mut command = Command::new(format!("{}nix", nix()));
-    command.args(["build", "--out-link"]).arg(
-        get_scoped_path(scope, path)
+    let scoped_path = get_scoped_path(scope, path);
+    let out_link = match chroot {
+        Some(chroot) => {
+            let chroot = get_scoped_path(scope, chroot);
+            scoped_path
+                .strip_prefix(&chroot)
+                .map_err(|e| {
+                    ResponseError::new(format!(
+                        "Couldn't strip chroot {chroot} from {scoped_path}: {e}",
+                        chroot = chroot.display(),
+                        scoped_path = scoped_path.display()
+                    ))
+                })?
+                .parent()
+                .unwrap_or(Path::new("/"))
+                .join("new-result")
+        }
+        None => scoped_path
             .parent()
             .unwrap_or(Path::new("/"))
             .join("new-result"),
-    );
+    };
+    command.args(["build", "--out-link"]).arg(out_link);
 
     alter_flake(
         command,
@@ -141,7 +158,11 @@ async fn alter_flake<SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
             "./{in_chroot_path}{suffix}",
             in_chroot_path = in_chroot_path.to_string_lossy()
         );
-        command.arg(&flake);
+        command.args([
+            &flake,
+            "--extra-experimental-features",
+            "nix-command flakes",
+        ]);
         command.env("HOME", "/tmp");
         execute_command_scoped(
             command,

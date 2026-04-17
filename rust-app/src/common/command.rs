@@ -160,7 +160,7 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
         let mut nix_copy = Command::new(format!("{}nix", nix()));
         nix_copy
             .env("NIX_REMOTE", "daemon")
-            .args(["copy", &nix_item, "--to"])
+            .args(["copy", &nix_item, "--no-require-sigs", "--to"])
             .arg(chroot.as_ref());
         execute_command_simple(nix_copy).await?;
     }
