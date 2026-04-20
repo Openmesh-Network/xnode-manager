@@ -141,7 +141,7 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
     for (key, value) in base_command.get_envs() {
         if let Some(value) = value {
             command
-                .arg(" --setenv")
+                .arg("--setenv")
                 .arg([key, value].join(OsStr::new("=")));
         }
     }
@@ -156,11 +156,11 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
     {
         // Program + dependencies need to be copied over to be available in chroot environment
         let parts = program.split("/");
-        let nix_item: String = parts.take(3).collect();
+        let nix_item: Vec<&str> = parts.take(4).collect();
         let mut nix_copy = Command::new(format!("{}nix", nix()));
         nix_copy
             .env("NIX_REMOTE", "daemon")
-            .args(["copy", &nix_item, "--no-require-sigs", "--to"])
+            .args(["copy", &nix_item.join("/"), "--no-require-sigs", "--to"])
             .arg(chroot.as_ref());
         execute_command_simple(nix_copy).await?;
     }
