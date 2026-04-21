@@ -368,18 +368,9 @@ in
             --machine="''${name}.container" \
             --slice="run-''${name//-/_}-container-machine.slice" \
             --directory="${cfg.dataDir}/container/''${name}/data" \
-            --notify-ready=yes
-            --kill-signal=SIGRTMIN+3
             $(cat "${cfg.dataDir}/host/permission/container/cli/''${name}") \
             /result/init
         '';
-        serviceConfig = {
-          Type = "notify";
-          RestartForceExitStatus = "133";
-          SuccessExitStatus = "133";
-          KillMode = "mixed";
-          KillSignal = "TERM";
-        };
       };
 
       "virtual-machine@" = {

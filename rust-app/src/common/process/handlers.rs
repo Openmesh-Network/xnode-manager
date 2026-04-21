@@ -47,7 +47,7 @@ pub async fn list(machine: Option<impl AsRef<str>>) -> ResponseResult<Vec<Proces
             .map(|process| Process {
                 name: process.unit,
                 description: Some(process.description),
-                running: process.sub == "running",
+                running: process.sub == "running" || process.sub == "start",
             })
             .collect())
         .map_err(|e| {
@@ -173,7 +173,7 @@ pub async fn status(
 
             match property {
                 "SubState" => {
-                    running = Some(value == "running");
+                    running = Some(value == "running" || value == "start");
                 }
                 property => {
                     log::warn!(
