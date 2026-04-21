@@ -7,7 +7,7 @@ use crate::{
         file::{
             PathQuery, Permission, ReadFolderOptions, SourceDestinationData, copy, create_folder,
             get_permissions, metadata, r#move, read_file, read_folder, read_link, remove,
-            remove_first_slash, set_permissions, size, write_file,
+            remove_first_slash, set_permissions, size, write_file, write_link,
         },
         path::get_scope_root,
         response::{ResponseError, ResponseResult, json_response, raw_response},
@@ -124,6 +124,17 @@ async fn read_link_endpoint(
         .await
         .map(|path| path.into_os_string())
         .map(json_response)
+}
+
+#[get("/write_link")]
+async fn write_link_endpoint(
+    path: web::Path<String>,
+    data: web::Json<SourceDestinationData>,
+) -> ResponseResult<impl Responder> {
+    let container = path.into_inner();
+    let source = to_container_path(&container, &data.source)?;
+    let destination = to_container_path(&container, &data.destination)?;
+    write_link(source, destination).await.map(raw_response)
 }
 
 #[get("/get_permissions")]

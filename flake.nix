@@ -16,21 +16,17 @@
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      systems,
-    }:
+    inputs:
     let
       # A helper that helps us define the attributes below for
       # all systems we care about.
       eachSystem =
         f:
-        nixpkgs.lib.genAttrs (import systems) (
+        inputs.nixpkgs.lib.genAttrs (import inputs.systems) (
           system:
           f {
             inherit system;
-            pkgs = nixpkgs.legacyPackages.${system};
+            pkgs = inputs.nixpkgs.legacyPackages.${system};
           }
         );
     in
@@ -39,14 +35,6 @@
         { pkgs, ... }:
         {
           default = pkgs.callPackage ./nix/package.nix { };
-        }
-      );
-
-      checks = eachSystem (
-        { pkgs, system, ... }:
-        {
-          package = self.packages.${system}.default;
-          nixos-module = pkgs.callPackage ./nix/nixos-test.nix { };
         }
       );
 

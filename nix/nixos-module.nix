@@ -67,7 +67,75 @@ in
         '';
       };
 
-      default_permission =
+      buildBase = lib.mkOption {
+        type = lib.types.str;
+        default =
+          (lib.nixosSystem {
+            inherit pkgs;
+            modules = [
+              (
+                { pkgs, ... }@args:
+                {
+                  config = {
+                    boot =
+                      if builtins.hasAttr "isNspawnContainer" args.options.boot then
+                        { isNspawnContainer = true; }
+                      else
+                        { isContainer = true; };
+
+                    nix = {
+                      settings = {
+                        experimental-features = [
+                          "nix-command"
+                          "flakes"
+                        ];
+                        flake-registry = "";
+                        accept-flake-config = true;
+                      };
+                      channel.enable = false;
+                    };
+
+                    networking = {
+                      useDHCP = false;
+                      useNetworkd = true;
+                    };
+                    systemd.network = {
+                      enable = true;
+                      wait-online = {
+                        timeout = 10;
+                        anyInterface = true;
+                      };
+                      networks = {
+                        "80-container-host0" = {
+                          matchConfig = {
+                            Kind = "veth";
+                            Name = "host0";
+                          };
+                          networkConfig = {
+                            DHCP = "yes";
+                            LinkLocalAddressing = "no";
+                          };
+                          dhcpV4Config.UseDNS = false;
+                          dhcpV6Config.UseDNS = false;
+                        };
+                      };
+                    };
+
+                    networking.useHostResolvConf = false;
+                    services.resolved.enable = true;
+
+                    system.stateVersion = args.config.system.nixos.release;
+                  };
+                }
+              )
+            ];
+          }).config.system.build.toplevel.outPath;
+        description = ''
+          NixOS configuration that will be applied on creation to build subsequent configurations.
+        '';
+      };
+
+      defaultPermission =
         let
           permissionType = lib.types.submodule {
             options =
@@ -337,7 +405,8 @@ in
           NIX = "${cfg.nix}/bin/";
           SYSTEMD = "${cfg.systemd}/bin/";
           BTRFS = "${cfg.btrfs}/bin/";
-          DEFAULT_PERMISSION = builtins.toJSON cfg.default_permission;
+          BUILD_BASE = cfg.buildBase;
+          DEFAULT_PERMISSION = builtins.toJSON cfg.defaultPermission;
         };
         startLimitIntervalSec = 0;
         serviceConfig = {

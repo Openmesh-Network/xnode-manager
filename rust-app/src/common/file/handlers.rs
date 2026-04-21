@@ -33,7 +33,7 @@ pub async fn metadata(path: impl AsRef<Path>) -> ResponseResult<Metadata> {
         .map_err(|e| {
             TypedResponseError::from_io(&e, path)
                 .map(ResponseError::typed)
-                .unwrap_or(ResponseError::new(format!(
+                .unwrap_or_else(|| ResponseError::new(format!(
                     "Could not get metadata of {path}: {e}",
                     path = path.display()
                 )))
@@ -65,7 +65,7 @@ pub async fn r#move(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> 
     })
 }
 
-pub async fn remove(path: impl AsRef<Path>) -> Result<(), ResponseError> {
+pub async fn remove(path: impl AsRef<Path>) -> ResponseResult<()> {
     let path = path.as_ref();
     match metadata(path).await? {
         Metadata::File {} | Metadata::Link {  } => remove_file(path).await,
@@ -77,7 +77,7 @@ pub async fn remove(path: impl AsRef<Path>) -> Result<(), ResponseError> {
 pub async fn copy(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
-) -> Result<(), ResponseError> {
+) -> ResponseResult<()> {
     let source = source.as_ref();
     let destination = destination.as_ref();
 
@@ -98,7 +98,7 @@ pub async fn read_file(path: impl AsRef<Path>) -> ResponseResult<Vec<u8>> {
     fs::read(path).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or(ResponseError::new(format!(
+            .unwrap_or_else(|| ResponseError::new(format!(
                 "Could not read file {path}: {e}",
                 path = path.display()
             )))
@@ -114,7 +114,7 @@ pub async fn write_file(path: impl AsRef<Path>, content: impl AsRef<[u8]>) -> Re
     fs::write(path, content).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or(ResponseError::new(format!(
+            .unwrap_or_else(|| ResponseError::new(format!(
                 "Could not write file {path}: {e}",
                 path = path.display()
             )))
@@ -136,7 +136,7 @@ pub async fn remove_file(path: impl AsRef<Path>) -> ResponseResult<()> {
         .map_err(|e| {
             TypedResponseError::from_io(&e, path)
                 .map(ResponseError::typed)
-                .unwrap_or(ResponseError::new(format!(
+                .unwrap_or_else(|| ResponseError::new(format!(
                     "Could not remove file {path}: {e}",
                     path = path.display()
                 )))
@@ -171,7 +171,7 @@ pub async fn read_folder(path: impl AsRef<Path>, options: &ReadFolderOptions) ->
     let mut entries = fs::read_dir(&path).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or(ResponseError::new(format!(
+            .unwrap_or_else(|| ResponseError::new(format!(
                 "Could not read folder {path}: {e}",
                 path = path.display()
             )))
@@ -204,7 +204,7 @@ pub async fn create_folder(path: impl AsRef<Path>) -> ResponseResult<()> {
     fs::create_dir_all(path).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or(ResponseError::new(format!(
+            .unwrap_or_else(|| ResponseError::new(format!(
                 "Could not create folder {path}: {e}",
                 path = path.display()
             )))
@@ -227,7 +227,7 @@ pub async fn remove_folder(path: impl AsRef<Path>) -> ResponseResult<()> {
         .map_err(|e| {
             TypedResponseError::from_io(&e, path)
                 .map(ResponseError::typed)
-                .unwrap_or(ResponseError::new(format!(
+                .unwrap_or_else(|| ResponseError::new(format!(
                     "Could not remove folder {path}: {e}",
                     path = path.display()
                 )))
@@ -265,10 +265,29 @@ where
     Ok(())
 }
 
-pub async fn read_link(path: impl AsRef<Path>) -> Result<PathBuf, ResponseError> {
+pub async fn read_link(path: impl AsRef<Path>) -> ResponseResult<PathBuf> {
     let path = path.as_ref();
 
-    fs::read_link(path).await.map_err(|e| ResponseError::new(format!("Could not read link {path}: {e}", path = path.display())))
+    fs::read_link(path).await.map_err(|e| 
+        TypedResponseError::from_io(&e, path)
+            .map(ResponseError::typed)
+            .unwrap_or_else(|| ResponseError::new(format!("Could not read link {path}: {e}", path = path.display())))
+    )
+}
+
+pub async fn write_link(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> ResponseResult<()> {
+    let source = source.as_ref();
+    let destination = destination.as_ref();
+
+    fs::symlink(source, destination)
+        .await
+        .map_err(|e| 
+            ResponseError::new(format!(
+                "Could not write link {destination} to {source}: {e}", 
+                source = source.display(), 
+                destination = destination.display()
+            ))
+        )
 }
 
 pub async fn get_permissions(path: impl AsRef<Path>) -> ResponseResult<Vec<Permission>> {
@@ -280,7 +299,7 @@ pub async fn get_permissions(path: impl AsRef<Path>) -> ResponseResult<Vec<Permi
         .map_err(|e| {
             TypedResponseError::from_io(&e, path)
                 .map(ResponseError::typed)
-                .unwrap_or(ResponseError::new(format!(
+                .unwrap_or_else(|| ResponseError::new(format!(
                     "Could not get owner user and group of {path}: {e}",
                     path = path.display()
                 )))
@@ -343,7 +362,7 @@ pub async fn set_permissions(
     chown(path, Some(owner_user), Some(owner_group)).map_err(|e| 
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or(ResponseError::new(format!(
+            .unwrap_or_else(|| ResponseError::new(format!(
                 "Could not set permission on {path}: Ownership transfer to {owner_user}:{owner_group} failed:  {e}",
                 path = path.display()
             )))

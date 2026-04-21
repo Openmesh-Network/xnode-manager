@@ -1,12 +1,9 @@
-use std::{ffi::OsStr, fmt::Display, io::Error, path::Path};
+use std::{ffi::OsStr, fmt::Display, io::Error};
 
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
 
-use crate::common::{
-    env::{nix, systemd},
-    string::escaped_utf8_from_bytes,
-};
+use crate::common::{env::systemd, string::escaped_utf8_from_bytes};
 
 #[derive(Serialize, Deserialize)]
 pub struct ResponseCommand {
@@ -79,11 +76,9 @@ pub async fn execute_command_simple(mut command: Command) -> SimpleCommandResult
     }
 }
 
-pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
+pub async fn execute_command_wrapped(
     command: Command,
     name: &str,
-    scope: &[SCOPE],
-    chroot: Option<impl AsRef<Path>>,
     machine: Option<impl AsRef<str>>,
     options: impl AsRef<CommandOptions>,
 ) -> SimpleCommandResult {
@@ -97,22 +92,12 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
         "--collect",
         "--property",
         "Type=oneshot",
+        "--unit",
+        &get_wrapped_unit(name),
     ]);
 
     if let Some(machine) = &machine {
-        command.args([
-            "--machine",
-            machine.as_ref(),
-            "--unit",
-            &format!("command-{name}.service"),
-        ]);
-    } else {
-        command.args([
-            "--unit",
-            &get_scope_unit(name, scope),
-            "--slice",
-            &get_scope_slice(name, scope),
-        ]);
+        command.args(["--machine", machine.as_ref()]);
     }
 
     if let Some(after) = &options.after {
@@ -134,10 +119,6 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
         };
     }
 
-    if let Some(chroot) = &chroot {
-        command.arg("--root-directory").arg(chroot.as_ref());
-    }
-
     for (key, value) in base_command.get_envs() {
         if let Some(value) = value {
             command
@@ -150,49 +131,9 @@ pub async fn execute_command_scoped<SCOPE: AsRef<str>>(
     let program = base_command.get_program();
     command.arg(program).args(base_command.get_args());
 
-    if let Some(chroot) = &chroot
-        && let Some(program) = program.to_str()
-        && program.starts_with("/nix/store")
-    {
-        // Program + dependencies need to be copied over to be available in chroot environment
-        let parts = program.split("/");
-        let nix_item: Vec<&str> = parts.take(4).collect();
-        let mut nix_copy = Command::new(format!("{}nix", nix()));
-        nix_copy
-            .env("NIX_REMOTE", "daemon")
-            .args(["copy", &nix_item.join("/"), "--no-require-sigs", "--to"])
-            .arg(chroot.as_ref());
-        execute_command_simple(nix_copy).await?;
-    }
-
     execute_command_simple(command).await
 }
 
-/// name: build, scope: [container, xnode-manager] -> container-xnode_manager-command-build.service
-pub fn get_scope_unit<SCOPE: AsRef<str>>(name: &str, scope: &[SCOPE]) -> String {
-    let mut unit = scope
-        .iter()
-        .map(|s| s.as_ref())
-        .chain(["command", name])
-        .map(|s| s.replace("-", "_"))
-        .collect::<Vec<String>>()
-        .join("-");
-    unit.push_str(".service");
-
-    unit
-}
-
-/// name: build, scope: [container, xnode-manager] -> build-command-xnode_manager-container-machine.slice
-pub fn get_scope_slice<SCOPE: AsRef<str>>(name: &str, scope: &[SCOPE]) -> String {
-    let mut slice = ["machine"]
-        .into_iter()
-        .chain(scope.iter().map(|s| s.as_ref()))
-        .chain(["command", name])
-        .map(|s| s.replace("-", "_"))
-        .rev()
-        .collect::<Vec<String>>()
-        .join("-");
-    slice.push_str(".slice");
-
-    slice
+pub fn get_wrapped_unit(name: &str) -> String {
+    format!("command-{name}.service")
 }

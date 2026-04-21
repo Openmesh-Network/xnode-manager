@@ -29,7 +29,8 @@ pub fn service() -> impl HttpServiceFactory {
         .service(list::service())
         .service(process::service())
         .configure(|cfg| {
-            cfg.service(handlers::remove);
+            cfg.service(handlers::create_endpoint);
+            cfg.service(handlers::remove_endpoint);
         })
 }
 

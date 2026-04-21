@@ -3,13 +3,16 @@ use std::{fmt::Display, path::Path};
 use tokio::process::Command;
 
 use crate::common::{
-    command::{CommandOptions, execute_command_scoped, execute_command_simple},
+    command::{CommandOptions, execute_command_simple, execute_command_wrapped},
     env::nix,
-    path::get_scoped_path,
+    file::r#move,
     response::{ResponseError, ResponseResult},
 };
 
-use super::models::{CliFlakeMetadata, FlakeMetadata};
+use super::{
+    ApplyWhen,
+    models::{CliFlakeMetadata, FlakeMetadata},
+};
 
 pub enum Operation {
     Update,
@@ -30,63 +33,59 @@ impl Display for Operation {
     }
 }
 
-pub async fn build<SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
-    scope: &[SCOPE],
-    path: &[PATH],
-    chroot: Option<&[CHROOT]>,
+pub async fn build(
+    flake: impl AsRef<Path>,
+    machine: Option<impl AsRef<str>>,
     options: impl AsRef<CommandOptions>,
 ) -> ResponseResult<()> {
-    let mut command = Command::new(format!("{}nix", nix()));
-    let scoped_path = get_scoped_path(scope, path);
-    let out_link = match chroot {
-        Some(chroot) => {
-            let chroot = get_scoped_path(scope, chroot);
-            scoped_path
-                .strip_prefix(&chroot)
-                .map_err(|e| {
-                    ResponseError::new(format!(
-                        "Couldn't strip chroot {chroot} from {scoped_path}: {e}",
-                        chroot = chroot.display(),
-                        scoped_path = scoped_path.display()
-                    ))
-                })?
-                .parent()
-                .unwrap_or(Path::new("/"))
-                .join("new-result")
-        }
-        None => scoped_path
-            .parent()
-            .unwrap_or(Path::new("/"))
-            .join("new-result"),
-    };
-    command.args(["build", "--out-link"]).arg(out_link);
+    let flake = flake.as_ref();
 
-    alter_flake(
-        command,
-        Operation::Build,
-        "#nixosConfigurations.xnode.config.system.build.toplevel",
-        scope,
-        path,
-        chroot,
-        options,
-    )
-    .await
+    let mut command = Command::new(format!("{}nix", nix()));
+    let out_link = flake.parent().unwrap_or(Path::new("/")).join("new-result");
+    command
+        .arg("build")
+        .arg(format!(
+            "{flake}#nixosConfigurations.xnode.config.system.build.toplevel",
+            flake = flake.to_string_lossy()
+        ))
+        .arg("--out-link")
+        .arg(out_link);
+
+    execute_command_wrapped(command, &Operation::Build.to_string(), machine, options)
+        .await
+        .map(|_output| ())
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not build {flake}: {e}",
+                flake = flake.display()
+            ))
+        })
 }
 
-pub async fn update<INPUTS: AsRef<str>, SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
+pub async fn update<INPUTS: AsRef<str>>(
     inputs: &[INPUTS],
-    scope: &[SCOPE],
-    path: &[PATH],
-    chroot: Option<&[CHROOT]>,
+    flake: impl AsRef<Path>,
+    machine: Option<impl AsRef<str>>,
     options: impl AsRef<CommandOptions>,
 ) -> ResponseResult<()> {
+    let flake = flake.as_ref();
+
     let mut command = Command::new(format!("{}nix", nix()));
     command
         .args(["flake", "update"])
         .args(inputs.iter().map(|s| s.as_ref()))
-        .arg("--flake");
+        .arg("--flake")
+        .arg(flake);
 
-    alter_flake(command, Operation::Update, "", scope, path, chroot, options).await
+    execute_command_wrapped(command, &Operation::Update.to_string(), machine, options)
+        .await
+        .map(|_output| ())
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not update {flake}: {e}",
+                flake = flake.display()
+            ))
+        })
 }
 
 pub async fn flake_metadata(flake: &str) -> ResponseResult<FlakeMetadata> {
@@ -134,61 +133,53 @@ pub async fn eval(statement: &str) -> ResponseResult<String> {
         .map_err(|e| ResponseError::new(format!("Eval result could not be decoded as UTF8: {e}.")))
 }
 
-async fn alter_flake<SCOPE: AsRef<str>, PATH: AsRef<str>, CHROOT: AsRef<str>>(
-    mut command: Command,
-    operation: Operation,
-    suffix: &str,
-    scope: &[SCOPE],
-    path: &[PATH],
-    chroot: Option<&[CHROOT]>,
+pub async fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> ResponseResult<()> {
+    let source = source.as_ref();
+    let destination = destination.as_ref();
+
+    let mut command = Command::new(format!("{}nix", nix()));
+    command
+        .env("NIX_REMOTE", "daemon")
+        .arg("copy")
+        .arg(source)
+        .arg("--to")
+        .arg(destination)
+        .args(["--no-require-sigs"]);
+    execute_command_simple(command)
+        .await
+        .map(|_output| ())
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not copy {source} to nix root {destination}: {e}",
+                source = source.display(),
+                destination = destination.display(),
+            ))
+        })
+}
+
+pub async fn switch_to_configuration(
+    when: ApplyWhen,
+    root: impl AsRef<Path>,
+    machine: Option<impl AsRef<str>>,
     options: impl AsRef<CommandOptions>,
 ) -> ResponseResult<()> {
-    let path = get_scoped_path(scope, path);
+    let root = root.as_ref();
 
-    if let Some(chroot) = chroot {
-        let chroot = get_scoped_path(scope, chroot);
-        let in_chroot_path = path.strip_prefix(&chroot).map_err(|e| {
+    r#move(root.join("new-result"), root.join("result")).await?;
+
+    let mut command = Command::new("/result/bin/switch-to-configuration");
+    command.arg(match when {
+        ApplyWhen::Now => "switch",
+        ApplyWhen::NextBoot => "boot",
+    });
+
+    execute_command_wrapped(command, &Operation::Apply.to_string(), machine, options)
+        .await
+        .map(|_output| ())
+        .map_err(|e| {
             ResponseError::new(format!(
-                "Couldn't strip chroot {chroot} from {path}: {e}",
-                chroot = chroot.display(),
-                path = path.display()
+                "Could not apply configuration to {root}: {e}",
+                root = root.display()
             ))
-        })?;
-        let flake = format!(
-            "./{in_chroot_path}{suffix}",
-            in_chroot_path = in_chroot_path.to_string_lossy()
-        );
-        command.args([
-            &flake,
-            "--extra-experimental-features",
-            "nix-command flakes",
-        ]);
-        command.env("HOME", "/tmp");
-        execute_command_scoped(
-            command,
-            &operation.to_string(),
-            scope,
-            Some(chroot),
-            None::<String>,
-            options,
-        )
-        .await
-        .map(|_output| ())
-        .map_err(|e| ResponseError::new(format!("Could not {operation} {flake}: {e}")))
-    } else {
-        let flake = format!("{path}{suffix}", path = path.to_string_lossy());
-        command.arg(&flake);
-        command.env("NIX_REMOTE", "daemon");
-        execute_command_scoped(
-            command,
-            &operation.to_string(),
-            scope,
-            None::<String>,
-            None::<String>,
-            options,
-        )
-        .await
-        .map(|_output| ())
-        .map_err(|e| ResponseError::new(format!("Could not {operation} {flake}: {e}")))
-    }
+        })
 }

@@ -14,13 +14,13 @@ fn env_var(id: &str) -> Option<String> {
 
 pub fn datadir() -> PathBuf {
     env_var("DATADIR")
-        .map(|d| Path::new(&d).to_path_buf())
+        .map(|datadir| Path::new(&datadir).to_path_buf())
         .unwrap_or(Path::new("/var/lib/xnode-manager").to_path_buf())
 }
 
 pub fn socket() -> PathBuf {
     env_var("SOCKET")
-        .map(|d| Path::new(&d).to_path_buf())
+        .map(|socket| Path::new(&socket).to_path_buf())
         .unwrap_or(Path::new("/run/xnode-manager/.socket").to_path_buf())
 }
 
@@ -34,6 +34,10 @@ pub fn systemd() -> String {
 
 pub fn btrfs() -> String {
     env_var("BTRFS").unwrap_or("".to_string())
+}
+
+pub fn build_base() -> String {
+    env_var("BUILD_BASE").expect("No BUILD_BASE specified.")
 }
 
 #[derive(Serialize, Deserialize)]
