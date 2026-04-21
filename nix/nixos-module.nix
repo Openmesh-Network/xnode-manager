@@ -41,27 +41,27 @@ in
       };
 
       nix = lib.mkOption {
-        type = lib.types.package;
-        default = pkgs.nix;
-        example = pkgs.nix;
+        type = lib.types.str;
+        default = "/run/current-system/sw";
+        example = pkgs.nix.outPath;
         description = ''
           nix equivalent executable.
         '';
       };
 
       systemd = lib.mkOption {
-        type = lib.types.package;
-        default = pkgs.systemd;
-        example = pkgs.systemd;
+        type = lib.types.str;
+        default = "/run/current-system/sw";
+        example = pkgs.systemd.outPath;
         description = ''
           systemd equivalent executable.
         '';
       };
 
       btrfs = lib.mkOption {
-        type = lib.types.package;
-        default = pkgs.btrfs-progs;
-        example = pkgs.btrfs-progs;
+        type = lib.types.str;
+        default = pkgs.btrfs-progs.outPath;
+        example = pkgs.btrfs-progs.outPath;
         description = ''
           btrfs-progs equivalent executable.
         '';
@@ -421,7 +421,7 @@ in
         scriptArgs = "%i";
         script = ''
           name="$1"
-          ${lib.getExe' cfg.systemd "systemd-nspawn"} \
+          "${cfg.systemd}/bin/systemd-nspawn" \
             --machine="''${name}.container" \
             --slice="run-''${name//-/_}-container-machine.slice" \
             --directory="${cfg.dataDir}/container/''${name}/data" \
@@ -434,7 +434,7 @@ in
         scriptArgs = "%i";
         script = ''
           name="$1"
-          ${lib.getExe' cfg.systemd "systemd-vmspawn"} \
+          "${cfg.systemd}/bin/systemd-vmspawn" \
             --machine="''${name}.virtual-machine" \
             --slice="run-''${name//-/_}-virtual_machine-machine.slice" \
             --directory="${cfg.dataDir}/container/''${name}/data" \
