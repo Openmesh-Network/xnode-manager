@@ -69,67 +69,6 @@ in
 
       buildBase = lib.mkOption {
         type = lib.types.str;
-        default =
-          (lib.nixosSystem {
-            inherit pkgs;
-            modules = [
-              (
-                { pkgs, ... }@args:
-                {
-                  config = {
-                    boot =
-                      if builtins.hasAttr "isNspawnContainer" args.options.boot then
-                        { isNspawnContainer = true; }
-                      else
-                        { isContainer = true; };
-
-                    nix = {
-                      settings = {
-                        experimental-features = [
-                          "nix-command"
-                          "flakes"
-                        ];
-                        flake-registry = "";
-                        accept-flake-config = true;
-                      };
-                      channel.enable = false;
-                    };
-
-                    networking = {
-                      useDHCP = false;
-                      useNetworkd = true;
-                    };
-                    systemd.network = {
-                      enable = true;
-                      wait-online = {
-                        timeout = 10;
-                        anyInterface = true;
-                      };
-                      networks = {
-                        "80-container-host0" = {
-                          matchConfig = {
-                            Kind = "veth";
-                            Name = "host0";
-                          };
-                          networkConfig = {
-                            DHCP = "yes";
-                            LinkLocalAddressing = "no";
-                          };
-                          dhcpV4Config.UseDNS = false;
-                          dhcpV6Config.UseDNS = false;
-                        };
-                      };
-                    };
-
-                    networking.useHostResolvConf = false;
-                    services.resolved.enable = true;
-
-                    system.stateVersion = args.config.system.nixos.release;
-                  };
-                }
-              )
-            ];
-          }).config.system.build.toplevel.outPath;
         description = ''
           NixOS configuration that will be applied on creation to build subsequent configurations.
         '';
@@ -371,6 +310,10 @@ in
               extra_args = [
                 "--network-veth"
                 "--private-users=pick"
+                "--private-users-ownership=map"
+                # SYSTEMD260
+                # "--private-users=managed"
+                # "--private-users-delegate=1"
               ];
             };
             description = ''
@@ -425,9 +368,18 @@ in
             --machine="''${name}.container" \
             --slice="run-''${name//-/_}-container-machine.slice" \
             --directory="${cfg.dataDir}/container/''${name}/data" \
+            --notify-ready=yes
+            --kill-signal=SIGRTMIN+3
             $(cat "${cfg.dataDir}/host/permission/container/cli/''${name}") \
             /result/init
         '';
+        serviceConfig = {
+          Type = "notify";
+          RestartForceExitStatus = "133";
+          SuccessExitStatus = "133";
+          KillMode = "mixed";
+          KillSignal = "TERM";
+        };
       };
 
       "virtual-machine@" = {
