@@ -3,7 +3,7 @@ use actix_web::{Responder, get, post, rt::spawn, web};
 use crate::{
     common::{
         command::{CommandOptions, ResponseCommand, get_wrapped_unit},
-        file::{read_file, write_file},
+        file::{read_file, shift, write_file},
         nix::{
             ApplyQuery, ApplyWhen, Operation, UpdateData, build, switch_to_configuration, update,
         },
@@ -81,6 +81,8 @@ async fn build_endpoint(
     .await?;
     write_file(xnode_config.join("name"), &container).await?;
     write_file(xnode_config.join("type"), "container").await?;
+
+    shift(get_scoped_path(&scope, &["data", "config"]), "foreign").await?;
 
     spawn(async move { build(flake(), machine(&container), options).await });
 

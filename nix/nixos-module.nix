@@ -309,10 +309,9 @@ in
             default = {
               extra_args = [
                 "--network-veth"
-                "--private-users=pick"
-                "--private-users-ownership=map"
+                "--private-users=managed"
+                "--private-users-ownership=foreign"
                 # SYSTEMD260
-                # "--private-users=managed"
                 # "--private-users-delegate=1"
               ];
             };

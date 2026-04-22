@@ -6,7 +6,7 @@ use crate::{
     common::{
         btrfs::{quota, subvolume},
         env::{build_base, default_permission},
-        file::{metadata, write_link},
+        file::{metadata, shift, write_link},
         nix,
         path::get_scope_root,
         process::{SystemCtlCommand, execute},
@@ -49,6 +49,8 @@ async fn create_endpoint(path: web::Path<String>) -> ResponseResult<impl Respond
 
     nix::copy(build_base(), &data_root).await?;
     write_link(build_base(), data_root.join("result")).await?;
+
+    shift(&root, "foreign").await?;
 
     execute(
         None::<String>,

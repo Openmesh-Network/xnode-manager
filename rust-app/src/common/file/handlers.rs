@@ -5,11 +5,10 @@ use std::{
 };
 
 use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, PosixACL, Qualifier};
-use tokio::fs;
+use tokio::{fs, process::Command};
 
 use crate::common::{
-    btrfs::filesystem::du,
-    response::{ResponseError, ResponseResult, TypedResponseError}, string::escaped_utf8_from_bytes,
+    btrfs::filesystem::du, command::execute_command_simple, env::systemd, response::{ResponseError, ResponseResult, TypedResponseError}, string::escaped_utf8_from_bytes
 };
 
 use super::{ReadFolderOptions, models::{Entity, FolderItem, Metadata, Permission, Size}};
@@ -408,6 +407,23 @@ pub async fn set_permissions(
             path = path.display()
         ))
     })
+}
+
+pub async fn shift(path: impl AsRef<Path>, range: impl AsRef<str>) -> ResponseResult<()> {
+    let path = path.as_ref();
+    let range = range.as_ref();
+
+    let mut command = Command::new(format!("{}systemd-dissect", systemd()));
+    command.arg("--shift").arg(path).arg(range);
+
+    execute_command_simple(command)
+        .await
+        .map(|_output| ())
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not shift {path} to {range}: {e}", path = path.display()
+            ))
+        })
 }
 
 pub fn remove_first_slash(string: &str) -> &str {
