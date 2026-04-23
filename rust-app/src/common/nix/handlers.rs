@@ -43,6 +43,7 @@ pub async fn build(
     let mut command = Command::new(format!("{}nix", nix()));
     let out_link = flake.parent().unwrap_or(Path::new("/")).join("new-result");
     command
+        .env("NIX_REMOTE", "daemon")
         .arg("build")
         .arg(format!(
             "{flake}#nixosConfigurations.xnode.config.system.build.toplevel",
@@ -72,6 +73,7 @@ pub async fn update<INPUTS: AsRef<str>>(
 
     let mut command = Command::new(format!("{}nix", nix()));
     command
+        .env("NIX_REMOTE", "daemon")
         .args(["flake", "update"])
         .args(inputs.iter().map(|s| s.as_ref()))
         .arg("--flake")
