@@ -354,7 +354,9 @@ in
         serviceConfig = {
           ExecStart = "${lib.getExe xnode-manager}";
           StateDirectory = "xnode-manager";
+          StateDirectoryMode = 0700;
           RuntimeDirectory = "xnode-manager";
+          RuntimeDirectoryMode = 0700;
           Restart = "always";
         };
       };
