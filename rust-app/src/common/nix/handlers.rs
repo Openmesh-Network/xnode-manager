@@ -3,7 +3,10 @@ use std::{fmt::Display, path::Path};
 use tokio::process::Command;
 
 use crate::common::{
-    command::{CommandOptions, execute_command_simple, execute_command_wrapped},
+    command::{
+        CommandOptions, execute_command_simple, execute_command_simple_machine,
+        execute_command_wrapped,
+    },
     env::nix,
     response::{ResponseError, ResponseResult},
 };
@@ -89,7 +92,10 @@ pub async fn update<INPUTS: AsRef<str>>(
         })
 }
 
-pub async fn flake_metadata(flake: &str) -> ResponseResult<FlakeMetadata> {
+pub async fn flake_metadata(
+    flake: &str,
+    machine: Option<impl AsRef<str>>,
+) -> ResponseResult<FlakeMetadata> {
     let mut command = Command::new(format!("{}nix", nix()));
     command.env("NIX_REMOTE", "daemon").args([
         "flake",
@@ -101,7 +107,7 @@ pub async fn flake_metadata(flake: &str) -> ResponseResult<FlakeMetadata> {
         "--no-write-lock-file",
     ]);
 
-    let output = execute_command_simple(command)
+    let output = execute_command_simple_machine(command, machine)
         .await
         .map_err(|e| ResponseError::new(format!("Could not get flake metadata of {flake}: {e}")))?;
     let output_str = String::from_utf8(output).map_err(|e| {
@@ -120,13 +126,13 @@ pub async fn flake_metadata(flake: &str) -> ResponseResult<FlakeMetadata> {
         })
 }
 
-pub async fn eval(statement: &str) -> ResponseResult<String> {
+pub async fn eval(statement: &str, machine: Option<impl AsRef<str>>) -> ResponseResult<String> {
     let mut command = Command::new(format!("{}nix", nix()));
     command
         .env("NIX_REMOTE", "daemon")
-        .args(["eval", statement]);
+        .args(["eval", statement, "--json"]);
 
-    let output = execute_command_simple(command)
+    let output = execute_command_simple_machine(command, machine)
         .await
         .map_err(|e| ResponseError::new(format!("Could not evaluate {statement}: {e}")))?;
 

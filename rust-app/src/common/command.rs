@@ -76,6 +76,34 @@ pub async fn execute_command_simple(mut command: Command) -> SimpleCommandResult
     }
 }
 
+pub async fn execute_command_simple_machine(
+    command: Command,
+    machine: Option<impl AsRef<str>>,
+) -> SimpleCommandResult {
+    let mut base_command = command.into_std();
+
+    let mut command = Command::new(format!("{}systemd-run", systemd()));
+    command.args(["--pipe", "--quiet", "--collect"]);
+
+    if let Some(machine) = &machine {
+        command.args(["--machine", machine.as_ref()]);
+    }
+
+    for (key, value) in base_command.get_envs() {
+        if let Some(value) = value {
+            command
+                .arg("--setenv")
+                .arg([key, value].join(OsStr::new("=")));
+        }
+    }
+    base_command.env_clear();
+
+    let program = base_command.get_program();
+    command.arg(program).args(base_command.get_args());
+
+    execute_command_simple(command).await
+}
+
 pub async fn execute_command_wrapped(
     command: Command,
     name: &str,

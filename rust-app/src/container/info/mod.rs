@@ -9,6 +9,8 @@ pub fn scope() -> String {
 
 pub fn service() -> impl HttpServiceFactory {
     web::scope(&scope()).configure(|cfg| {
+        cfg.service(handlers::flake_metadata_endpoint);
+        cfg.service(handlers::eval_endpoint);
         cfg.service(handlers::users_users_endpoint);
         cfg.service(handlers::users_groups_endpoint);
     })
