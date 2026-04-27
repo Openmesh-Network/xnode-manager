@@ -19,6 +19,7 @@ pub struct Process {
 #[derive(Serialize, Deserialize)]
 pub struct Status {
     pub running: bool,
+    pub exit_code: u8,
 }
 
 #[derive(Serialize, Deserialize)]

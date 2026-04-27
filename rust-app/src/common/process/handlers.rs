@@ -142,7 +142,7 @@ pub async fn status(
     let process = process.as_ref();
 
     let mut command = Command::new(format!("{}systemctl", systemd()));
-    command.args(["show", process, "--property=SubState"]);
+    command.args(["show", process, "--property=SubState,ExecMainStatus"]);
     if let Some(machine) = &machine {
         command.args(["--machine", machine.as_ref()]);
     }
@@ -164,6 +164,7 @@ pub async fn status(
     })?;
 
     let mut running = None;
+    let mut exit_code = None;
 
     for line in output_str.trim_end().split("\n") {
         if let Some((property, value)) = line.split_once("=") {
@@ -174,6 +175,9 @@ pub async fn status(
             match property {
                 "SubState" => {
                     running = Some(value == "running" || value == "start");
+                }
+                "ExecMainStatus" => {
+                    exit_code = Some(value.parse());
                 }
                 property => {
                     log::warn!(
@@ -192,6 +196,19 @@ pub async fn status(
             None => {
                 return Err(ResponseError::new(format!(
                     "Status of {process} of {machine} does not contain running property"
+                )));
+            }
+        },
+        exit_code: match exit_code {
+            Some(Ok(exit_code)) => exit_code,
+            Some(Err(e)) => {
+                return Err(ResponseError::new(format!(
+                    "Status of {process} of {machine} contains invalid exit_code property: {e}"
+                )));
+            }
+            None => {
+                return Err(ResponseError::new(format!(
+                    "Status of {process} of {machine} does not contain exit_code property"
                 )));
             }
         },
