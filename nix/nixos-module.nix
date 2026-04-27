@@ -67,11 +67,13 @@ in
         '';
       };
 
-      buildBase = lib.mkOption {
-        type = lib.types.str;
-        description = ''
-          NixOS configuration that will be applied on creation to build subsequent configurations.
-        '';
+      buildBase = {
+        container = lib.mkOption {
+          type = lib.types.str;
+          description = ''
+            NixOS configuration that will be applied on creation to build subsequent container configurations.
+          '';
+        };
       };
 
       defaultPermission =
@@ -345,7 +347,7 @@ in
           NIX = "${cfg.nix}/bin/";
           SYSTEMD = "${cfg.systemd}/bin/";
           BTRFS = "${cfg.btrfs}/bin/";
-          BUILD_BASE = cfg.buildBase;
+          BUILD_BASE = builtins.toJSON cfg.buildBase;
           DEFAULT_PERMISSION = builtins.toJSON cfg.defaultPermission;
         };
         startLimitIntervalSec = 0;
@@ -364,11 +366,11 @@ in
         script = ''
           name="$1"
           "${cfg.systemd}/bin/systemd-nspawn" \
+            --boot \
             --machine="''${name}.container" \
-            --slice="run-''${name//-/_}-container-machine.slice" \
+            --slice="''${name//-/_}-container-machine.slice" \
             --directory="${cfg.dataDir}/container/''${name}/data" \
-            $(cat "${cfg.dataDir}/host/permission/container/cli/''${name}") \
-            /result/init
+            $(cat "${cfg.dataDir}/host/permission/container/cli/''${name}")
         '';
       };
 
@@ -378,7 +380,7 @@ in
           name="$1"
           "${cfg.systemd}/bin/systemd-vmspawn" \
             --machine="''${name}.virtual-machine" \
-            --slice="run-''${name//-/_}-virtual_machine-machine.slice" \
+            --slice="''${name//-/_}-virtual_machine-machine.slice" \
             --directory="${cfg.dataDir}/container/''${name}/data" \
             $(cat "${cfg.dataDir}/host/permission/virtual-machine/cli/''${name}")
         '';

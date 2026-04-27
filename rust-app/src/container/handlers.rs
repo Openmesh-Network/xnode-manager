@@ -1,11 +1,13 @@
 use std::path::Path;
 
 use actix_web::{Responder, post, web};
+use tokio::process::Command;
 
 use crate::{
     common::{
         btrfs::{quota, subvolume},
-        env::{build_base, default_permission},
+        command::execute_command_simple,
+        env::{build_base, default_permission, systemd},
         file::{metadata, shift, write_link},
         nix,
         path::get_scope_root,
@@ -47,8 +49,23 @@ async fn create_endpoint(path: web::Path<String>) -> ResponseResult<impl Respond
     })?;
     set_permission(permission, kind, &container, false, false).await?;
 
-    nix::copy(build_base(), &data_root).await?;
-    write_link(build_base(), data_root.join("result")).await?;
+    let build_base = build_base().container;
+    nix::copy(&build_base, &data_root).await?;
+    write_link(&build_base, data_root.join("new-result")).await?;
+
+    let mut first_install = Command::new(format!("{}systemd-run", systemd()));
+    first_install.args([
+        "--pipe",
+        "--collect",
+        "--property",
+        "Type=oneshot",
+        "--root-directory",
+    ]);
+    first_install.arg(&data_root);
+    first_install.arg("/new-result/first-install");
+    execute_command_simple(first_install)
+        .await
+        .map_err(|e| ResponseError::new(format!("Could not perform first install: {e}")))?;
 
     shift(&root, "foreign").await?;
 

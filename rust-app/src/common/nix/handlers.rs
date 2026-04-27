@@ -5,7 +5,6 @@ use tokio::process::Command;
 use crate::common::{
     command::{CommandOptions, execute_command_simple, execute_command_wrapped},
     env::nix,
-    file::r#move,
     response::{ResponseError, ResponseResult},
 };
 
@@ -167,9 +166,7 @@ pub async fn switch_to_configuration(
 ) -> ResponseResult<()> {
     let root = root.as_ref();
 
-    r#move(root.join("new-result"), root.join("result")).await?;
-
-    let mut command = Command::new("/result/bin/switch-to-configuration");
+    let mut command = Command::new("/new-result/bin/switch-to-configuration");
     command.arg(match when {
         ApplyWhen::Now => "switch",
         ApplyWhen::NextBoot => "boot",

@@ -36,8 +36,14 @@ pub fn btrfs() -> String {
     env_var("BTRFS").unwrap_or("".to_string())
 }
 
-pub fn build_base() -> String {
-    env_var("BUILD_BASE").expect("No BUILD_BASE specified.")
+#[derive(Serialize, Deserialize)]
+pub struct BuildBase {
+    pub container: String,
+}
+pub fn build_base() -> BuildBase {
+    env_var("BUILD_BASE")
+        .and_then(|build_base| serde_json::from_str(&build_base).ok())
+        .expect("Invalid BUILD_BASE specified.")
 }
 
 #[derive(Serialize, Deserialize)]
