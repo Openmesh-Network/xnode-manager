@@ -311,8 +311,7 @@ in
                 "--network-veth"
                 "--private-users=managed"
                 "--private-users-ownership=foreign"
-                # SYSTEMD260
-                # "--private-users-delegate=1"
+                "--private-users-delegate=1"
               ];
             };
             description = ''
