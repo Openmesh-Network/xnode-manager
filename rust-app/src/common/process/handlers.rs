@@ -10,7 +10,7 @@ use crate::common::{
 };
 
 use super::{
-    ProcessListOptions, Status,
+    ProcessOptions, Status,
     models::{
         JournalCtlLog, JournalCtlLogMessage, Log, LogLevel, LogQuery, Process, SystemCtlCommand,
         SystemCtlProcess, Usage,
@@ -19,7 +19,7 @@ use super::{
 
 pub async fn list(
     machine: Option<impl AsRef<str>>,
-    options: ProcessListOptions,
+    options: ProcessOptions,
 ) -> ResponseResult<Vec<Process>> {
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command.args([

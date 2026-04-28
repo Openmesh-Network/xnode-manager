@@ -3,12 +3,11 @@ use actix_web::{Responder, get, web};
 use crate::{
     common::{
         info::{get_groups, get_users},
-        nix::{eval, flake_metadata},
+        nix::{EvalQuery, FlakeQuery, eval, flake_metadata},
         path::get_scope_root,
         response::{ResponseResult, json_response},
     },
-    container::handlers::machine,
-    host::info::models::{EvalQuery, FlakeQuery},
+    container::handlers::{flake, machine},
 };
 
 #[get("/flake/metadata")]
@@ -28,7 +27,16 @@ async fn eval_endpoint(
     query: web::Query<EvalQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
-    eval(&query.statement, machine(&container))
+    let mut statement = query.statement.clone();
+
+    if query.config.unwrap_or(false) {
+        statement = format!(
+            "{flake}#nixosConfiguration.xnode.{statement}",
+            flake = flake().as_ref().to_string_lossy()
+        );
+    }
+
+    eval(&statement, machine(&container))
         .await
         .map(json_response)
 }

@@ -3,7 +3,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-pub struct ProcessListOptions {
+pub struct ProcessOptions {
     pub status: Option<bool>,
     pub usage: Option<bool>,
 }

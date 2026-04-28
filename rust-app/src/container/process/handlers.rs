@@ -3,8 +3,7 @@ use actix_web::{Responder, get, post, web};
 use crate::{
     common::{
         process::{
-            LogQuery, ProcessListOptions, SystemCtlCommand, execute, info, list, logs, status,
-            usage,
+            LogQuery, ProcessOptions, SystemCtlCommand, execute, info, list, logs, status, usage,
         },
         response::{ResponseResult, json_response},
     },
@@ -14,7 +13,7 @@ use crate::{
 #[get("/")]
 async fn endpoint(
     path: web::Path<String>,
-    options: web::Query<ProcessListOptions>,
+    options: web::Query<ProcessOptions>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
     let options = options.into_inner();

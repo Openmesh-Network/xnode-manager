@@ -9,7 +9,7 @@ pub fn service() -> impl HttpServiceFactory {
         .configure(|cfg| {
             cfg.service(handlers::endpoint);
         })
-        .service(web::scope("/{uuid}").configure(|cfg| {
+        .service(web::scope("/{gpu}").configure(|cfg| {
             cfg.service(handlers::info_endpoint);
             cfg.service(handlers::usage_endpoint);
         }))

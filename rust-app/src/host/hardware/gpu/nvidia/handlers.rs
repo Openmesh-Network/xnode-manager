@@ -1,14 +1,18 @@
 use actix_web::{Responder, get, web};
+use futures::future::join_all;
+use nvml_wrapper::Nvml;
 
-use crate::{
-    common::response::{ResponseError, ResponseResult, json_response},
-    host::hardware::gpu::nvidia::models::Gpu,
-};
+use crate::common::response::{ResponseError, ResponseResult, json_response};
 
-use super::models::{AppData, Info, MemoryUsage, Usage};
+use super::models::{AppData, Gpu, GpuOptions, Info, MemoryUsage, Usage};
 
 #[get("/")]
-async fn endpoint(data: web::Data<AppData>) -> ResponseResult<impl Responder> {
+async fn endpoint(
+    data: web::Data<AppData>,
+    options: web::Query<GpuOptions>,
+) -> ResponseResult<impl Responder> {
+    let options = options.into_inner();
+
     let nvml = data.nvml.lock().await;
     let nvml = nvml
         .as_ref()
@@ -18,17 +22,29 @@ async fn endpoint(data: web::Data<AppData>) -> ResponseResult<impl Responder> {
         .device_count()
         .map_err(|e| ResponseError::new(format!("Could not get nvml count: {e}")))?;
 
-    let mut devices = vec![];
+    let mut items = vec![];
 
     for i in 0..count {
         if let Ok(device) = nvml.device_by_index(i)
-            && let Ok(id) = device.uuid()
+            && let Ok(gpu) = device.uuid()
         {
-            devices.push(Gpu { id });
+            let get = async move {
+                let mut gpu_usage = None;
+                if options.usage.unwrap_or(false) {
+                    gpu_usage = usage(nvml, &gpu).await.ok();
+                }
+
+                Gpu {
+                    id: gpu,
+                    usage: gpu_usage,
+                }
+            };
+
+            items.push(get);
         }
     }
 
-    Ok(json_response(devices))
+    Ok(json_response(join_all(items).await))
 }
 
 #[get("/info")]
@@ -36,7 +52,7 @@ async fn info_endpoint(
     data: web::Data<AppData>,
     path: web::Path<String>,
 ) -> ResponseResult<impl Responder> {
-    let uuid = path.into_inner();
+    let gpu = path.into_inner();
 
     let nvml = data.nvml.lock().await;
     let nvml = nvml
@@ -44,12 +60,12 @@ async fn info_endpoint(
         .map_err(|e| ResponseError::new(format!("Could not acquire nvml lock: {e}")))?;
 
     let device = nvml
-        .device_by_uuid(uuid.clone())
-        .map_err(|e| ResponseError::new(format!("Could not get device {uuid}: {e}")))?;
+        .device_by_uuid(gpu.clone())
+        .map_err(|e| ResponseError::new(format!("Could not get device {gpu}: {e}")))?;
 
     let name = device
         .name()
-        .map_err(|e| ResponseError::new(format!("Could not get name of device {uuid}: {e}")))?;
+        .map_err(|e| ResponseError::new(format!("Could not get name of device {gpu}: {e}")))?;
 
     Ok(json_response(Info { name }))
 }
@@ -59,33 +75,39 @@ async fn usage_endpoint(
     data: web::Data<AppData>,
     path: web::Path<String>,
 ) -> ResponseResult<impl Responder> {
-    let uuid = path.into_inner();
+    let gpu = path.into_inner();
 
     let nvml = data.nvml.lock().await;
     let nvml = nvml
         .as_ref()
         .map_err(|e| ResponseError::new(format!("Could not acquire nvml lock: {e}")))?;
 
+    usage(nvml, gpu).await.map(json_response)
+}
+
+async fn usage(nvml: &Nvml, gpu: impl AsRef<str>) -> ResponseResult<Usage> {
+    let gpu = gpu.as_ref();
+
     let device = nvml
-        .device_by_uuid(uuid.clone())
-        .map_err(|e| ResponseError::new(format!("Could not get device {uuid}: {e}")))?;
+        .device_by_uuid(gpu)
+        .map_err(|e| ResponseError::new(format!("Could not get device {gpu}: {e}")))?;
 
     let utilization_rates = device.utilization_rates().map_err(|e| {
         ResponseError::new(format!(
-            "Could not get utilization_rates of device {uuid}: {e}"
+            "Could not get utilization_rates of device {gpu}: {e}"
         ))
     })?;
 
     let memory_info = device.memory_info().map_err(|e| {
-        ResponseError::new(format!("Could not get memory_info of device {uuid}: {e}"))
+        ResponseError::new(format!("Could not get memory_info of device {gpu}: {e}"))
     })?;
 
-    Ok(json_response(Usage {
+    Ok(Usage {
         compute: utilization_rates.gpu,
         memory: MemoryUsage {
             total: memory_info.total,
             available: memory_info.free,
         },
         power: device.power_usage().ok(),
-    }))
+    })
 }

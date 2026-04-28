@@ -1,22 +1,22 @@
 use std::str::FromStr;
 
 use actix_web::{Responder, get, web};
+use futures::future::join_all;
 
-use crate::{
-    common::{
-        file::{ReadFolderOptions, read_file, read_folder},
-        response::{ResponseError, ResponseResult, json_response},
-        string::escaped_utf8_from_bytes,
-    },
-    host::hardware::cpu::models::Cpu,
+use crate::common::{
+    file::{ReadFolderOptions, read_file, read_folder},
+    response::{ResponseError, ResponseResult, json_response},
+    string::escaped_utf8_from_bytes,
 };
 
-use super::models::{Info, Usage};
+use super::models::{Cpu, CpuOptions, Info, Usage};
 
 #[get("/")]
-async fn endpoint() -> ResponseResult<impl Responder> {
+async fn endpoint(options: web::Query<CpuOptions>) -> ResponseResult<impl Responder> {
+    let options = options.into_inner();
+
     let path = "/sys/devices/system/cpu";
-    read_folder(path, &ReadFolderOptions { metadata: None })
+    let cpus = read_folder(path, &ReadFolderOptions { metadata: None })
         .await
         .map(|items| {
             items
@@ -27,12 +27,29 @@ async fn endpoint() -> ResponseResult<impl Responder> {
                         .map(|rest| rest.chars().all(|c| c.is_ascii_digit()))
                         .unwrap_or(false)
                 })
-                .map(|name| Cpu {
-                    id: name.replace("cpu", ""),
-                })
-                .collect::<Vec<Cpu>>()
-        })
-        .map(json_response)
+                .map(|name| name.replace("cpu", ""))
+                .collect::<Vec<String>>()
+        })?;
+
+    let mut items = vec![];
+
+    for cpu in cpus {
+        let get = async move {
+            let mut cpu_usage = None;
+            if options.usage.unwrap_or(false) {
+                cpu_usage = usage(&cpu).await.ok();
+            }
+
+            Cpu {
+                id: cpu,
+                usage: cpu_usage,
+            }
+        };
+
+        items.push(get);
+    }
+
+    Ok(json_response(join_all(items).await))
 }
 
 #[get("/info")]
@@ -64,6 +81,11 @@ async fn info_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder
 #[get("/usage")]
 async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let cpu = path.into_inner();
+    usage(cpu).await.map(json_response)
+}
+
+async fn usage(cpu: impl AsRef<str>) -> ResponseResult<Usage> {
+    let cpu = cpu.as_ref();
 
     let path = "/proc/stat";
 
@@ -74,7 +96,6 @@ async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Responde
         .find(|line| line.starts_with(&format!("cpu{cpu} ")))
         .ok_or_else(|| ResponseError::new(format!("Cpu {cpu} not found in {path}.")))
         .and_then(Usage::from_str)
-        .map(json_response)
 }
 
 impl FromStr for Info {

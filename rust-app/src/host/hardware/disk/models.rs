@@ -1,8 +1,14 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
+pub struct DiskOptions {
+    pub usage: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Disk {
     pub id: String,
+    pub usage: Option<Usage>,
 }
 
 #[derive(Serialize, Deserialize)]

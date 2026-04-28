@@ -8,7 +8,7 @@ pub fn service() -> impl HttpServiceFactory {
         .configure(|cfg| {
             cfg.service(handlers::endpoint);
         })
-        .service(web::scope("/{interface}").configure(|cfg| {
+        .service(web::scope("/{network}").configure(|cfg| {
             cfg.service(handlers::info_endpoint);
             cfg.service(handlers::usage_endpoint);
         }))

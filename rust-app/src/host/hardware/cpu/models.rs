@@ -1,8 +1,14 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
+pub struct CpuOptions {
+    pub usage: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Cpu {
     pub id: String,
+    pub usage: Option<Usage>,
 }
 
 #[derive(Serialize, Deserialize)]
