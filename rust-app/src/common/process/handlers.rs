@@ -1,3 +1,4 @@
+use futures::future::join_all;
 use tokio::process::Command;
 
 use crate::common::{
@@ -8,14 +9,17 @@ use crate::common::{
 };
 
 use super::{
-    Status,
+    ProcessListOptions, Status,
     models::{
         JournalCtlLog, JournalCtlLogMessage, Log, LogLevel, LogQuery, Process, SystemCtlCommand,
         SystemCtlProcess, Usage,
     },
 };
 
-pub async fn list(machine: Option<impl AsRef<str>>) -> ResponseResult<Vec<Process>> {
+pub async fn list(
+    machine: Option<impl AsRef<str>>,
+    options: ProcessListOptions,
+) -> ResponseResult<Vec<Process>> {
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command.args([
         "list-units",
@@ -28,33 +32,58 @@ pub async fn list(machine: Option<impl AsRef<str>>) -> ResponseResult<Vec<Proces
     }
 
     // For error logging
-    let machine = machine
+    let machine_str = machine
+        .as_ref()
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
     let output = execute_command_simple(command).await.map_err(|e| {
-        ResponseError::new(format!("Could not retrieve process list of {machine}: {e}"))
+        ResponseError::new(format!(
+            "Could not retrieve process list of {machine_str}: {e}"
+        ))
     })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
-            "Process list of {machine} could not be decoded as UTF8: {e}."
+            "Process list of {machine_str} could not be decoded as UTF8: {e}."
         ))
     })?;
 
-    serde_json::from_str::<Vec<SystemCtlProcess>>(&output_str)
-        .map(|processes| processes
-            .into_iter()
-            .map(|process| Process {
-                name: process.unit,
-                description: Some(process.description),
-                running: process.sub == "running" || process.sub == "start",
-            })
-            .collect())
-        .map_err(|e| {
+    let processes = serde_json::from_str::<Vec<SystemCtlProcess>>(&output_str).map_err(|e| {
             ResponseError::new(format!(
-                "Process list of {machine} could not be parsed to expected format: {e}. Input: {output_str}"
+                "Process list of {machine_str} could not be parsed to expected format: {e}. Input: {output_str}"
             ))
-        })
+        })?;
+
+    let mut items = vec![];
+
+    for process in processes {
+        let name = process.unit;
+        let description = Some(process.description);
+        let machine = machine.as_ref();
+
+        let get = async move {
+            let mut process_status = None;
+            if options.status.unwrap_or(false) {
+                process_status = status(machine, &name).await.ok();
+            }
+
+            let mut process_usage = None;
+            if options.usage.unwrap_or(false) {
+                process_usage = usage(machine, &name).await.ok();
+            }
+
+            Process {
+                name,
+                description,
+                status: process_status,
+                usage: process_usage,
+            }
+        };
+
+        items.push(get);
+    }
+
+    Ok(join_all(items).await)
 }
 
 pub async fn logs(
@@ -91,25 +120,33 @@ pub async fn logs(
         ]);
     }
     if let Some(after) = &query.after {
-        command.args(["--since", &format!("@{after}")]);
+        command.args([
+            "--since",
+            &format!(
+                "@{seconds}.{decimal:06}",
+                seconds = after / 1_000_000,
+                decimal = after % 1_000_000
+            ),
+        ]);
     }
     if let Some(max) = &query.max {
         command.args(["--lines", &max.to_string()]);
     }
 
     // For error logging
-    let machine = machine
+    let machine_str = machine
+        .as_ref()
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
     let output = execute_command_simple(command).await.map_err(|e| {
         ResponseError::new(format!(
-            "Could not retrieve process logs of {process} of {machine}: {e}"
+            "Could not retrieve process logs of {process} of {machine_str}: {e}"
         ))
     })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
-            "Process logs of {process} of {machine} could not be decoded as UTF8: {e}."
+            "Process logs of {process} of {machine_str} could not be decoded as UTF8: {e}."
         ))
     })?;
 
@@ -120,7 +157,7 @@ pub async fn logs(
         .map(|logs| logs
             .into_iter()
             .map(|log| Log {
-                timestamp: log.__REALTIME_TIMESTAMP.parse().map(|timestamp: u64| timestamp / 1_000_000).unwrap_or(0),
+                timestamp: log.__REALTIME_TIMESTAMP.parse().map(|timestamp: u64| timestamp).unwrap_or(0),
                 message: match log.MESSAGE {
                     JournalCtlLogMessage::String(output) => output,
                     JournalCtlLogMessage::Raw(output) => escaped_utf8_from_bytes(output)
@@ -130,7 +167,7 @@ pub async fn logs(
             .collect())
         .map_err(|e| {
             ResponseError::new(format!(
-                "Process logs of {process} of {machine} could not be parsed to expected format: {e}. Input: {output_str}"
+                "Process logs of {process} of {machine_str} could not be parsed to expected format: {e}. Input: {output_str}"
             ))
         })
 }
@@ -148,18 +185,19 @@ pub async fn status(
     }
 
     // For error logging
-    let machine = machine
+    let machine_str = machine
+        .as_ref()
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
     let output = execute_command_simple(command).await.map_err(|e| {
         ResponseError::new(format!(
-            "Could not retrieve status of {process} of {machine}: {e}"
+            "Could not retrieve status of {process} of {machine_str}: {e}"
         ))
     })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
-            "Status of {process} of {machine} could not be decoded as UTF8: {e}."
+            "Status of {process} of {machine_str} could not be decoded as UTF8: {e}."
         ))
     })?;
 
@@ -181,12 +219,14 @@ pub async fn status(
                 }
                 property => {
                     log::warn!(
-                        "Status of process {process} of {machine} contains unexpected property {property}: {line}"
+                        "Status of process {process} of {machine_str} contains unexpected property {property}: {line}"
                     );
                 }
             }
         } else {
-            log::warn!("Status of process {process} of {machine} contains unexpected line: {line}");
+            log::warn!(
+                "Status of process {process} of {machine_str} contains unexpected line: {line}"
+            );
         }
     }
 
@@ -195,7 +235,7 @@ pub async fn status(
             Some(running) => running,
             None => {
                 return Err(ResponseError::new(format!(
-                    "Status of {process} of {machine} does not contain running property"
+                    "Status of {process} of {machine_str} does not contain running property"
                 )));
             }
         },
@@ -203,12 +243,12 @@ pub async fn status(
             Some(Ok(exit_code)) => exit_code,
             Some(Err(e)) => {
                 return Err(ResponseError::new(format!(
-                    "Status of {process} of {machine} contains invalid exit_code property: {e}"
+                    "Status of {process} of {machine_str} contains invalid exit_code property: {e}"
                 )));
             }
             None => {
                 return Err(ResponseError::new(format!(
-                    "Status of {process} of {machine} does not contain exit_code property"
+                    "Status of {process} of {machine_str} does not contain exit_code property"
                 )));
             }
         },
@@ -228,18 +268,19 @@ pub async fn usage(
     }
 
     // For error logging
-    let machine = machine
+    let machine_str = machine
+        .as_ref()
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
     let output = execute_command_simple(command).await.map_err(|e| {
         ResponseError::new(format!(
-            "Could not retrieve usage of {process} of {machine}: {e}"
+            "Could not retrieve usage of {process} of {machine_str}: {e}"
         ))
     })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
-            "Usage of {process} of {machine} could not be decoded as UTF8: {e}."
+            "Usage of {process} of {machine_str} could not be decoded as UTF8: {e}."
         ))
     })?;
 
@@ -262,7 +303,7 @@ pub async fn usage(
                 Ok(value) => value,
                 Err(_) => {
                     log::warn!(
-                        "Usage of process {process} of {machine} contains unexpected value: {line}"
+                        "Usage of process {process} of {machine_str} contains unexpected value: {line}"
                     );
                     continue;
                 }
@@ -289,12 +330,14 @@ pub async fn usage(
                 }
                 property => {
                     log::warn!(
-                        "Usage of process {process} of {machine} contains unexpected property {property}: {line}"
+                        "Usage of process {process} of {machine_str} contains unexpected property {property}: {line}"
                     );
                 }
             }
         } else {
-            log::warn!("Usage of process {process} of {machine} contains unexpected line: {line}");
+            log::warn!(
+                "Usage of process {process} of {machine_str} contains unexpected line: {line}"
+            );
         }
     }
 
@@ -315,7 +358,8 @@ pub async fn execute(
     }
 
     // For error logging
-    let machine = machine
+    let machine_str = machine
+        .as_ref()
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
@@ -324,7 +368,7 @@ pub async fn execute(
         .map(|_output| ())
         .map_err(|e| {
             ResponseError::new(format!(
-                "Could not perform {systemctl_command} on {process} of {machine}: {e}"
+                "Could not perform {systemctl_command} on {process} of {machine_str}: {e}"
             ))
         })
 }

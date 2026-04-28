@@ -54,12 +54,18 @@ pub async fn build(
         .arg("--out-link")
         .arg(out_link);
 
+    // For error logging
+    let machine_str = machine
+        .as_ref()
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
+        .unwrap_or("host".to_string());
+
     execute_command_wrapped(command, &Operation::Build.to_string(), machine, options)
         .await
         .map(|_output| ())
         .map_err(|e| {
             ResponseError::new(format!(
-                "Could not build {flake}: {e}",
+                "Could not build {flake} on {machine_str}: {e}",
                 flake = flake.display()
             ))
         })
@@ -81,12 +87,18 @@ pub async fn update<INPUTS: AsRef<str>>(
         .arg("--flake")
         .arg(flake);
 
+    // For error logging
+    let machine_str = machine
+        .as_ref()
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
+        .unwrap_or("host".to_string());
+
     execute_command_wrapped(command, &Operation::Update.to_string(), machine, options)
         .await
         .map(|_output| ())
         .map_err(|e| {
             ResponseError::new(format!(
-                "Could not update {flake}: {e}",
+                "Could not update {flake} on {machine_str}: {e}",
                 flake = flake.display()
             ))
         })
@@ -107,9 +119,19 @@ pub async fn flake_metadata(
         "--no-write-lock-file",
     ]);
 
+    // For error logging
+    let machine_str = machine
+        .as_ref()
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
+        .unwrap_or("host".to_string());
+
     let output = execute_command_simple_machine(command, machine)
         .await
-        .map_err(|e| ResponseError::new(format!("Could not get flake metadata of {flake}: {e}")))?;
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not get flake metadata of {flake} on {machine_str}: {e}"
+            ))
+        })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!("Flake metadata could not be decoded as UTF8: {e}."))
     })?;
@@ -132,9 +154,19 @@ pub async fn eval(statement: &str, machine: Option<impl AsRef<str>>) -> Response
         .env("NIX_REMOTE", "daemon")
         .args(["eval", statement, "--json"]);
 
+    // For error logging
+    let machine_str = machine
+        .as_ref()
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
+        .unwrap_or("host".to_string());
+
     let output = execute_command_simple_machine(command, machine)
         .await
-        .map_err(|e| ResponseError::new(format!("Could not evaluate {statement}: {e}")))?;
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not evaluate {statement} on {machine_str}: {e}"
+            ))
+        })?;
 
     String::from_utf8(output)
         .map_err(|e| ResponseError::new(format!("Eval result could not be decoded as UTF8: {e}.")))

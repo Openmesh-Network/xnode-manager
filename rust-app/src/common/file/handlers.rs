@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use futures::future::join_all;
 use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, PosixACL, Qualifier};
 use tokio::{fs, process::Command};
 
@@ -185,16 +186,22 @@ pub async fn read_folder(path: impl AsRef<Path>, options: &ReadFolderOptions) ->
         ))
     })? {
         let item_name = escaped_utf8_from_bytes(entry.file_name().as_bytes());
-        let mut item_metadata = None;
+        let path = path.join(&item_name);
+        
+        let get = async move {
+            let mut item_metadata = None;
 
-        if let Some(include_metadata) = options.metadata && include_metadata {
-            item_metadata = metadata(path.join(&item_name)).await.ok();
-        }
+            if options.metadata.unwrap_or(false) {
+                item_metadata = metadata(path).await.ok();
+            }
+            
+            FolderItem { name: item_name, metadata: item_metadata }
+        };
 
-        items.push(FolderItem {name: item_name, metadata: item_metadata});
+        items.push(get);
     }
 
-    Ok(items)
+    Ok(join_all(items).await)
 }
 
 pub async fn create_folder(path: impl AsRef<Path>) -> ResponseResult<()> {

@@ -3,17 +3,23 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
+pub struct ProcessListOptions {
+    pub status: Option<bool>,
+    pub usage: Option<bool>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct SystemCtlProcess {
     pub unit: String,
     pub description: String,
-    pub sub: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Process {
     pub name: String,
     pub description: Option<String>,
-    pub running: bool,
+    pub status: Option<Status>,
+    pub usage: Option<Usage>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -25,8 +31,9 @@ pub struct Status {
 #[derive(Serialize, Deserialize)]
 pub struct LogQuery {
     pub level: Option<LogLevel>,
+    /// Epoch time in microseconds
     pub after: Option<u64>,
-    pub max: Option<u32>,
+    pub max: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -45,7 +52,7 @@ pub struct JournalCtlLog {
 
 #[derive(Serialize, Deserialize)]
 pub struct Log {
-    /// Epoch time in seconds
+    /// Epoch time in microseconds
     pub timestamp: u64,
     pub message: String,
     pub level: LogLevel,
