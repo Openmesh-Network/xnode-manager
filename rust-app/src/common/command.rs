@@ -115,11 +115,11 @@ pub async fn execute_command_wrapped(
 
     let mut command = Command::new(format!("{}systemd-run", systemd()));
     command.args([
-        "--wait",
+        "--no-block",
         "--quiet",
         "--collect",
-        "--property",
-        "Type=oneshot",
+        "--service-type",
+        "oneshot",
         "--unit",
         &get_wrapped_unit(name),
     ]);
