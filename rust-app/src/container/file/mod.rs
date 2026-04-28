@@ -3,12 +3,8 @@ use actix_web::{dev::HttpServiceFactory, web};
 pub mod handlers;
 pub mod models;
 
-pub fn scope() -> String {
-    "/file".to_string()
-}
-
 pub fn service() -> impl HttpServiceFactory {
-    web::scope(&scope()).configure(|cfg| {
+    web::scope("/file").configure(|cfg| {
         cfg.service(handlers::metadata_endpoint);
         cfg.service(handlers::size_endpoint);
         cfg.service(handlers::move_endpoint);

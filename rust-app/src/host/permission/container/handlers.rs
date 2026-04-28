@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-#[get("/{container}/get")]
+#[get("/get")]
 async fn get_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
     get_permission("container", &container)
@@ -16,7 +16,7 @@ async fn get_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder>
         .map(json_response)
 }
 
-#[post("/{container}/set")]
+#[post("/set")]
 async fn set_endpoint(
     path: web::Path<String>,
     query: web::Query<SetQuery>,

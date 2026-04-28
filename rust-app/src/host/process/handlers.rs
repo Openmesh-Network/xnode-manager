@@ -2,13 +2,35 @@ use actix_web::{Responder, get, post, web};
 
 use crate::{
     common::{
-        process::{LogQuery, SystemCtlCommand, execute, logs, status, usage},
+        process::{
+            LogQuery, ProcessListOptions, SystemCtlCommand, execute, info, list, logs, status,
+            usage,
+        },
         response::{ResponseResult, json_response, raw_response},
     },
     host::handlers::machine,
 };
 
-#[get("/{process}/logs")]
+#[get("/")]
+async fn endpoint(options: web::Query<ProcessListOptions>) -> ResponseResult<impl Responder> {
+    let options = options.into_inner();
+
+    list(machine(), options).await.map(json_response)
+}
+
+#[get("/info")]
+async fn info_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
+    let process = path.into_inner();
+    info(machine(), &process).await.map(json_response)
+}
+
+#[get("/status")]
+async fn status_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
+    let process = path.into_inner();
+    status(machine(), &process).await.map(json_response)
+}
+
+#[get("/logs")]
 async fn logs_endpoint(
     path: web::Path<String>,
     query: web::Query<LogQuery>,
@@ -17,19 +39,13 @@ async fn logs_endpoint(
     logs(machine(), &process, &query).await.map(json_response)
 }
 
-#[get("/{process}/status")]
-async fn status_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
-    let process = path.into_inner();
-    status(machine(), &process).await.map(json_response)
-}
-
-#[get("/{process}/usage")]
+#[get("/usage")]
 async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let process = path.into_inner();
     usage(machine(), &process).await.map(json_response)
 }
 
-#[post("/{process}/start")]
+#[post("/start")]
 async fn start_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let process = path.into_inner();
     execute(machine(), &process, SystemCtlCommand::Start)
@@ -37,7 +53,7 @@ async fn start_endpoint(path: web::Path<String>) -> ResponseResult<impl Responde
         .map(raw_response)
 }
 
-#[post("/{process}/stop")]
+#[post("/stop")]
 async fn stop_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let process = path.into_inner();
     execute(machine(), &process, SystemCtlCommand::Stop)
@@ -45,7 +61,7 @@ async fn stop_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder
         .map(raw_response)
 }
 
-#[post("/{process}/restart")]
+#[post("/restart")]
 async fn restart_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let process = path.into_inner();
     execute(machine(), &process, SystemCtlCommand::Restart)
@@ -53,7 +69,7 @@ async fn restart_endpoint(path: web::Path<String>) -> ResponseResult<impl Respon
         .map(raw_response)
 }
 
-#[post("/{process}/reload")]
+#[post("/reload")]
 async fn reload_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let process = path.into_inner();
     execute(machine(), &process, SystemCtlCommand::ReloadOrRestart)

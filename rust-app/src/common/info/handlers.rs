@@ -8,6 +8,38 @@ use crate::common::{
 
 use super::models::{Group, User};
 
+pub async fn get_users(prefix: Option<impl AsRef<Path>>) -> ResponseResult<Vec<User>> {
+    let path = prefix
+        .map(|prefix| prefix.as_ref().to_path_buf())
+        .unwrap_or(Path::new("/").to_path_buf())
+        .join("etc")
+        .join("passwd");
+
+    let file_content = read_file(&path).await.map(escaped_utf8_from_bytes)?;
+
+    file_content
+        .split("\n")
+        .filter(|s| !s.is_empty())
+        .map(User::from_str)
+        .collect::<Result<Vec<User>, ResponseError>>()
+}
+
+pub async fn get_groups(prefix: Option<impl AsRef<Path>>) -> ResponseResult<Vec<Group>> {
+    let path = prefix
+        .map(|prefix| prefix.as_ref().to_path_buf())
+        .unwrap_or(Path::new("/").to_path_buf())
+        .join("etc")
+        .join("group");
+
+    let file_content = read_file(&path).await.map(escaped_utf8_from_bytes)?;
+
+    file_content
+        .split("\n")
+        .filter(|s| !s.is_empty())
+        .map(Group::from_str)
+        .collect::<Result<Vec<Group>, ResponseError>>()
+}
+
 impl FromStr for User {
     type Err = ResponseError;
 
@@ -89,36 +121,4 @@ impl FromStr for Group {
             members,
         })
     }
-}
-
-pub async fn get_users(prefix: Option<impl AsRef<Path>>) -> ResponseResult<Vec<User>> {
-    let path = prefix
-        .map(|prefix| prefix.as_ref().to_path_buf())
-        .unwrap_or(Path::new("/").to_path_buf())
-        .join("etc")
-        .join("passwd");
-
-    let file_content = read_file(&path).await.map(escaped_utf8_from_bytes)?;
-
-    file_content
-        .split("\n")
-        .filter(|s| !s.is_empty())
-        .map(User::from_str)
-        .collect::<Result<Vec<User>, ResponseError>>()
-}
-
-pub async fn get_groups(prefix: Option<impl AsRef<Path>>) -> ResponseResult<Vec<Group>> {
-    let path = prefix
-        .map(|prefix| prefix.as_ref().to_path_buf())
-        .unwrap_or(Path::new("/").to_path_buf())
-        .join("etc")
-        .join("group");
-
-    let file_content = read_file(&path).await.map(escaped_utf8_from_bytes)?;
-
-    file_content
-        .split("\n")
-        .filter(|s| !s.is_empty())
-        .map(Group::from_str)
-        .collect::<Result<Vec<Group>, ResponseError>>()
 }

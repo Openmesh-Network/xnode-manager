@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-#[get("/{virtual_machine}/get")]
+#[get("/get")]
 async fn get_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let virtual_machine = path.into_inner();
     get_permission("virtual-machine", &virtual_machine)
@@ -16,7 +16,7 @@ async fn get_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder>
         .map(json_response)
 }
 
-#[post("/{virtual_machine}/set")]
+#[post("/set")]
 async fn set_endpoint(
     path: web::Path<String>,
     query: web::Query<SetQuery>,

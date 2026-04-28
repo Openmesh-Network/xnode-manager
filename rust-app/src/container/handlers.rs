@@ -1,19 +1,22 @@
 use std::path::Path;
 
-use actix_web::{Responder, post, web};
+use actix_web::{Responder, get, post, web};
 use tokio::process::Command;
 
 use crate::{
     common::{
         btrfs::{quota, subvolume},
         command::execute_command_simple,
-        env::{build_base, default_permission, systemd},
-        file::{metadata, shift, write_link},
+        env::{build_base, datadir, default_permission, systemd},
+        file::{ReadFolderOptions, metadata, read_folder, shift, write_link},
         nix,
         path::get_scope_root,
         process::{SystemCtlCommand, execute},
-        response::{ResponseError, ResponseResult, TypedResponseError, raw_response},
+        response::{
+            ResponseError, ResponseResult, TypedResponseError, json_response, raw_response,
+        },
     },
+    container::models::Container,
     host::permission::handlers::{get_permission, set_permission},
 };
 
@@ -24,6 +27,20 @@ pub fn machine(container: impl AsRef<str>) -> Option<impl AsRef<str>> {
 
 pub fn flake() -> impl AsRef<Path> {
     "/config"
+}
+
+#[get("/")]
+async fn endpoint() -> ResponseResult<impl Responder> {
+    let path = datadir().join("container");
+    read_folder(path, &ReadFolderOptions { metadata: None })
+        .await
+        .map(|items| {
+            items
+                .into_iter()
+                .map(|item| Container { id: item.name })
+                .collect::<Vec<Container>>()
+        })
+        .map(json_response)
 }
 
 #[post("/create")]

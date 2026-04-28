@@ -11,15 +11,19 @@ pub struct ProcessListOptions {
 #[derive(Serialize, Deserialize)]
 pub struct SystemCtlProcess {
     pub unit: String,
-    pub description: String,
+    pub description: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Process {
-    pub name: String,
-    pub description: Option<String>,
+    pub id: String,
     pub status: Option<Status>,
     pub usage: Option<Usage>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Info {
+    pub description: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

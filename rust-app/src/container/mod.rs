@@ -12,26 +12,27 @@ pub mod config;
 pub mod file;
 pub mod handlers;
 pub mod info;
-pub mod list;
+pub mod models;
 pub mod process;
 
-pub fn scope() -> String {
-    // Container name can use lowercase letters, numbers, and - (dash)
-    // Container name must be minimum 1 and maximum 32 characters
-    "/container/{container:[a-z0-9-]{1,32}}".to_string()
-}
-
 pub fn service() -> impl HttpServiceFactory {
-    web::scope(&scope())
-        .service(config::service())
-        .service(file::service())
-        .service(info::service())
-        .service(list::service())
-        .service(process::service())
+    web::scope("/container")
         .configure(|cfg| {
-            cfg.service(handlers::create_endpoint);
-            cfg.service(handlers::remove_endpoint);
+            cfg.service(handlers::endpoint);
         })
+        .service(
+            // Container name can use lowercase letters, numbers, and - (dash)
+            // Container name must be minimum 1 and maximum 32 characters
+            web::scope("/{container:[a-z0-9-]{1,32}}")
+                .configure(|cfg| {
+                    cfg.service(handlers::create_endpoint);
+                    cfg.service(handlers::remove_endpoint);
+                })
+                .service(config::service())
+                .service(file::service())
+                .service(info::service())
+                .service(process::service()),
+        )
 }
 
 pub async fn prepare_module() -> ResponseResult<()> {

@@ -4,6 +4,7 @@ use tokio::process::Command;
 use crate::common::{
     command::execute_command_simple,
     env::systemd,
+    process::Info,
     response::{ResponseError, ResponseResult},
     string::escaped_utf8_from_bytes,
 };
@@ -57,24 +58,22 @@ pub async fn list(
     let mut items = vec![];
 
     for process in processes {
-        let name = process.unit;
-        let description = Some(process.description);
+        let id = process.unit;
         let machine = machine.as_ref();
 
         let get = async move {
             let mut process_status = None;
             if options.status.unwrap_or(false) {
-                process_status = status(machine, &name).await.ok();
+                process_status = status(machine, &id).await.ok();
             }
 
             let mut process_usage = None;
             if options.usage.unwrap_or(false) {
-                process_usage = usage(machine, &name).await.ok();
+                process_usage = usage(machine, &id).await.ok();
             }
 
             Process {
-                name,
-                description,
+                id,
                 status: process_status,
                 usage: process_usage,
             }
@@ -84,6 +83,138 @@ pub async fn list(
     }
 
     Ok(join_all(items).await)
+}
+
+pub async fn info(
+    machine: Option<impl AsRef<str>>,
+    process: impl AsRef<str>,
+) -> ResponseResult<Info> {
+    let process = process.as_ref();
+
+    let mut command = Command::new(format!("{}systemctl", systemd()));
+    command.args(["show", process, "--property=Description"]);
+    if let Some(machine) = &machine {
+        command.args(["--machine", machine.as_ref()]);
+    }
+
+    // For error logging
+    let machine_str = machine
+        .as_ref()
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
+        .unwrap_or("host".to_string());
+
+    let output = execute_command_simple(command).await.map_err(|e| {
+        ResponseError::new(format!(
+            "Could not retrieve info of {process} of {machine_str}: {e}"
+        ))
+    })?;
+    let output_str = String::from_utf8(output).map_err(|e| {
+        ResponseError::new(format!(
+            "Info of {process} of {machine_str} could not be decoded as UTF8: {e}."
+        ))
+    })?;
+
+    let mut description = None;
+
+    for line in output_str.trim_end().split("\n") {
+        if let Some((property, value)) = line.split_once("=") {
+            match property {
+                "Description" => {
+                    description = Some(value.to_string());
+                }
+                property => {
+                    log::warn!(
+                        "Info of process {process} of {machine_str} contains unexpected property {property}: {line}"
+                    );
+                }
+            }
+        } else {
+            log::warn!(
+                "Info of process {process} of {machine_str} contains unexpected line: {line}"
+            );
+        }
+    }
+
+    Ok(Info { description })
+}
+
+pub async fn status(
+    machine: Option<impl AsRef<str>>,
+    process: impl AsRef<str>,
+) -> ResponseResult<Status> {
+    let process = process.as_ref();
+
+    let mut command = Command::new(format!("{}systemctl", systemd()));
+    command.args(["show", process, "--property=SubState,ExecMainStatus"]);
+    if let Some(machine) = &machine {
+        command.args(["--machine", machine.as_ref()]);
+    }
+
+    // For error logging
+    let machine_str = machine
+        .as_ref()
+        .map(|m| format!("machine:{m}", m = m.as_ref()))
+        .unwrap_or("host".to_string());
+
+    let output = execute_command_simple(command).await.map_err(|e| {
+        ResponseError::new(format!(
+            "Could not retrieve status of {process} of {machine_str}: {e}"
+        ))
+    })?;
+    let output_str = String::from_utf8(output).map_err(|e| {
+        ResponseError::new(format!(
+            "Status of {process} of {machine_str} could not be decoded as UTF8: {e}."
+        ))
+    })?;
+
+    let mut running = None;
+    let mut exit_code = None;
+
+    for line in output_str.trim_end().split("\n") {
+        if let Some((property, value)) = line.split_once("=") {
+            match property {
+                "SubState" => {
+                    running = Some(value == "running" || value == "start");
+                }
+                "ExecMainStatus" => {
+                    exit_code = Some(value.parse());
+                }
+                property => {
+                    log::warn!(
+                        "Status of process {process} of {machine_str} contains unexpected property {property}: {line}"
+                    );
+                }
+            }
+        } else {
+            log::warn!(
+                "Status of process {process} of {machine_str} contains unexpected line: {line}"
+            );
+        }
+    }
+
+    Ok(Status {
+        running: match running {
+            Some(running) => running,
+            None => {
+                return Err(ResponseError::new(format!(
+                    "Status of {process} of {machine_str} does not contain running property"
+                )));
+            }
+        },
+        exit_code: match exit_code {
+            Some(Ok(exit_code)) => exit_code,
+            Some(Err(e)) => {
+                return Err(ResponseError::new(format!(
+                    "Status of {process} of {machine_str} contains invalid exit_code property: {e}"
+                )));
+            }
+            None => {
+                return Err(ResponseError::new(format!(
+                    "Status of {process} of {machine_str} does not contain exit_code property"
+                )));
+            }
+        },
+    })
 }
 
 pub async fn logs(
@@ -170,89 +301,6 @@ pub async fn logs(
                 "Process logs of {process} of {machine_str} could not be parsed to expected format: {e}. Input: {output_str}"
             ))
         })
-}
-
-pub async fn status(
-    machine: Option<impl AsRef<str>>,
-    process: impl AsRef<str>,
-) -> ResponseResult<Status> {
-    let process = process.as_ref();
-
-    let mut command = Command::new(format!("{}systemctl", systemd()));
-    command.args(["show", process, "--property=SubState,ExecMainStatus"]);
-    if let Some(machine) = &machine {
-        command.args(["--machine", machine.as_ref()]);
-    }
-
-    // For error logging
-    let machine_str = machine
-        .as_ref()
-        .map(|m| format!("machine:{m}", m = m.as_ref()))
-        .unwrap_or("host".to_string());
-
-    let output = execute_command_simple(command).await.map_err(|e| {
-        ResponseError::new(format!(
-            "Could not retrieve status of {process} of {machine_str}: {e}"
-        ))
-    })?;
-    let output_str = String::from_utf8(output).map_err(|e| {
-        ResponseError::new(format!(
-            "Status of {process} of {machine_str} could not be decoded as UTF8: {e}."
-        ))
-    })?;
-
-    let mut running = None;
-    let mut exit_code = None;
-
-    for line in output_str.trim_end().split("\n") {
-        if let Some((property, value)) = line.split_once("=") {
-            if value == "[not set]" || value == "[no data]" {
-                continue;
-            }
-
-            match property {
-                "SubState" => {
-                    running = Some(value == "running" || value == "start");
-                }
-                "ExecMainStatus" => {
-                    exit_code = Some(value.parse());
-                }
-                property => {
-                    log::warn!(
-                        "Status of process {process} of {machine_str} contains unexpected property {property}: {line}"
-                    );
-                }
-            }
-        } else {
-            log::warn!(
-                "Status of process {process} of {machine_str} contains unexpected line: {line}"
-            );
-        }
-    }
-
-    Ok(Status {
-        running: match running {
-            Some(running) => running,
-            None => {
-                return Err(ResponseError::new(format!(
-                    "Status of {process} of {machine_str} does not contain running property"
-                )));
-            }
-        },
-        exit_code: match exit_code {
-            Some(Ok(exit_code)) => exit_code,
-            Some(Err(e)) => {
-                return Err(ResponseError::new(format!(
-                    "Status of {process} of {machine_str} contains invalid exit_code property: {e}"
-                )));
-            }
-            None => {
-                return Err(ResponseError::new(format!(
-                    "Status of {process} of {machine_str} does not contain exit_code property"
-                )));
-            }
-        },
-    })
 }
 
 pub async fn usage(
