@@ -11,8 +11,8 @@ use crate::common::{
 
 use super::models::{Cpu, CpuOptions, Info, Usage};
 
-#[get("/")]
-async fn endpoint(options: web::Query<CpuOptions>) -> ResponseResult<impl Responder> {
+#[get("")]
+async fn cpu_endpoint(options: web::Query<CpuOptions>) -> ResponseResult<impl Responder> {
     let options = options.into_inner();
 
     let path = "/sys/devices/system/cpu";

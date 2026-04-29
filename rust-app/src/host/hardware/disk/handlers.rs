@@ -11,8 +11,8 @@ use crate::common::{
 
 use super::models::{Disk, DiskOptions, Usage};
 
-#[get("/")]
-async fn endpoint(options: web::Query<DiskOptions>) -> ResponseResult<impl Responder> {
+#[get("")]
+async fn disk_endpoint(options: web::Query<DiskOptions>) -> ResponseResult<impl Responder> {
     let options = options.into_inner();
 
     let path = "/dev/mapper";

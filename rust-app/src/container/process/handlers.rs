@@ -10,8 +10,8 @@ use crate::{
     container::handlers::machine,
 };
 
-#[get("/")]
-async fn endpoint(
+#[get("")]
+async fn process_endpoint(
     path: web::Path<String>,
     options: web::Query<ProcessOptions>,
 ) -> ResponseResult<impl Responder> {

@@ -17,8 +17,8 @@ use crate::common::{
 
 use super::models::{Address, Info, Network, NetworkCtlStatus, NetworkOptions, Usage};
 
-#[get("/")]
-async fn endpoint(options: web::Query<NetworkOptions>) -> ResponseResult<impl Responder> {
+#[get("")]
+async fn memory_endpoint(options: web::Query<NetworkOptions>) -> ResponseResult<impl Responder> {
     let options = options.into_inner();
 
     let path = "/sys/class/net";

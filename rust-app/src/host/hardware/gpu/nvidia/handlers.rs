@@ -6,8 +6,8 @@ use crate::common::response::{ResponseError, ResponseResult, json_response};
 
 use super::models::{AppData, Gpu, GpuOptions, Info, MemoryUsage, Usage};
 
-#[get("/")]
-async fn endpoint(
+#[get("")]
+async fn nvidia_endpoint(
     data: web::Data<AppData>,
     options: web::Query<GpuOptions>,
 ) -> ResponseResult<impl Responder> {

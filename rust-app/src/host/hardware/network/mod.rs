@@ -4,12 +4,11 @@ pub mod handlers;
 pub mod models;
 
 pub fn service() -> impl HttpServiceFactory {
-    web::scope("/network")
-        .configure(|cfg| {
-            cfg.service(handlers::endpoint);
-        })
-        .service(web::scope("/{network}").configure(|cfg| {
+    web::scope("/network").configure(|cfg| {
+        cfg.service(handlers::memory_endpoint);
+        cfg.service(web::scope("/{network}").configure(|cfg| {
             cfg.service(handlers::info_endpoint);
             cfg.service(handlers::usage_endpoint);
-        }))
+        }));
+    })
 }

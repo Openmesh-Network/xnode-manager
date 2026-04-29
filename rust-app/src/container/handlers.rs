@@ -29,8 +29,8 @@ pub fn flake() -> impl AsRef<Path> {
     "/config"
 }
 
-#[get("/")]
-async fn endpoint() -> ResponseResult<impl Responder> {
+#[get("")]
+async fn container_endpoint() -> ResponseResult<impl Responder> {
     let path = datadir().join("container");
     read_folder(path, &ReadFolderOptions { metadata: None })
         .await

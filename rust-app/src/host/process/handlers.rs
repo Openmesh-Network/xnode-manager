@@ -10,8 +10,8 @@ use crate::{
     host::handlers::machine,
 };
 
-#[get("/")]
-async fn endpoint(options: web::Query<ProcessOptions>) -> ResponseResult<impl Responder> {
+#[get("")]
+async fn process_endpoint(options: web::Query<ProcessOptions>) -> ResponseResult<impl Responder> {
     let options = options.into_inner();
 
     list(machine(), options).await.map(json_response)

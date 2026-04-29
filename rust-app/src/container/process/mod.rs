@@ -4,11 +4,9 @@ pub mod handlers;
 pub mod models;
 
 pub fn service() -> impl HttpServiceFactory {
-    web::scope("/process")
-        .configure(|cfg| {
-            cfg.service(handlers::endpoint);
-        })
-        .service(web::scope("/{process}").configure(|cfg| {
+    web::scope("/process").configure(|cfg| {
+        cfg.service(handlers::process_endpoint);
+        cfg.service(web::scope("/{process}").configure(|cfg| {
             cfg.service(handlers::info_endpoint);
             cfg.service(handlers::status_endpoint);
             cfg.service(handlers::logs_endpoint);
@@ -17,5 +15,6 @@ pub fn service() -> impl HttpServiceFactory {
             cfg.service(handlers::stop_endpoint);
             cfg.service(handlers::restart_endpoint);
             cfg.service(handlers::reload_endpoint);
-        }))
+        }));
+    })
 }
