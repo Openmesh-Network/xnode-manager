@@ -22,7 +22,7 @@ async fn eval_endpoint(query: web::Query<EvalQuery>) -> ResponseResult<impl Resp
 
     if query.config.unwrap_or(false) {
         statement = format!(
-            "{flake}#nixosConfiguration.xnode.{statement}",
+            "{flake}#nixosConfigurations.xnode.{statement}",
             flake = flake().as_ref().to_string_lossy()
         );
     }
