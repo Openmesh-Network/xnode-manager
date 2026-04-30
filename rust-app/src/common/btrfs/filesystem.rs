@@ -102,7 +102,7 @@ pub async fn show(path: impl AsRef<Path>) -> ResponseResult<Show> {
                     let split: Vec<&str> = line.split_whitespace().collect();
 
                     let total = split
-                        .get(4)
+                        .get(3)
                         .ok_or_else(|| {
                             ResponseError::new(format!(
                                 "Missing total from show {path} line {line}",
@@ -118,7 +118,7 @@ pub async fn show(path: impl AsRef<Path>) -> ResponseResult<Show> {
                         })?;
 
                     let used = split
-                        .get(6)
+                        .get(5)
                         .ok_or_else(|| {
                             ResponseError::new(format!(
                                 "Missing used from show {path} line {line}",
