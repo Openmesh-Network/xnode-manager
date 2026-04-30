@@ -5,8 +5,9 @@ use futures::future::join_all;
 
 use crate::common::{
     btrfs::filesystem::show,
-    file::{ReadFolderOptions, read_folder},
-    response::{ResponseResult, json_response},
+    file::{ReadFolderOptions, read_file, read_folder, read_link},
+    response::{ResponseError, ResponseResult, json_response},
+    string::escaped_utf8_from_bytes,
 };
 
 use super::models::{Disk, DiskOptions, Usage};
@@ -60,11 +61,52 @@ pub async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Resp
 
 async fn usage(disk: impl AsRef<str>) -> ResponseResult<Usage> {
     let disk = disk.as_ref();
+    let path = Path::new("/dev/mapper").join(disk);
 
-    show(Path::new("/dev/mapper").join(disk))
-        .await
-        .map(|show| Usage {
-            total: show.total,
-            used: show.used,
-        })
+    let storage = show(&path).await?;
+
+    let link = read_link(&path).await?;
+    let block_name = link.file_name().ok_or_else(|| {
+        ResponseError::new(format!(
+            "{path} doesn't link to a file.",
+            path = path.display()
+        ))
+    })?;
+
+    let (sectors_read, sectors_written) =
+        read_file(Path::new("/sys/block").join(block_name).join("stat"))
+            .await
+            .map(escaped_utf8_from_bytes)
+            .and_then(|content| {
+                let mut fields = content.split_whitespace().skip(2);
+                let sectors_read: u64 = fields
+                    .next()
+                    .ok_or_else(|| {
+                        ResponseError::new(format!("Missing sectors_read from {content}"))
+                    })?
+                    .parse()
+                    .map_err(|e| {
+                        ResponseError::new(format!("Could not convert sectors_read to u64: {e}"))
+                    })?;
+
+                let mut fields = fields.skip(3);
+                let sectors_written: u64 = fields
+                    .next()
+                    .ok_or_else(|| {
+                        ResponseError::new(format!("Missing sectors_written from {content}"))
+                    })?
+                    .parse()
+                    .map_err(|e| {
+                        ResponseError::new(format!("Could not convert sectors_written to u64: {e}"))
+                    })?;
+
+                Ok((sectors_read, sectors_written))
+            })?;
+
+    Ok(Usage {
+        total: storage.total,
+        used: storage.used,
+        read: sectors_read * 512,
+        written: sectors_written * 512,
+    })
 }

@@ -15,4 +15,6 @@ pub struct Disk {
 pub struct Usage {
     pub total: u64,
     pub used: u64,
+    pub read: u64,
+    pub written: u64,
 }

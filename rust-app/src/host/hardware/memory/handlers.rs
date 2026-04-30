@@ -26,6 +26,7 @@ impl FromStr for Usage {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut mem_total = None;
+        let mut mem_free = None;
         let mut mem_available = None;
 
         for line in s.lines() {
@@ -34,6 +35,15 @@ impl FromStr for Usage {
                 if let Some(value) = parts.first() {
                     mem_total = Some(value.parse::<u64>().map_err(|e| {
                         ResponseError::new(format!("Could not parse MemTotal in {s} to u64: {e}"))
+                    })?)
+                }
+            }
+
+            if let Some(rest) = line.strip_prefix("MemFree:") {
+                let parts: Vec<&str> = rest.split_whitespace().collect();
+                if let Some(value) = parts.first() {
+                    mem_free = Some(value.parse::<u64>().map_err(|e| {
+                        ResponseError::new(format!("Could not parse MemFree in {s} to u64: {e}"))
                     })?)
                 }
             }
@@ -53,15 +63,19 @@ impl FromStr for Usage {
         let total =
             mem_total.ok_or_else(|| ResponseError::new(format!("Missing MemTotal in {s}")))?;
 
+        let free = mem_free.ok_or_else(|| ResponseError::new(format!("Missing MemFree in {s}")))?;
+
         let available = mem_available
             .ok_or_else(|| ResponseError::new(format!("Missing MemAvailable in {s}")))?;
 
         // convert kB to bytes
         let total_bytes = total * 1024;
+        let free_bytes = free * 1024;
         let available_bytes = available * 1024;
 
         Ok(Usage {
             total: total_bytes,
+            free: free_bytes,
             available: available_bytes,
         })
     }
