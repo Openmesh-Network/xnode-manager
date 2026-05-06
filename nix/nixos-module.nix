@@ -11,7 +11,9 @@ in
 {
   options = {
     services.xnode-manager = {
-      enable = lib.mkEnableOption "Enable Xnode Manager.";
+      enable = lib.mkEnableOption "Enable Xnode Manager." // {
+        default = true;
+      };
 
       verbosity = lib.mkOption {
         type = lib.types.str;
