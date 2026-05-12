@@ -30,7 +30,20 @@ async fn set_endpoint(path: web::Path<String>, data: web::Bytes) -> ResponseResu
 
     let scope = ["container", &container];
     let path = get_scoped_path(&scope, &["data", "config", "flake.nix"]);
-    write_file(path, &data).await.map(raw_response)
+    write_file(path, &data).await?;
+
+    let xnode_config = get_scoped_path(&scope, &["data", "config", "xnode-config"]);
+    write_file(
+        xnode_config.join("host-platform"),
+        format!("{arch}-linux", arch = std::env::consts::ARCH),
+    )
+    .await?;
+    write_file(xnode_config.join("name"), &container).await?;
+    write_file(xnode_config.join("type"), "container").await?;
+
+    shift(get_scoped_path(&scope, &["data", "config"]), "foreign").await?;
+
+    Ok(raw_response(()))
 }
 
 #[get("/version")]
@@ -69,20 +82,8 @@ async fn build_endpoint(
     let container = path.into_inner();
     ensure_initialized(&container).await?;
 
-    let scope = ["container", &container];
     let options = options.into_inner();
     let unit = get_wrapped_unit(&Operation::Build.to_string());
-
-    let xnode_config = get_scoped_path(&scope, &["data", "config", "xnode-config"]);
-    write_file(
-        xnode_config.join("host-platform"),
-        format!("{arch}-linux", arch = std::env::consts::ARCH),
-    )
-    .await?;
-    write_file(xnode_config.join("name"), &container).await?;
-    write_file(xnode_config.join("type"), "container").await?;
-
-    shift(get_scoped_path(&scope, &["data", "config"]), "foreign").await?;
 
     spawn(async move { build(flake(), machine(&container), options).await });
 

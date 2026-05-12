@@ -114,9 +114,8 @@ pub async fn flake_metadata(
         "metadata",
         flake,
         "--json",
-        "--no-use-registries",
-        "--refresh",
         "--no-write-lock-file",
+        "--refresh",
     ]);
 
     // For error logging
@@ -150,9 +149,13 @@ pub async fn flake_metadata(
 
 pub async fn eval(statement: &str, machine: Option<impl AsRef<str>>) -> ResponseResult<String> {
     let mut command = Command::new(format!("{}nix", nix()));
-    command
-        .env("NIX_REMOTE", "daemon")
-        .args(["eval", statement, "--json"]);
+    command.env("NIX_REMOTE", "daemon").args([
+        "eval",
+        statement,
+        "--json",
+        "--no-write-lock-file",
+        "--refresh",
+    ]);
 
     // For error logging
     let machine_str = machine

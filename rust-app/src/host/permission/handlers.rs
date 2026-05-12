@@ -131,7 +131,7 @@ pub async fn set_permission(
                             .device
                             .as_ref()
                             .and_then(|device| device.policy.as_ref())
-                            .map(|policy| format!("--property=DevicePolicy={policy}")),
+                            .map(|policy| format!("--property=\"DevicePolicy={policy}\"")),
                     )
                     .chain(
                         permission
@@ -155,7 +155,7 @@ pub async fn set_permission(
                                     },
                                 ]
                                 .join("");
-                                format!("--property=DeviceAllow={device} {allowed}")
+                                format!("--property=\"DeviceAllow={device} {allowed}\"")
                             }),
                     )
                     .chain(

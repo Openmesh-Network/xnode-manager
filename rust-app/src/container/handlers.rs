@@ -124,7 +124,7 @@ pub async fn ensure_initialized(container: impl AsRef<str>) -> ResponseResult<()
             if let Some(typed) = &e.typed_error
                 && matches!(typed, TypedResponseError::PathNotFound { path: _path })
             {
-                ResponseError::new(format!("Container {container} hasn't been created yet/"))
+                ResponseError::new(format!("Container {container} hasn't been created yet."))
             } else {
                 e
             }
