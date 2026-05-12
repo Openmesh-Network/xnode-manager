@@ -369,12 +369,13 @@ in
         scriptArgs = "%i";
         script = ''
           name="$1"
+          mapfile -t args < "/var/lib/xnode-manager/host/permission/container/cli/''${name}"
           "${cfg.systemd}/bin/systemd-nspawn" \
             --boot \
             --machine="''${name}.container" \
             --slice="''${name//-/_}-container-machine.slice" \
             --directory="${cfg.dataDir}/container/''${name}/data" \
-            $(cat "${cfg.dataDir}/host/permission/container/cli/''${name}")
+            "''${args[@]}"
         '';
       };
 
@@ -382,11 +383,12 @@ in
         scriptArgs = "%i";
         script = ''
           name="$1"
+          mapfile -t args < "/var/lib/xnode-manager/host/permission/virtual-machine/cli/''${name}"
           "${cfg.systemd}/bin/systemd-vmspawn" \
             --machine="''${name}.virtual-machine" \
             --slice="''${name//-/_}-virtual_machine-machine.slice" \
             --directory="${cfg.dataDir}/container/''${name}/data" \
-            $(cat "${cfg.dataDir}/host/permission/virtual-machine/cli/''${name}")
+            "''${args[@]}"
         '';
       };
     };

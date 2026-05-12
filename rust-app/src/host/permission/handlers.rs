@@ -131,7 +131,7 @@ pub async fn set_permission(
                             .device
                             .as_ref()
                             .and_then(|device| device.policy.as_ref())
-                            .map(|policy| format!("--property=\"DevicePolicy={policy}\"")),
+                            .map(|policy| format!("--property=DevicePolicy={policy}")),
                     )
                     .chain(
                         permission
@@ -155,7 +155,7 @@ pub async fn set_permission(
                                     },
                                 ]
                                 .join("");
-                                format!("--property=\"DeviceAllow={device} {allowed}\"")
+                                format!("--property=DeviceAllow={device} {allowed}")
                             }),
                     )
                     .chain(
@@ -167,7 +167,7 @@ pub async fn set_permission(
                             .map(|extra_arg| extra_arg.to_string()),
                     )
                     .collect();
-            write_file(path, args.join(" ")).await?;
+            write_file(path, args.join("\n")).await?;
             if allow_restart {
                 execute(
                     None::<String>,
