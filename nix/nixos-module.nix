@@ -377,6 +377,8 @@ in
             --directory="${cfg.dataDir}/container/''${name}/data" \
             "''${args[@]}"
         '';
+        startLimitIntervalSec = 0;
+        serviceConfig.Restart = "on-failure";
       };
 
       "virtual-machine@" = {
@@ -390,6 +392,8 @@ in
             --directory="${cfg.dataDir}/container/''${name}/data" \
             "''${args[@]}"
         '';
+        startLimitIntervalSec = 0;
+        serviceConfig.Restart = "on-failure";
       };
     };
 
