@@ -1,14 +1,14 @@
-## Xnode Manager
+# Xnode Manager
 
 Allow configuring and monitoring your Xnode through external platforms, such as Xnode Studio.
 
-## Commands (in root folder)
+## Commands (nix)
 
 ```
 nix run
 ```
 
-## Commands (in rust-app)
+## Commands (cargo)
 
 ```
 cargo build
