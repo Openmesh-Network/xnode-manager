@@ -17,7 +17,7 @@ async fn disk_endpoint(options: web::Query<DiskOptions>) -> ResponseResult<impl 
     let options = options.into_inner();
 
     let path = "/dev/mapper";
-    let disks = read_folder(path, &ReadFolderOptions { metadata: None })
+    let disks = read_folder(path, &ReadFolderOptions::default())
         .await
         .map(|items| {
             items
@@ -55,7 +55,6 @@ async fn disk_endpoint(options: web::Query<DiskOptions>) -> ResponseResult<impl 
 #[get("/usage")]
 pub async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let disk = path.into_inner();
-
     usage(&disk).await.map(json_response)
 }
 

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::PathBuf;
 
 use actix_web::{Responder, get, post, web};
 use tokio::process::Command;
@@ -20,19 +20,19 @@ use crate::{
     host::permission::handlers::{get_permission, set_permission},
 };
 
-pub fn machine(container: impl AsRef<str>) -> Option<impl AsRef<str>> {
+pub fn machine(container: impl AsRef<str>) -> Option<String> {
     let container = container.as_ref();
     Some(format!("{container}.container"))
 }
 
-pub fn flake() -> impl AsRef<Path> {
-    "/config"
+pub fn config_dir() -> PathBuf {
+    "/config".into()
 }
 
 #[get("")]
 async fn container_endpoint() -> ResponseResult<impl Responder> {
     let path = datadir().join("container");
-    read_folder(path, &ReadFolderOptions { metadata: None })
+    read_folder(path, &ReadFolderOptions::default())
         .await
         .map(|items| {
             items
@@ -80,7 +80,7 @@ async fn create_endpoint(path: web::Path<String>) -> ResponseResult<impl Respond
     ]);
     first_install.arg(&data_root);
     first_install.arg("/new-result/first-install");
-    execute_command_simple(first_install)
+    execute_command_simple(first_install, None::<Vec<u8>>)
         .await
         .map_err(|e| ResponseError::new(format!("Could not perform first install: {e}")))?;
 

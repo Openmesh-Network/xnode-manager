@@ -104,9 +104,11 @@ pub async fn set_permission(
 
             let mut command = Command::new(format!("{}systemctl", systemd()));
             command.arg("daemon-reload");
-            execute_command_simple(command).await.map_err(|e| {
-                ResponseError::new(format!("Could not reload systemctl daemon: {e}"))
-            })?;
+            execute_command_simple(command, None::<Vec<u8>>)
+                .await
+                .map_err(|e| {
+                    ResponseError::new(format!("Could not reload systemctl daemon: {e}"))
+                })?;
         }
 
         if cli_changed {

@@ -13,7 +13,7 @@ pub async fn enable(path: impl AsRef<Path>) -> ResponseResult<()> {
     let mut command = Command::new(format!("{}btrfs", btrfs()));
     command.args(["quota", "enable", "--simple"]).arg(path);
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| ())
         .map_err(|e| {

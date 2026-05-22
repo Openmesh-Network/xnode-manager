@@ -7,7 +7,7 @@ use crate::{
         path::get_scope_root,
         response::{ResponseResult, json_response},
     },
-    container::handlers::{flake, machine},
+    container::handlers::{config_dir, machine},
 };
 
 #[get("/flake/metadata")]
@@ -31,8 +31,8 @@ async fn eval_endpoint(
 
     if query.config.unwrap_or(false) {
         statement = format!(
-            "{flake}#nixosConfigurations.xnode.{statement}",
-            flake = flake().as_ref().to_string_lossy()
+            "{config_dir}#nixosConfigurations.xnode.{statement}",
+            config_dir = config_dir().to_string_lossy()
         );
     }
 
@@ -44,7 +44,7 @@ async fn eval_endpoint(
 #[get("/users/users")]
 async fn users_users_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
-    let scope = ["container".to_string(), container];
+    let scope = ["container", &container];
     let path = get_scope_root(&scope);
     get_users(Some(path)).await.map(json_response)
 }
@@ -52,7 +52,7 @@ async fn users_users_endpoint(path: web::Path<String>) -> ResponseResult<impl Re
 #[get("/users/groups")]
 async fn users_groups_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
-    let scope = ["container".to_string(), container];
+    let scope = ["container", &container];
     let path = get_scope_root(&scope);
     get_groups(Some(path)).await.map(json_response)
 }

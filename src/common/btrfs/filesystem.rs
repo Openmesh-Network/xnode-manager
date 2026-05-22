@@ -21,7 +21,7 @@ pub async fn du(path: impl AsRef<Path>) -> ResponseResult<Du> {
         .args(["filesystem", "du", "--summarize", "--raw"])
         .arg(path);
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map_err(|e| {
             ResponseError::new(format!(
@@ -77,7 +77,7 @@ pub async fn show(path: impl AsRef<Path>) -> ResponseResult<Show> {
     let mut command = Command::new(format!("{}btrfs", btrfs()));
     command.args(["filesystem", "show", "--raw"]).arg(path);
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map_err(|e| {
             ResponseError::new(format!(

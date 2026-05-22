@@ -124,7 +124,7 @@ pub async fn flake_metadata(
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
-    let output = execute_command_simple_machine(command, machine)
+    let output = execute_command_simple_machine(command, None::<Vec<u8>>, machine)
         .await
         .map_err(|e| {
             ResponseError::new(format!(
@@ -163,7 +163,7 @@ pub async fn eval(statement: &str, machine: Option<impl AsRef<str>>) -> Response
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
-    let output = execute_command_simple_machine(command, machine)
+    let output = execute_command_simple_machine(command, None::<Vec<u8>>, machine)
         .await
         .map_err(|e| {
             ResponseError::new(format!(
@@ -187,7 +187,7 @@ pub async fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Re
         .arg("--to")
         .arg(destination)
         .args(["--no-require-sigs"]);
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| ())
         .map_err(|e| {

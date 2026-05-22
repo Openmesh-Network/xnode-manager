@@ -49,7 +49,7 @@ pub async fn prepare_module() -> ResponseResult<()> {
 
     spawn(async {
         // start all containers
-        let containers = read_folder(path, &ReadFolderOptions { metadata: None }).await?;
+        let containers = read_folder(path, &ReadFolderOptions::default()).await?;
         for item in containers {
             let container = item.name;
             if let Err(e) = execute(

@@ -16,7 +16,7 @@ async fn cpu_endpoint(options: web::Query<CpuOptions>) -> ResponseResult<impl Re
     let options = options.into_inner();
 
     let path = "/sys/devices/system/cpu";
-    let cpus = read_folder(path, &ReadFolderOptions { metadata: None })
+    let cpus = read_folder(path, &ReadFolderOptions::default())
         .await
         .map(|items| {
             items
@@ -35,6 +35,11 @@ async fn cpu_endpoint(options: web::Query<CpuOptions>) -> ResponseResult<impl Re
 
     for cpu in cpus {
         let get = async move {
+            let mut cpu_info = None;
+            if options.info.unwrap_or(false) {
+                cpu_info = info(&cpu).await.ok();
+            }
+
             let mut cpu_usage = None;
             if options.usage.unwrap_or(false) {
                 cpu_usage = usage(&cpu).await.ok();
@@ -42,6 +47,7 @@ async fn cpu_endpoint(options: web::Query<CpuOptions>) -> ResponseResult<impl Re
 
             Cpu {
                 id: cpu,
+                info: cpu_info,
                 usage: cpu_usage,
             }
         };
@@ -55,6 +61,17 @@ async fn cpu_endpoint(options: web::Query<CpuOptions>) -> ResponseResult<impl Re
 #[get("/info")]
 async fn info_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let cpu = path.into_inner();
+    info(&cpu).await.map(json_response)
+}
+
+#[get("/usage")]
+async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
+    let cpu = path.into_inner();
+    usage(&cpu).await.map(json_response)
+}
+
+async fn info(cpu: impl AsRef<str>) -> ResponseResult<Info> {
+    let cpu = cpu.as_ref();
 
     let path = "/proc/cpuinfo";
 
@@ -75,13 +92,6 @@ async fn info_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder
         })
         .ok_or_else(|| ResponseError::new(format!("Cpu {cpu} not found in {path}.")))
         .and_then(Info::from_str)
-        .map(json_response)
-}
-
-#[get("/usage")]
-async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
-    let cpu = path.into_inner();
-    usage(cpu).await.map(json_response)
 }
 
 async fn usage(cpu: impl AsRef<str>) -> ResponseResult<Usage> {

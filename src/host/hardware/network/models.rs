@@ -1,13 +1,15 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct NetworkOptions {
+    pub info: Option<bool>,
     pub usage: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Network {
     pub id: String,
+    pub info: Option<Info>,
     pub usage: Option<Usage>,
 }
 

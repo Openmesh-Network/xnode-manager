@@ -13,14 +13,16 @@ impl Default for AppData {
         }
     }
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct GpuOptions {
+    pub info: Option<bool>,
     pub usage: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Gpu {
     pub id: String,
+    pub info: Option<Info>,
     pub usage: Option<Usage>,
 }
 

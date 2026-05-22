@@ -11,7 +11,7 @@ use crate::common::{
 async fn off_endpoint() -> ResponseResult<impl Responder> {
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command.arg("poweroff");
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| raw_response(()))
         .map_err(|e| ResponseError::new(format!("Could not shutdown: {e}")))
@@ -21,7 +21,7 @@ async fn off_endpoint() -> ResponseResult<impl Responder> {
 async fn reboot_endpoint() -> ResponseResult<impl Responder> {
     let mut command = Command::new(format!("{}systemctl", systemd()));
     command.arg("reboot");
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| raw_response(()))
         .map_err(|e| ResponseError::new(format!("Could not reboot: {e}")))

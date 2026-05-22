@@ -16,7 +16,7 @@ pub async fn limit(path: impl AsRef<Path>, size: Option<u64>) -> ResponseResult<
     let mut command = Command::new(format!("{}btrfs", btrfs()));
     command.args(["qgroup", "limit", "-c"]).arg(&size).arg(path);
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| ())
         .map_err(|e| {

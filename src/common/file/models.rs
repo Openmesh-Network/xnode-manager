@@ -14,15 +14,18 @@ pub struct Size {
     pub shared: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct ReadFolderOptions {
     pub metadata: Option<bool>,
+    pub size: Option<bool>,
+    pub permissions: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct FolderItem {
     pub name: String,
     pub metadata: Option<Metadata>,
+    pub size: Option<Size>,
 }
 
 #[derive(Serialize, Deserialize)]

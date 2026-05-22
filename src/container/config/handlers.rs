@@ -10,7 +10,7 @@ use crate::{
         path::get_scoped_path,
         response::{ResponseResult, json_response, raw_response},
     },
-    container::handlers::{ensure_initialized, flake, machine},
+    container::handlers::{config_dir, ensure_initialized, machine},
 };
 
 #[get("/get")]
@@ -69,7 +69,7 @@ async fn update_endpoint(
     let options = options.into_inner();
     let unit = get_wrapped_unit(&Operation::Update.to_string());
 
-    spawn(async move { update(&data.inputs, flake(), machine(&container), options).await });
+    spawn(async move { update(&data.inputs, config_dir(), machine(&container), options).await });
 
     Ok(json_response(ResponseCommand { id: unit }))
 }
@@ -85,7 +85,7 @@ async fn build_endpoint(
     let options = options.into_inner();
     let unit = get_wrapped_unit(&Operation::Build.to_string());
 
-    spawn(async move { build(flake(), machine(&container), options).await });
+    spawn(async move { build(config_dir(), machine(&container), options).await });
 
     Ok(json_response(ResponseCommand { id: unit }))
 }

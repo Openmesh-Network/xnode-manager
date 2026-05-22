@@ -10,7 +10,7 @@ use crate::{
         path::{get_scope_root, get_scoped_path},
         response::{ResponseResult, json_response, raw_response},
     },
-    host::handlers::{flake, machine},
+    host::handlers::{config_dir, machine},
 };
 
 #[get("/get")]
@@ -43,7 +43,7 @@ async fn update_endpoint(
     let options = options.into_inner();
     let unit = get_wrapped_unit(&Operation::Update.to_string());
 
-    spawn(async move { update(&data.inputs, flake(), machine(), options).await });
+    spawn(async move { update(&data.inputs, config_dir(), machine(), options).await });
 
     json_response(ResponseCommand { id: unit })
 }
@@ -53,7 +53,7 @@ async fn build_endpoint(options: web::Json<CommandOptions>) -> impl Responder {
     let options = options.into_inner();
     let unit = get_wrapped_unit(&Operation::Build.to_string());
 
-    spawn(async move { build(flake(), machine(), options).await });
+    spawn(async move { build(config_dir(), machine(), options).await });
 
     json_response(ResponseCommand { id: unit })
 }

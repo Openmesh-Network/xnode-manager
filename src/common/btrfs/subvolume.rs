@@ -15,7 +15,7 @@ pub async fn create(path: impl AsRef<Path>) -> ResponseResult<()> {
         .args(["--quiet", "subvolume", "create", "--parents"])
         .arg(path);
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| ())
         .map_err(|e| {
@@ -33,7 +33,7 @@ pub async fn delete(path: impl AsRef<Path>) -> ResponseResult<()> {
         .args(["--quiet", "subvolume", "delete", "--recursive"])
         .arg(path);
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| ())
         .map_err(|e| {
@@ -60,7 +60,7 @@ pub async fn snapshot(
         command.arg("-r");
     }
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| ())
         .map_err(|e| {

@@ -38,11 +38,13 @@ pub async fn list(
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
-    let output = execute_command_simple(command).await.map_err(|e| {
-        ResponseError::new(format!(
-            "Could not retrieve process list of {machine_str}: {e}"
-        ))
-    })?;
+    let output = execute_command_simple(command, None::<Vec<u8>>)
+        .await
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not retrieve process list of {machine_str}: {e}"
+            ))
+        })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
             "Process list of {machine_str} could not be decoded as UTF8: {e}."
@@ -62,6 +64,11 @@ pub async fn list(
         let machine = machine.as_ref();
 
         let get = async move {
+            let mut process_info = None;
+            if options.info.unwrap_or(false) {
+                process_info = info(machine, &id).await.ok();
+            }
+
             let mut process_status = None;
             if options.status.unwrap_or(false) {
                 process_status = status(machine, &id).await.ok();
@@ -74,6 +81,7 @@ pub async fn list(
 
             Process {
                 id,
+                info: process_info,
                 status: process_status,
                 usage: process_usage,
             }
@@ -103,11 +111,13 @@ pub async fn info(
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
-    let output = execute_command_simple(command).await.map_err(|e| {
-        ResponseError::new(format!(
-            "Could not retrieve info of {process} of {machine_str}: {e}"
-        ))
-    })?;
+    let output = execute_command_simple(command, None::<Vec<u8>>)
+        .await
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not retrieve info of {process} of {machine_str}: {e}"
+            ))
+        })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
             "Info of {process} of {machine_str} could not be decoded as UTF8: {e}."
@@ -156,11 +166,13 @@ pub async fn status(
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
-    let output = execute_command_simple(command).await.map_err(|e| {
-        ResponseError::new(format!(
-            "Could not retrieve status of {process} of {machine_str}: {e}"
-        ))
-    })?;
+    let output = execute_command_simple(command, None::<Vec<u8>>)
+        .await
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not retrieve status of {process} of {machine_str}: {e}"
+            ))
+        })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
             "Status of {process} of {machine_str} could not be decoded as UTF8: {e}."
@@ -270,11 +282,13 @@ pub async fn logs(
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
-    let output = execute_command_simple(command).await.map_err(|e| {
-        ResponseError::new(format!(
-            "Could not retrieve process logs of {process} of {machine_str}: {e}"
-        ))
-    })?;
+    let output = execute_command_simple(command, None::<Vec<u8>>)
+        .await
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not retrieve process logs of {process} of {machine_str}: {e}"
+            ))
+        })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
             "Process logs of {process} of {machine_str} could not be decoded as UTF8: {e}."
@@ -321,11 +335,13 @@ pub async fn usage(
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
-    let output = execute_command_simple(command).await.map_err(|e| {
-        ResponseError::new(format!(
-            "Could not retrieve usage of {process} of {machine_str}: {e}"
-        ))
-    })?;
+    let output = execute_command_simple(command, None::<Vec<u8>>)
+        .await
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not retrieve usage of {process} of {machine_str}: {e}"
+            ))
+        })?;
     let output_str = String::from_utf8(output).map_err(|e| {
         ResponseError::new(format!(
             "Usage of {process} of {machine_str} could not be decoded as UTF8: {e}."
@@ -411,7 +427,7 @@ pub async fn execute(
         .map(|m| format!("machine:{m}", m = m.as_ref()))
         .unwrap_or("host".to_string());
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| ())
         .map_err(|e| {

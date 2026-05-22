@@ -29,6 +29,11 @@ async fn nvidia_endpoint(
             && let Ok(gpu) = device.uuid()
         {
             let get = async move {
+                let mut gpu_info = None;
+                if options.info.unwrap_or(false) {
+                    gpu_info = info(nvml, &gpu).await.ok();
+                }
+
                 let mut gpu_usage = None;
                 if options.usage.unwrap_or(false) {
                     gpu_usage = usage(nvml, &gpu).await.ok();
@@ -36,6 +41,7 @@ async fn nvidia_endpoint(
 
                 Gpu {
                     id: gpu,
+                    info: gpu_info,
                     usage: gpu_usage,
                 }
             };
@@ -59,15 +65,7 @@ async fn info_endpoint(
         .as_ref()
         .map_err(|e| ResponseError::new(format!("Could not acquire nvml lock: {e}")))?;
 
-    let device = nvml
-        .device_by_uuid(gpu.clone())
-        .map_err(|e| ResponseError::new(format!("Could not get device {gpu}: {e}")))?;
-
-    let name = device
-        .name()
-        .map_err(|e| ResponseError::new(format!("Could not get name of device {gpu}: {e}")))?;
-
-    Ok(json_response(Info { name }))
+    info(nvml, gpu).await.map(json_response)
 }
 
 #[get("/usage")]
@@ -83,6 +81,20 @@ async fn usage_endpoint(
         .map_err(|e| ResponseError::new(format!("Could not acquire nvml lock: {e}")))?;
 
     usage(nvml, gpu).await.map(json_response)
+}
+
+async fn info(nvml: &Nvml, gpu: impl AsRef<str>) -> ResponseResult<Info> {
+    let gpu = gpu.as_ref();
+
+    let device = nvml
+        .device_by_uuid(gpu)
+        .map_err(|e| ResponseError::new(format!("Could not get device {gpu}: {e}")))?;
+
+    let name = device
+        .name()
+        .map_err(|e| ResponseError::new(format!("Could not get name of device {gpu}: {e}")))?;
+
+    Ok(Info { name })
 }
 
 async fn usage(nvml: &Nvml, gpu: impl AsRef<str>) -> ResponseResult<Usage> {

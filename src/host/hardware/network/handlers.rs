@@ -22,7 +22,7 @@ async fn memory_endpoint(options: web::Query<NetworkOptions>) -> ResponseResult<
     let options = options.into_inner();
 
     let path = "/sys/class/net";
-    let networks = read_folder(path, &ReadFolderOptions { metadata: None })
+    let networks = read_folder(path, &ReadFolderOptions::default())
         .await
         .map(|items| {
             items
@@ -35,6 +35,11 @@ async fn memory_endpoint(options: web::Query<NetworkOptions>) -> ResponseResult<
 
     for network in networks {
         let get = async move {
+            let mut network_info = None;
+            if options.info.unwrap_or(false) {
+                network_info = info(&network).await.ok();
+            }
+
             let mut network_usage = None;
             if options.usage.unwrap_or(false) {
                 network_usage = usage(&network).await.ok();
@@ -42,6 +47,7 @@ async fn memory_endpoint(options: web::Query<NetworkOptions>) -> ResponseResult<
 
             Network {
                 id: network,
+                info: network_info,
                 usage: network_usage,
             }
         };
@@ -55,11 +61,22 @@ async fn memory_endpoint(options: web::Query<NetworkOptions>) -> ResponseResult<
 #[get("/info")]
 async fn info_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let network = path.into_inner();
+    info(&network).await.map(json_response)
+}
+
+#[get("/usage")]
+async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
+    let network = path.into_inner();
+    usage(&network).await.map(json_response)
+}
+
+async fn info(network: impl AsRef<str>) -> ResponseResult<Info> {
+    let network = network.as_ref();
 
     let mut command = Command::new(format!("{}networkctl", systemd()));
-    command.args(["status", &network, "--json", "short"]);
+    command.args(["status", network, "--json", "short"]);
 
-    let output = execute_command_simple(command)
+    let output = execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map_err(|e| ResponseError::new(format!("Could not get info of {network}: {e}")))?;
     let output_str = String::from_utf8(output).map_err(|e| {
@@ -74,7 +91,7 @@ async fn info_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder
         ))
     })?;
 
-    Ok(json_response(Info {
+    Ok(Info {
         mac: info
             .HardwareAddress
             .into_iter()
@@ -110,14 +127,7 @@ async fn info_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder
                 _ => None,
             })
             .collect(),
-    }))
-}
-
-#[get("/usage")]
-async fn usage_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
-    let network = path.into_inner();
-
-    usage(&network).await.map(json_response)
+    })
 }
 
 async fn usage(network: impl AsRef<str>) -> ResponseResult<Usage> {

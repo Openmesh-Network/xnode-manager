@@ -6,7 +6,7 @@ use crate::{
         nix::{EvalQuery, FlakeQuery, eval, flake_metadata},
         response::{ResponseResult, json_response},
     },
-    host::handlers::{flake, machine},
+    host::handlers::{config_dir, machine},
 };
 
 #[get("/flake/metadata")]
@@ -22,8 +22,8 @@ async fn eval_endpoint(query: web::Query<EvalQuery>) -> ResponseResult<impl Resp
 
     if query.config.unwrap_or(false) {
         statement = format!(
-            "{flake}#nixosConfigurations.xnode.{statement}",
-            flake = flake().as_ref().to_string_lossy()
+            "{config_dir}#nixosConfigurations.xnode.{statement}",
+            config_dir = config_dir().to_string_lossy()
         );
     }
 

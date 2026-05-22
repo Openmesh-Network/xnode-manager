@@ -16,7 +16,7 @@ pub fn service() -> impl HttpServiceFactory {
         cfg.service(handlers::create_folder_endpoint);
         cfg.service(handlers::read_link_endpoint);
         cfg.service(handlers::write_link_endpoint);
-        cfg.service(handlers::get_permissions_endpoint);
-        cfg.service(handlers::set_permissions_endpoint);
+        cfg.service(handlers::permissions_get_endpoint);
+        cfg.service(handlers::permissions_set_endpoint);
     })
 }

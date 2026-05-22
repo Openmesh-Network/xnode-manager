@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct ProcessOptions {
+    pub info: Option<bool>,
     pub status: Option<bool>,
     pub usage: Option<bool>,
 }
@@ -17,6 +18,7 @@ pub struct SystemCtlProcess {
 #[derive(Serialize, Deserialize)]
 pub struct Process {
     pub id: String,
+    pub info: Option<Info>,
     pub status: Option<Status>,
     pub usage: Option<Usage>,
 }

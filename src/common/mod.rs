@@ -7,4 +7,5 @@ pub mod nix;
 pub mod path;
 pub mod process;
 pub mod response;
+pub mod secret;
 pub mod string;

@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, fmt::Display, io::Error};
+use std::{ffi::OsStr, fmt::Display, io::Error, process::Stdio};
 
 use serde::{Deserialize, Serialize};
 use tokio::process::Command;
@@ -59,10 +59,31 @@ impl Display for SimpleCommandError {
 }
 
 pub type SimpleCommandResult = Result<Vec<u8>, SimpleCommandError>;
-pub async fn execute_command_simple(mut command: Command) -> SimpleCommandResult {
+pub async fn execute_command_simple(
+    mut command: Command,
+    stdin: Option<impl AsRef<[u8]>>,
+) -> SimpleCommandResult {
     log::info!("Executing command: {:?}", command);
 
-    match command.output().await {
+    if stdin.is_some() {
+        command.stdin(Stdio::piped());
+    }
+    command.stdout(Stdio::piped());
+
+    let mut child = command
+        .spawn()
+        .map_err(|e| SimpleCommandError::CommandError { e })?;
+
+    if let Some(content) = stdin
+        && let Some(mut stdin) = child.stdin.take()
+    {
+        tokio::io::AsyncWriteExt::write_all(&mut stdin, content.as_ref())
+            .await
+            .map_err(|e| SimpleCommandError::CommandError { e })?;
+        drop(stdin);
+    }
+
+    match child.wait_with_output().await {
         Ok(output_raw) => {
             if !output_raw.status.success() {
                 return Err(SimpleCommandError::OutputError {
@@ -78,6 +99,7 @@ pub async fn execute_command_simple(mut command: Command) -> SimpleCommandResult
 
 pub async fn execute_command_simple_machine(
     command: Command,
+    stdin: Option<impl AsRef<[u8]>>,
     machine: Option<impl AsRef<str>>,
 ) -> SimpleCommandResult {
     let mut base_command = command.into_std();
@@ -101,7 +123,7 @@ pub async fn execute_command_simple_machine(
     let program = base_command.get_program();
     command.arg(program).args(base_command.get_args());
 
-    execute_command_simple(command).await
+    execute_command_simple(command, stdin).await
 }
 
 pub async fn execute_command_wrapped(
@@ -159,7 +181,7 @@ pub async fn execute_command_wrapped(
     let program = base_command.get_program();
     command.arg(program).args(base_command.get_args());
 
-    execute_command_simple(command).await
+    execute_command_simple(command, None::<Vec<u8>>).await
 }
 
 pub fn get_wrapped_unit(name: &str) -> String {

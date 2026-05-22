@@ -190,12 +190,16 @@ pub async fn read_folder(path: impl AsRef<Path>, options: &ReadFolderOptions) ->
         
         let get = async move {
             let mut item_metadata = None;
-
             if options.metadata.unwrap_or(false) {
-                item_metadata = metadata(path).await.ok();
+                item_metadata = metadata(&path).await.ok();
+            }
+
+            let mut item_size = None;
+            if options.size.unwrap_or(false) {
+                item_size = size(&path).await.ok();
             }
             
-            FolderItem { name: item_name, metadata: item_metadata }
+            FolderItem { name: item_name, metadata: item_metadata, size: item_size }
         };
 
         items.push(get);
@@ -253,7 +257,7 @@ where
     let destination = destination.as_ref();
 
     create_folder(destination).await?;
-    let folder = read_folder(source, &ReadFolderOptions { metadata: Some(true) }).await?;
+    let folder = read_folder(source, &ReadFolderOptions { metadata: Some(true), ..Default::default() }).await?;
     for item in folder {
         match item.metadata {
             Some(Metadata::File {  }) | Some(Metadata::Link {  }) => {
@@ -423,7 +427,7 @@ pub async fn shift(path: impl AsRef<Path>, range: impl AsRef<str>) -> ResponseRe
     let mut command = Command::new(format!("{}systemd-dissect", systemd()));
     command.arg("--shift").arg(path).arg(range);
 
-    execute_command_simple(command)
+    execute_command_simple(command, None::<Vec<u8>>)
         .await
         .map(|_output| ())
         .map_err(|e| {

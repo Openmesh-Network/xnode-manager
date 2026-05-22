@@ -81,13 +81,13 @@ async fn write_link_endpoint(
         .map(raw_response)
 }
 
-#[get("/get_permissions")]
-async fn get_permissions_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl Responder> {
+#[get("/permissions/get")]
+async fn permissions_get_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl Responder> {
     get_permissions(&query.path).await.map(json_response)
 }
 
-#[post("/set_permissions")]
-async fn set_permissions_endpoint(
+#[post("/permissions/set")]
+async fn permissions_set_endpoint(
     query: web::Query<PathQuery>,
     data: web::Json<Vec<Permission>>,
 ) -> ResponseResult<impl Responder> {
