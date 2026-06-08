@@ -268,15 +268,19 @@
             };
 
             buildBase = {
-              container = {
-                option = {
-                  type = lib.types.str;
-                  description = ''
-                    NixOS configuration that will be applied on creation to build subsequent container configurations.
-                  '';
+              option = {
+                type = lib.types.submodule {
+                  options = {
+                    container = lib.mkOption {
+                      type = lib.types.str;
+                      description = ''
+                        NixOS configuration that will be applied on creation to build subsequent container configurations.
+                      '';
+                    };
+                  };
                 };
-                does = { value, service, ... }: service { environment.BUILD_BASE = builtins.toJSON value; };
               };
+              does = { value, service, ... }: service { environment.BUILD_BASE = builtins.toJSON value; };
             };
 
             defaultPermission =

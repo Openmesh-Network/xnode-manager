@@ -2,7 +2,7 @@ use actix_web::{Responder, get, post, web};
 
 use crate::{
     common::{
-        file::{create_folder, shift},
+        file::create_folder,
         path::get_scoped_path,
         response::{ResponseResult, json_response, raw_response},
         secret::{self, SecretOptions, list},
