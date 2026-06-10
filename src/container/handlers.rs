@@ -73,6 +73,7 @@ async fn create_endpoint(path: web::Path<String>) -> ResponseResult<impl Respond
     let mut first_install = Command::new(format!("{}systemd-run", systemd()));
     first_install.args([
         "--pipe",
+        "--quiet",
         "--collect",
         "--property",
         "Type=oneshot",
@@ -99,6 +100,8 @@ async fn create_endpoint(path: web::Path<String>) -> ResponseResult<impl Respond
 #[post("/remove")]
 async fn remove_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let scope = ["container", &container];
     let root = get_scope_root(&scope);
 

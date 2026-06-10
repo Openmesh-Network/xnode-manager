@@ -180,7 +180,7 @@
                           "${cfg.systemd}/bin/systemd-vmspawn" \
                             --machine="''${name}.virtual-machine" \
                             --slice="''${name//-/_}-virtual_machine-machine.slice" \
-                            --directory="${cfg.dataDir}/container/''${name}/data" \
+                            --directory="${cfg.dataDir}/virtual-machine/''${name}/data" \
                             "''${args[@]}"
                         '';
                         startLimitIntervalSec = 0;

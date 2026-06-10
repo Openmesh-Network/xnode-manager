@@ -7,7 +7,7 @@ use crate::{
         path::get_scope_root,
         response::{ResponseResult, json_response},
     },
-    container::handlers::{config_dir, machine},
+    container::handlers::{config_dir, ensure_initialized, machine},
 };
 
 #[get("/flake/metadata")]
@@ -16,6 +16,8 @@ async fn flake_metadata_endpoint(
     query: web::Query<FlakeQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     flake_metadata(&query.flake, machine(&container))
         .await
         .map(json_response)
@@ -27,6 +29,8 @@ async fn eval_endpoint(
     query: web::Query<EvalQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let mut statement = query.statement.clone();
 
     if query.config.unwrap_or(false) {
@@ -44,6 +48,8 @@ async fn eval_endpoint(
 #[get("/users/users")]
 async fn users_users_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let scope = ["container", &container];
     let path = get_scope_root(&scope);
     get_users(Some(path)).await.map(json_response)
@@ -52,6 +58,8 @@ async fn users_users_endpoint(path: web::Path<String>) -> ResponseResult<impl Re
 #[get("/users/groups")]
 async fn users_groups_endpoint(path: web::Path<String>) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let scope = ["container", &container];
     let path = get_scope_root(&scope);
     get_groups(Some(path)).await.map(json_response)

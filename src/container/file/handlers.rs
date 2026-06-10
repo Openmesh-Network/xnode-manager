@@ -21,6 +21,8 @@ async fn metadata_endpoint(
     query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let path = to_container_path(&container, &query.path)?;
     metadata(path).await.map(json_response)
 }
@@ -31,6 +33,8 @@ async fn size_endpoint(
     query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let path = to_container_path(&container, &query.path)?;
     size(path).await.map(json_response)
 }
@@ -41,6 +45,8 @@ async fn move_endpoint(
     data: web::Json<SourceDestinationData>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let source = to_container_path(&container, &data.source)?;
     let destination = to_container_path(&container, &data.destination)?;
     r#move(source, destination).await.map(raw_response)
@@ -52,6 +58,8 @@ async fn remove_endpoint(
     query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let path = to_container_path(&container, &query.path)?;
     remove(path).await.map(raw_response)
 }
@@ -62,6 +70,8 @@ async fn copy_endpoint(
     data: web::Json<SourceDestinationData>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let source = to_container_path(&container, &data.source)?;
     let destination = to_container_path(&container, &data.destination)?;
     copy(source, destination).await.map(raw_response)
@@ -73,6 +83,8 @@ async fn read_file_endpoint(
     query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let path = to_container_path(&container, &query.path)?;
     read_file(path).await.map(raw_response)
 }
@@ -97,6 +109,8 @@ async fn read_folder_endpoint(
     options: web::Query<ReadFolderOptions>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let path = to_container_path(&container, &query.path)?;
     read_folder(path, &options).await.map(json_response)
 }
@@ -119,6 +133,8 @@ async fn read_link_endpoint(
     query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let path = to_container_path(&container, &query.path)?;
     read_link(path)
         .await
@@ -132,6 +148,8 @@ async fn write_link_endpoint(
     data: web::Json<SourceDestinationData>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let source = to_container_path(&container, &data.source)?;
     let destination = to_container_path(&container, &data.destination)?;
     write_link(source, destination).await.map(raw_response)
@@ -143,6 +161,8 @@ async fn get_permissions_endpoint(
     query: web::Query<PathQuery>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let path = to_container_path(&container, &query.path)?;
     get_permissions(path).await.map(json_response)
 }
@@ -154,6 +174,8 @@ async fn set_permissions_endpoint(
     data: web::Json<Vec<Permission>>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
+    ensure_initialized(&container).await?;
+
     let path = to_container_path(&container, &query.path)?;
     set_permissions(path, data.into_inner())
         .await

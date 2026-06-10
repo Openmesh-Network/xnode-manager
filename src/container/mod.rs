@@ -8,6 +8,7 @@ use crate::common::{
     response::{ResponseError, ResponseResult, TypedResponseError},
 };
 
+pub mod backup;
 pub mod config;
 pub mod file;
 pub mod handlers;
@@ -26,6 +27,7 @@ pub fn service() -> impl HttpServiceFactory {
                     cfg.service(handlers::create_endpoint);
                     cfg.service(handlers::remove_endpoint);
                 })
+                .service(backup::service())
                 .service(config::service())
                 .service(file::service())
                 .service(info::service())
