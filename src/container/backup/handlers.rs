@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use actix_web::{Responder, get, post, web};
 use tokio::process::Command;
 
@@ -59,7 +61,15 @@ async fn restore_endpoint(path: web::Path<(String, String)>) -> ResponseResult<i
     let root = get_scoped_path(&scope, &["data"]);
     let snapshot = get_scoped_path(&scope, &["backup", &backup]);
 
-    r#move(&root, get_scoped_path(&scope, &["backup", "pre-restore"])).await?;
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::ZERO)
+        .as_secs();
+    r#move(
+        &root,
+        get_scoped_path(&scope, &["backup", &format!("pre-restore-{timestamp}")]),
+    )
+    .await?;
 
     subvolume::snapshot(&snapshot, &root, false).await?;
 
