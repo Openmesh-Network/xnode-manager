@@ -1,12 +1,15 @@
 use actix_web::{Responder, get, post, web};
+use tokio::process::Command;
 
 use crate::{
     common::{
         btrfs::subvolume,
+        command::execute_command_simple,
+        env::find,
         file::{ReadFolderOptions, create_folder, r#move, read_folder, shift},
         path::get_scoped_path,
         process::{SystemCtlCommand, execute},
-        response::{ResponseResult, json_response, raw_response},
+        response::{ResponseError, ResponseResult, json_response, raw_response},
     },
     container::{backup::models::Backup, handlers::ensure_initialized},
 };
@@ -59,6 +62,22 @@ async fn restore_endpoint(path: web::Path<(String, String)>) -> ResponseResult<i
     r#move(&root, get_scoped_path(&scope, &["backup", "pre-restore"])).await?;
 
     subvolume::snapshot(&snapshot, &root, false).await?;
+
+    // Remove empty folders of the snapshot that represent subvolume mounts
+    // The empty folders prevent creation of new subvolumes on the same location
+    let mut command = Command::new(format!("{}find", find()));
+    command
+        .arg(&root)
+        .args(["-mindepth", "1", "-inum", "2", "-empty", "-delete"]);
+    execute_command_simple(command, None::<Vec<u8>>)
+        .await
+        .map(|_output| ())
+        .map_err(|e| {
+            ResponseError::new(format!(
+                "Could not remove empty subvolume mount folders in {root}: {e}",
+                root = root.display()
+            ))
+        })?;
 
     execute(
         None::<String>,

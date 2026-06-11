@@ -267,6 +267,18 @@
               does = { value, service, ... }: service { environment.BTRFS = "${value}/bin/"; };
             };
 
+            find = {
+              option = {
+                type = lib.types.str;
+                default = pkgs.findutils.outPath;
+                example = pkgs.findutils.outPath;
+                description = ''
+                  find equivalent executable.
+                '';
+              };
+              does = { value, service, ... }: service { environment.FIND = "${value}/bin/"; };
+            };
+
             buildBase = {
               option = {
                 type = lib.types.submodule {

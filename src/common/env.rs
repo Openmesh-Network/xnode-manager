@@ -36,6 +36,10 @@ pub fn btrfs() -> String {
     env_var("BTRFS").unwrap_or("".to_string())
 }
 
+pub fn find() -> String {
+    env_var("FIND").unwrap_or("".to_string())
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct BuildBase {
     pub container: String,
