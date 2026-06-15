@@ -196,6 +196,7 @@ async fn write_slice(
     match content {
         Some(process) => {
             let mut slice = String::new();
+            slice.push_str("[Slice]\n");
 
             if let Some(cpu) = &process.cpu {
                 if let Some(weight) = &cpu.weight {
