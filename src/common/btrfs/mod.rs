@@ -1,8 +1,4 @@
-use std::{
-    fmt::Display,
-    path::{Path, PathBuf},
-    process::Stdio,
-};
+use std::{fmt::Display, path::Path, process::Stdio};
 
 use futures::{Stream, StreamExt};
 use tokio::process::{Child, Command};
@@ -10,53 +6,22 @@ use tokio_util::io::ReaderStream;
 
 use crate::common::{env::btrfs, response::ResponseError};
 
-use super::{file::create_folder, response::ResponseResult};
+use super::response::ResponseResult;
 
 pub mod filesystem;
 pub mod qgroup;
 pub mod quota;
 pub mod subvolume;
 
-pub struct ReceiveFolder {
-    path: PathBuf,
-}
-
-impl ReceiveFolder {
-    pub async fn create(path: impl AsRef<Path>) -> ResponseResult<Self> {
-        create_folder(&path).await?;
-        Ok(Self {
-            path: path.as_ref().to_path_buf(),
-        })
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-}
-
-impl Drop for ReceiveFolder {
-    fn drop(&mut self) {
-        let path = self.path.clone();
-        tokio::spawn(async move {
-            if let Ok(mut entries) = tokio::fs::read_dir(&path).await {
-                while let Ok(Some(entry)) = entries.next_entry().await {
-                    let _ = subvolume::delete(entry.path()).await;
-                }
-            }
-            let _ = tokio::fs::remove_dir(&path).await;
-        });
-    }
-}
-
 pub async fn receive(
-    path: impl AsRef<Path>,
+    directory: impl AsRef<Path>,
     mut send: impl Stream<Item = Result<impl AsRef<[u8]>, impl Display>> + Unpin,
 ) -> ResponseResult<()> {
-    let path = path.as_ref();
+    let directory = directory.as_ref();
 
     let mut command = Command::new(format!("{}btrfs", btrfs()));
     command.args(["receive", "--chroot"]);
-    command.arg(path);
+    command.arg(directory);
 
     command.stdin(Stdio::piped());
     command.stdout(Stdio::null());
@@ -99,21 +64,27 @@ pub async fn receive(
     Ok(())
 }
 
-pub async fn send(
-    path: impl AsRef<Path>,
-    common: impl Iterator<Item = impl AsRef<Path>>,
+pub async fn send<S, C>(
+    subvolumes: S,
+    common: C,
 ) -> ResponseResult<(
     impl Stream<Item = std::io::Result<actix_web::web::Bytes>>,
     Child,
-)> {
-    let path = path.as_ref();
-
+)>
+where
+    S: IntoIterator,
+    S::Item: AsRef<Path>,
+    C: IntoIterator,
+    C::Item: AsRef<Path>,
+{
     let mut command = Command::new(format!("{}btrfs", btrfs()));
     command.arg("send");
-    for parent in common {
-        command.arg("-c").arg(parent.as_ref());
+    for subvolume in common {
+        command.arg("-c").arg(subvolume.as_ref());
     }
-    command.arg(path);
+    for subvolume in subvolumes {
+        command.arg(subvolume.as_ref());
+    }
 
     command.stdin(Stdio::null());
     command.stdout(Stdio::piped());

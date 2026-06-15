@@ -15,6 +15,7 @@ pub mod handlers;
 pub mod info;
 pub mod models;
 pub mod process;
+pub mod transfer;
 
 pub fn service() -> impl HttpServiceFactory {
     web::scope("/container").configure(|cfg| {
@@ -31,7 +32,8 @@ pub fn service() -> impl HttpServiceFactory {
                 .service(config::service())
                 .service(file::service())
                 .service(info::service())
-                .service(process::service()),
+                .service(process::service())
+                .service(transfer::service()),
         );
     })
 }
