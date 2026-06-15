@@ -10,27 +10,23 @@ use tokio_util::io::ReaderStream;
 
 use crate::common::{env::btrfs, response::ResponseError};
 
-use super::response::ResponseResult;
+use super::{file::create_folder, response::ResponseResult};
 
 pub mod filesystem;
 pub mod qgroup;
 pub mod quota;
 pub mod subvolume;
 
-pub struct TemporarySubvolume {
+pub struct ReceiveFolder {
     path: PathBuf,
 }
 
-impl TemporarySubvolume {
-    pub fn new(path: impl AsRef<Path>) -> Self {
-        Self {
-            path: path.as_ref().to_path_buf(),
-        }
-    }
-
+impl ReceiveFolder {
     pub async fn create(path: impl AsRef<Path>) -> ResponseResult<Self> {
-        subvolume::create(&path).await?;
-        Ok(Self::new(path))
+        create_folder(&path).await?;
+        Ok(Self {
+            path: path.as_ref().to_path_buf(),
+        })
     }
 
     pub fn path(&self) -> &Path {
@@ -38,11 +34,16 @@ impl TemporarySubvolume {
     }
 }
 
-impl Drop for TemporarySubvolume {
+impl Drop for ReceiveFolder {
     fn drop(&mut self) {
         let path = self.path.clone();
         tokio::spawn(async move {
-            let _ = subvolume::delete(&path).await;
+            if let Ok(mut entries) = tokio::fs::read_dir(&path).await {
+                while let Ok(Some(entry)) = entries.next_entry().await {
+                    let _ = subvolume::delete(entry.path()).await;
+                }
+            }
+            let _ = tokio::fs::remove_dir(&path).await;
         });
     }
 }
