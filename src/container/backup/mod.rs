@@ -10,6 +10,8 @@ pub fn service() -> impl HttpServiceFactory {
             cfg.service(handlers::create_endpoint);
             cfg.service(handlers::restore_endpoint);
             cfg.service(handlers::remove_endpoint);
+            cfg.service(handlers::receive_endpoint);
+            cfg.service(handlers::send_endpoint);
         }));
     })
 }

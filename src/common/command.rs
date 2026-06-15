@@ -68,6 +68,7 @@ pub async fn execute_command_simple(
     if stdin.is_some() {
         command.stdin(Stdio::piped());
     }
+    command.stderr(Stdio::piped());
     command.stdout(Stdio::piped());
 
     let mut child = command
