@@ -1,7 +1,18 @@
-use actix_web::{Responder, post, web};
-use reqwest::{Body, Client};
+use std::pin::Pin;
 
-use super::models::SendData;
+use actix_web::{
+    Responder, post,
+    web::{self, Bytes},
+};
+use async_compression::{
+    Level,
+    tokio::bufread::{ZstdDecoder, ZstdEncoder},
+};
+use futures::{Stream, TryStreamExt};
+use reqwest::{Body, Client};
+use tokio_util::io::{ReaderStream, StreamReader};
+
+use super::models::{ReceiveQuery, SendData, SendQuery};
 use crate::{
     common::{
         btrfs::{receive, send},
@@ -9,12 +20,13 @@ use crate::{
         path::get_scoped_path,
         response::{ResponseError, ResponseResult, raw_response},
     },
-    container::handlers::ensure_initialized,
+    container::{handlers::ensure_initialized, transfer::backup::models::Compression},
 };
 
 #[post("/receive")]
 async fn receive_endpoint(
     path: web::Path<String>,
+    query: web::Query<ReceiveQuery>,
     body: web::Payload,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
@@ -26,12 +38,24 @@ async fn receive_endpoint(
     create_folder(&path).await?;
     shift(&path, "foreign").await?;
 
-    receive(&path, body).await.map(raw_response)
+    let stream = body.map_err(std::io::Error::other);
+    let stream: Pin<Box<dyn Stream<Item = std::io::Result<Bytes>>>> = match query.compression {
+        Some(Compression::Zstd) => {
+            let decoder = ZstdDecoder::new(StreamReader::new(stream));
+            let compressed_stream = ReaderStream::new(decoder);
+            Box::pin(compressed_stream)
+        }
+        None => Box::pin(stream),
+    };
+    let stream = Box::pin(stream);
+
+    receive(&path, stream).await.map(raw_response)
 }
 
 #[post("/send")]
 async fn send_endpoint(
     path: web::Path<String>,
+    query: web::Query<SendQuery>,
     data: web::Json<SendData>,
 ) -> ResponseResult<impl Responder> {
     let container = path.into_inner();
@@ -53,9 +77,23 @@ async fn send_endpoint(
 
     let (stream, mut child) = send(subvolumes, common).await?;
 
+    let body = match query.compression {
+        Some(Compression::Zstd) => {
+            let encoder = match query.compression_level {
+                Some(level) => {
+                    ZstdEncoder::with_quality(StreamReader::new(stream), Level::Precise(level))
+                }
+                None => ZstdEncoder::new(StreamReader::new(stream)),
+            };
+            let compressed_stream = ReaderStream::new(encoder);
+            Body::wrap_stream(compressed_stream)
+        }
+        None => Body::wrap_stream(stream),
+    };
+
     let response = Client::default()
         .post(&data.receive)
-        .body(Body::wrap_stream(stream))
+        .body(body)
         .send()
         .await
         .map_err(|e| {

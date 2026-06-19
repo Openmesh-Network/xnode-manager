@@ -78,7 +78,7 @@ where
     C::Item: AsRef<Path>,
 {
     let mut command = Command::new(format!("{}btrfs", btrfs()));
-    command.arg("send");
+    command.args(["send", "-e"]);
     for subvolume in common {
         command.arg("-c").arg(subvolume.as_ref());
     }
