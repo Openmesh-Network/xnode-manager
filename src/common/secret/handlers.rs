@@ -13,13 +13,15 @@ use crate::common::{
 use super::{Secret, SecretOptions};
 
 pub async fn list(
-    dir: impl AsRef<Path>,
+    host_path: impl AsRef<Path>,
+    machine_path: impl AsRef<Path>,
     machine: Option<impl AsRef<str>>,
     options: SecretOptions,
 ) -> ResponseResult<Vec<Secret>> {
-    let dir = dir.as_ref();
+    let host_path = host_path.as_ref();
+    let machine_path = machine_path.as_ref();
 
-    let secrets = read_folder(dir, &ReadFolderOptions::default())
+    let secrets = read_folder(host_path, &ReadFolderOptions::default())
         .await
         .map(|items| {
             items
@@ -43,7 +45,7 @@ pub async fn list(
         let get = async move {
             let mut secret_get = None;
             if options.get.unwrap_or(false) {
-                secret_get = get(dir.join(&secret), machine).await.ok();
+                secret_get = get(machine_path.join(&secret), machine).await.ok();
             }
 
             Secret {

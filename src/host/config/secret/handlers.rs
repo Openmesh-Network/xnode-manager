@@ -3,7 +3,6 @@ use actix_web::{Responder, get, post, web};
 use crate::{
     common::{
         file::create_folder,
-        path::get_scoped_path,
         response::{ResponseResult, json_response, raw_response},
         secret::{self, SecretOptions, list},
     },
@@ -14,9 +13,10 @@ use crate::{
 async fn secret_endpoint(options: web::Query<SecretOptions>) -> ResponseResult<impl Responder> {
     let options = options.into_inner();
 
-    let scope = ["host"];
-    let path = get_scoped_path(&scope, &["config", "xnode-config", "secret"]);
-    list(path, machine(), options).await.map(json_response)
+    let path = config_dir().join("xnode-config").join("secret");
+    list(&path, &path, machine(), options)
+        .await
+        .map(json_response)
 }
 
 #[get("/get")]

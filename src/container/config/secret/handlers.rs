@@ -19,8 +19,9 @@ async fn secret_endpoint(
     let options = options.into_inner();
 
     let scope = ["container", &container];
-    let path = get_scoped_path(&scope, &["data", "config", "xnode-config", "secret"]);
-    list(path, machine(&container), options)
+    let host_path = get_scoped_path(&scope, &["data", "config", "xnode-config", "secret"]);
+    let machine_path = config_dir().join("xnode-config").join("secret");
+    list(&host_path, &machine_path, machine(&container), options)
         .await
         .map(json_response)
 }
@@ -39,12 +40,18 @@ async fn set_endpoint(
     let (container, secret) = path.into_inner();
     ensure_initialized(&container).await?;
 
-    let path = config_dir().join("xnode-config").join("secret");
+    let scope = ["container", &container];
+    let host_path = get_scoped_path(&scope, &["data", "config", "xnode-config", "secret"]);
     {
-        create_folder(&path).await?;
-        shift(&path, "foreign").await?;
+        create_folder(&host_path).await?;
+        shift(&host_path, "foreign").await?;
     }
-    secret::set(path.join(&secret), &data, machine(container))
+
+    let machine_path = config_dir()
+        .join("xnode-config")
+        .join("secret")
+        .join(&secret);
+    secret::set(&machine_path, &data, machine(container))
         .await
         .map(raw_response)
 }
