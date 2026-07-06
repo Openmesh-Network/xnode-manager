@@ -1,18 +1,24 @@
 use std::{
     io::ErrorKind,
-    os::unix::{ffi::OsStrExt, fs::{MetadataExt, chown}},
+    os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
 };
 
 use futures::future::join_all;
-use posix_acl::{ACL_EXECUTE, ACL_READ, ACL_WRITE, PosixACL, Qualifier};
 use tokio::{fs, process::Command};
 
 use crate::common::{
-    btrfs::filesystem::du, command::execute_command_simple, env::systemd, response::{ResponseError, ResponseResult, TypedResponseError}, string::escaped_utf8_from_bytes
+    btrfs::filesystem::du,
+    command::execute_command_simple,
+    env::systemd,
+    response::{ResponseError, ResponseResult, TypedResponseError},
+    string::escaped_utf8_from_bytes,
 };
 
-use super::{ReadFolderOptions, models::{Entity, FolderItem, Metadata, Permission, Size}};
+use super::{
+    ReadFolderOptions,
+    models::{FolderItem, Metadata, Size},
+};
 
 pub async fn metadata(path: impl AsRef<Path>) -> ResponseResult<Metadata> {
     let path = path.as_ref();
@@ -21,22 +27,24 @@ pub async fn metadata(path: impl AsRef<Path>) -> ResponseResult<Metadata> {
         .await
         .map(|metadata| {
             if metadata.is_symlink() {
-                Metadata::Link { }
+                Metadata::Link {}
             } else if metadata.is_dir() {
-                Metadata::Folder { }
-            }  else if metadata.is_file() {
-                Metadata::File { }
+                Metadata::Folder {}
+            } else if metadata.is_file() {
+                Metadata::File {}
             } else {
-                Metadata::Unknown { }
+                Metadata::Unknown {}
             }
         })
         .map_err(|e| {
             TypedResponseError::from_io(&e, path)
                 .map(ResponseError::typed)
-                .unwrap_or_else(|| ResponseError::new(format!(
-                    "Could not get metadata of {path}: {e}",
-                    path = path.display()
-                )))
+                .unwrap_or_else(|| {
+                    ResponseError::new(format!(
+                        "Could not get metadata of {path}: {e}",
+                        path = path.display()
+                    ))
+                })
         })
 }
 
@@ -68,27 +76,26 @@ pub async fn r#move(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> 
 pub async fn remove(path: impl AsRef<Path>) -> ResponseResult<()> {
     let path = path.as_ref();
     match metadata(path).await? {
-        Metadata::File {} | Metadata::Link {  } => remove_file(path).await,
+        Metadata::File {} | Metadata::Link {} => remove_file(path).await,
         Metadata::Folder {} => remove_folder(path).await,
-        Metadata::Unknown {} => Err(ResponseError::new(format!("Could not determine type of {path}", path = path.display()))),
+        Metadata::Unknown {} => Err(ResponseError::new(format!(
+            "Could not determine type of {path}",
+            path = path.display()
+        ))),
     }
 }
 
-pub async fn copy(
-    source: impl AsRef<Path>,
-    destination: impl AsRef<Path>,
-) -> ResponseResult<()> {
+pub async fn copy(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> ResponseResult<()> {
     let source = source.as_ref();
     let destination = destination.as_ref();
 
     match metadata(source).await? {
         Metadata::File {} | Metadata::Link {} => copy_file(source, destination).await,
         Metadata::Folder {} => copy_folder(source, destination).await,
-        Metadata::Unknown {} => Err(ResponseError::new( format!(
-                "Could not determine type of {source}",
-                source = source.display()
-            ),
-        )),
+        Metadata::Unknown {} => Err(ResponseError::new(format!(
+            "Could not determine type of {source}",
+            source = source.display()
+        ))),
     }
 }
 
@@ -98,10 +105,12 @@ pub async fn read_file(path: impl AsRef<Path>) -> ResponseResult<Vec<u8>> {
     fs::read(path).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or_else(|| ResponseError::new(format!(
-                "Could not read file {path}: {e}",
-                path = path.display()
-            )))
+            .unwrap_or_else(|| {
+                ResponseError::new(format!(
+                    "Could not read file {path}: {e}",
+                    path = path.display()
+                ))
+            })
     })
 }
 
@@ -114,10 +123,12 @@ pub async fn write_file(path: impl AsRef<Path>, content: impl AsRef<[u8]>) -> Re
     fs::write(path, content).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or_else(|| ResponseError::new(format!(
-                "Could not write file {path}: {e}",
-                path = path.display()
-            )))
+            .unwrap_or_else(|| {
+                ResponseError::new(format!(
+                    "Could not write file {path}: {e}",
+                    path = path.display()
+                ))
+            })
     })
 }
 
@@ -136,10 +147,12 @@ pub async fn remove_file(path: impl AsRef<Path>) -> ResponseResult<()> {
         .map_err(|e| {
             TypedResponseError::from_io(&e, path)
                 .map(ResponseError::typed)
-                .unwrap_or_else(|| ResponseError::new(format!(
-                    "Could not remove file {path}: {e}",
-                    path = path.display()
-                )))
+                .unwrap_or_else(|| {
+                    ResponseError::new(format!(
+                        "Could not remove file {path}: {e}",
+                        path = path.display()
+                    ))
+                })
         })
 }
 
@@ -165,16 +178,21 @@ pub async fn copy_file(
         })
 }
 
-pub async fn read_folder(path: impl AsRef<Path>, options: &ReadFolderOptions) -> ResponseResult<Vec<FolderItem>> {
+pub async fn read_folder(
+    path: impl AsRef<Path>,
+    options: &ReadFolderOptions,
+) -> ResponseResult<Vec<FolderItem>> {
     let path = path.as_ref();
 
     let mut entries = fs::read_dir(&path).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or_else(|| ResponseError::new(format!(
-                "Could not read folder {path}: {e}",
-                path = path.display()
-            )))
+            .unwrap_or_else(|| {
+                ResponseError::new(format!(
+                    "Could not read folder {path}: {e}",
+                    path = path.display()
+                ))
+            })
     })?;
 
     let mut items = vec![];
@@ -187,7 +205,7 @@ pub async fn read_folder(path: impl AsRef<Path>, options: &ReadFolderOptions) ->
     })? {
         let item_name = escaped_utf8_from_bytes(entry.file_name().as_bytes());
         let path = path.join(&item_name);
-        
+
         let get = async move {
             let mut item_metadata = None;
             if options.metadata.unwrap_or(false) {
@@ -198,8 +216,12 @@ pub async fn read_folder(path: impl AsRef<Path>, options: &ReadFolderOptions) ->
             if options.size.unwrap_or(false) {
                 item_size = size(&path).await.ok();
             }
-            
-            FolderItem { name: item_name, metadata: item_metadata, size: item_size }
+
+            FolderItem {
+                name: item_name,
+                metadata: item_metadata,
+                size: item_size,
+            }
         };
 
         items.push(get);
@@ -214,10 +236,12 @@ pub async fn create_folder(path: impl AsRef<Path>) -> ResponseResult<()> {
     fs::create_dir_all(path).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or_else(|| ResponseError::new(format!(
-                "Could not create folder {path}: {e}",
-                path = path.display()
-            )))
+            .unwrap_or_else(|| {
+                ResponseError::new(format!(
+                    "Could not create folder {path}: {e}",
+                    path = path.display()
+                ))
+            })
     })
 }
 
@@ -237,10 +261,12 @@ pub async fn remove_folder(path: impl AsRef<Path>) -> ResponseResult<()> {
         .map_err(|e| {
             TypedResponseError::from_io(&e, path)
                 .map(ResponseError::typed)
-                .unwrap_or_else(|| ResponseError::new(format!(
-                    "Could not remove folder {path}: {e}",
-                    path = path.display()
-                )))
+                .unwrap_or_else(|| {
+                    ResponseError::new(format!(
+                        "Could not remove folder {path}: {e}",
+                        path = path.display()
+                    ))
+                })
         })
 }
 
@@ -257,165 +283,61 @@ where
     let destination = destination.as_ref();
 
     create_folder(destination).await?;
-    let folder = read_folder(source, &ReadFolderOptions { metadata: Some(true), ..Default::default() }).await?;
+    let folder = read_folder(
+        source,
+        &ReadFolderOptions {
+            metadata: Some(true),
+            ..Default::default()
+        },
+    )
+    .await?;
     for item in folder {
         match item.metadata {
-            Some(Metadata::File {  }) | Some(Metadata::Link {  }) => {
+            Some(Metadata::File {}) | Some(Metadata::Link {}) => {
                 copy_file(source.join(&item.name), destination.join(&item.name)).await?;
-            },
-            Some(Metadata::Folder {  }) => {
+            }
+            Some(Metadata::Folder {}) => {
                 copy_folder(source.join(&item.name), destination.join(&item.name)).await?;
             }
-            Some(Metadata::Unknown {  }) | None => {
-                return Err(ResponseError::new(format!("Could not get metadata of {name}", name = item.name)));
+            Some(Metadata::Unknown {}) | None => {
+                return Err(ResponseError::new(format!(
+                    "Could not get metadata of {name}",
+                    name = item.name
+                )));
             }
         };
     }
-    
+
     Ok(())
 }
 
 pub async fn read_link(path: impl AsRef<Path>) -> ResponseResult<PathBuf> {
     let path = path.as_ref();
 
-    fs::read_link(path).await.map_err(|e| 
+    fs::read_link(path).await.map_err(|e| {
         TypedResponseError::from_io(&e, path)
             .map(ResponseError::typed)
-            .unwrap_or_else(|| ResponseError::new(format!("Could not read link {path}: {e}", path = path.display())))
-    )
+            .unwrap_or_else(|| {
+                ResponseError::new(format!(
+                    "Could not read link {path}: {e}",
+                    path = path.display()
+                ))
+            })
+    })
 }
 
-pub async fn write_link(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> ResponseResult<()> {
+pub async fn write_link(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> ResponseResult<()> {
     let source = source.as_ref();
     let destination = destination.as_ref();
 
-    fs::symlink(source, destination)
-        .await
-        .map_err(|e| 
-            ResponseError::new(format!(
-                "Could not write link {destination} to {source}: {e}", 
-                source = source.display(), 
-                destination = destination.display()
-            ))
-        )
-}
-
-pub async fn get_permissions(path: impl AsRef<Path>) -> ResponseResult<Vec<Permission>> {
-    let path = path.as_ref();
-
-    let (owner_user, owner_group) = fs::metadata(path)
-        .await
-        .map(|metadata| (metadata.uid(), metadata.gid()))
-        .map_err(|e| {
-            TypedResponseError::from_io(&e, path)
-                .map(ResponseError::typed)
-                .unwrap_or_else(|| ResponseError::new(format!(
-                    "Could not get owner user and group of {path}: {e}",
-                    path = path.display()
-                )))
-        })?;
-    let permissions = PosixACL::read_acl(path).map_err(|e| {
+    fs::symlink(source, destination).await.map_err(|e| {
         ResponseError::new(format!(
-            "Could not get permissions of {path}: {e}",
-            path = path.display()
-        ))
-    })?;
-
-    Ok(permissions
-        .entries()
-        .into_iter()
-        .filter(|permission| !matches!(permission.qual, Qualifier::Mask))
-        .map(|permission| Permission {
-            granted_to: match permission.qual {
-                Qualifier::UserObj => Entity::User(owner_user),
-                Qualifier::GroupObj => Entity::Group(owner_group),
-                Qualifier::Other => Entity::Any,
-                Qualifier::User(id) => Entity::User(id),
-                Qualifier::Group(id) => Entity::Group(id),
-                _ => Entity::Unknown,
-            },
-            read: permission.perm & ACL_READ != 0,
-            write: permission.perm & ACL_WRITE != 0,
-            execute: permission.perm & ACL_EXECUTE != 0,
-        })
-        .collect::<Vec<Permission>>())
-}
-
-pub async fn set_permissions(
-    path: impl AsRef<Path>,
-    permissions: impl AsRef<[Permission]>,
-) -> ResponseResult<()> {
-    let path = path.as_ref();
-    let permissions = permissions.as_ref();
-
-    let owner_user = permissions
-        .iter()
-        .find_map(|permission| match permission.granted_to {
-            Entity::User(id) => Some(id),
-            _ => None,
-        })
-        .ok_or_else(|| ResponseError::new(format!(
-            "Could not set permission on {path}: No user permission (one is required).",
-            path = path.display()
-        )))?;
-    let owner_group = permissions
-        .iter()
-        .find_map(|permission| match permission.granted_to {
-            Entity::Group(id) => Some(id),
-            _ => None,
-        })
-        .ok_or_else( || ResponseError::new(format!(
-            "Could not set permission on {path}: No group permission (one is required).",
-            path = path.display()
-        )))?;
-
-    chown(path, Some(owner_user), Some(owner_group)).map_err(|e| 
-        TypedResponseError::from_io(&e, path)
-            .map(ResponseError::typed)
-            .unwrap_or_else(|| ResponseError::new(format!(
-                "Could not set permission on {path}: Ownership transfer to {owner_user}:{owner_group} failed:  {e}",
-                path = path.display()
-            )))
-    )?;
-
-    let mut acl = PosixACL::empty();
-    for permission in permissions {
-        let mut perm = 0;
-        if permission.read {
-            perm |= ACL_READ;
-        }
-        if permission.write {
-            perm |= ACL_WRITE;
-        }
-        if permission.execute {
-            perm |= ACL_EXECUTE;
-        }
-        match permission.granted_to {
-            Entity::User(id) => {
-                if id == owner_user {
-                    acl.set(Qualifier::UserObj, perm);
-                } else {
-                    acl.set(Qualifier::User(id), perm);
-                }
-            }
-            Entity::Group(id) => {
-                if id == owner_group {
-                    acl.set(Qualifier::GroupObj, perm);
-                } else {
-                    acl.set(Qualifier::Group(id), perm);
-                }
-            }
-            Entity::Any => {
-                acl.set(Qualifier::Other, perm);
-            }
-            Entity::Unknown => {}
-        };
-    }
-
-    acl.write_acl(path).map_err(|e| {
-        ResponseError::new(format!(
-            "Could not set permission on {path}: Writing permissions to file failed: {e}",
-            path = path.display()
+            "Could not write link {destination} to {source}: {e}",
+            source = source.display(),
+            destination = destination.display()
         ))
     })
 }
@@ -432,7 +354,8 @@ pub async fn shift(path: impl AsRef<Path>, range: impl AsRef<str>) -> ResponseRe
         .map(|_output| ())
         .map_err(|e| {
             ResponseError::new(format!(
-                "Could not shift {path} to {range}: {e}", path = path.display()
+                "Could not shift {path} to {range}: {e}",
+                path = path.display()
             ))
         })
 }

@@ -2,7 +2,6 @@ use actix_web::{Responder, get, web};
 
 use crate::{
     common::{
-        info::{get_groups, get_users},
         nix::{EvalQuery, FlakeQuery, eval, flake_metadata},
         response::{ResponseResult, json_response},
     },
@@ -28,14 +27,4 @@ async fn eval_endpoint(query: web::Query<EvalQuery>) -> ResponseResult<impl Resp
     }
 
     eval(&statement, machine()).await.map(json_response)
-}
-
-#[get("/users/users")]
-async fn users_users_endpoint() -> ResponseResult<impl Responder> {
-    get_users(None::<String>).await.map(json_response)
-}
-
-#[get("/users/groups")]
-async fn users_groups_endpoint() -> ResponseResult<impl Responder> {
-    get_groups(None::<String>).await.map(json_response)
 }

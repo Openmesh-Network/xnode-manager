@@ -2,7 +2,6 @@ pub mod btrfs;
 pub mod command;
 pub mod env;
 pub mod file;
-pub mod info;
 pub mod nix;
 pub mod path;
 pub mod process;

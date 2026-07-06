@@ -5,9 +5,9 @@ use actix_web::{Responder, get, post, web};
 use crate::{
     common::{
         file::{
-            PathQuery, Permission, ReadFolderOptions, SourceDestinationData, copy, create_folder,
-            get_permissions, metadata, r#move, read_file, read_folder, read_link, remove,
-            remove_first_slash, set_permissions, size, write_file, write_link,
+            PathQuery, ReadFolderOptions, SourceDestinationData, copy, create_folder, metadata,
+            r#move, read_file, read_folder, read_link, remove, remove_first_slash, size,
+            write_file, write_link,
         },
         path::get_scope_root,
         response::{ResponseError, ResponseResult, json_response, raw_response},
@@ -153,33 +153,6 @@ async fn write_link_endpoint(
     let source = to_container_path(&container, &data.source)?;
     let destination = to_container_path(&container, &data.destination)?;
     write_link(source, destination).await.map(raw_response)
-}
-
-#[get("/get_permissions")]
-async fn get_permissions_endpoint(
-    path: web::Path<String>,
-    query: web::Query<PathQuery>,
-) -> ResponseResult<impl Responder> {
-    let container = path.into_inner();
-    ensure_initialized(&container).await?;
-
-    let path = to_container_path(&container, &query.path)?;
-    get_permissions(path).await.map(json_response)
-}
-
-#[post("/set_permissions")]
-async fn set_permissions_endpoint(
-    path: web::Path<String>,
-    query: web::Query<PathQuery>,
-    data: web::Json<Vec<Permission>>,
-) -> ResponseResult<impl Responder> {
-    let container = path.into_inner();
-    ensure_initialized(&container).await?;
-
-    let path = to_container_path(&container, &query.path)?;
-    set_permissions(path, data.into_inner())
-        .await
-        .map(raw_response)
 }
 
 fn to_container_path(container: impl AsRef<str>, path: impl AsRef<str>) -> ResponseResult<PathBuf> {

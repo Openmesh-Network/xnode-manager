@@ -16,17 +16,6 @@
     inputs:
     inputs.xnode-builders.language.auto {
       src = ./.;
-      getArgs =
-        { pkgs, ... }:
-        {
-          extraPackageArgs = {
-            crateOverrides = {
-              xnode-manager = old: {
-                buildInputs = (old.buildInputs or [ ]) ++ [ pkgs.acl ];
-              };
-            };
-          };
-        };
       module = {
         network = false;
         storage = false;

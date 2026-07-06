@@ -29,22 +29,6 @@ pub struct FolderItem {
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum Entity {
-    User(u32),
-    Group(u32),
-    Any,
-    Unknown,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Permission {
-    pub granted_to: Entity,
-    pub read: bool,
-    pub write: bool,
-    pub execute: bool,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct PathQuery {
     pub path: String,
 }

@@ -2,9 +2,8 @@ use actix_web::{Responder, get, post, web};
 
 use crate::common::{
     file::{
-        PathQuery, Permission, ReadFolderOptions, SourceDestinationData, copy, create_folder,
-        get_permissions, metadata, r#move, read_file, read_folder, read_link, remove,
-        set_permissions, size, write_file, write_link,
+        PathQuery, ReadFolderOptions, SourceDestinationData, copy, create_folder, metadata, r#move,
+        read_file, read_folder, read_link, remove, size, write_file, write_link,
     },
     response::{ResponseResult, json_response, raw_response},
 };
@@ -77,21 +76,6 @@ async fn write_link_endpoint(
     data: web::Json<SourceDestinationData>,
 ) -> ResponseResult<impl Responder> {
     write_link(&data.source, &data.destination)
-        .await
-        .map(raw_response)
-}
-
-#[get("/permissions/get")]
-async fn permissions_get_endpoint(query: web::Query<PathQuery>) -> ResponseResult<impl Responder> {
-    get_permissions(&query.path).await.map(json_response)
-}
-
-#[post("/permissions/set")]
-async fn permissions_set_endpoint(
-    query: web::Query<PathQuery>,
-    data: web::Json<Vec<Permission>>,
-) -> ResponseResult<impl Responder> {
-    set_permissions(&query.path, data.into_inner())
         .await
         .map(raw_response)
 }
