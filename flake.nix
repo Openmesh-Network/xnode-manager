@@ -135,6 +135,10 @@
                             --machine="''${name}.container" \
                             --slice="''${name//-/_}-container-machine.slice" \
                             --directory="${cfg.dataDir}/container/''${name}/data" \
+                            --notify-ready=yes \
+                            --resolv-conf=off \
+                            --link-journal=no \
+                            --timezone=off \
                             "''${args[@]}"
                         '';
                         startLimitIntervalSec = 0;
